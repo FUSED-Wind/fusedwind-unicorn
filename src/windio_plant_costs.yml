@@ -1,0 +1,107 @@
+$schema: "http://json-schema.org/draft-04/schema#"
+title: windIO_plant_costs file
+description: A file used as input or output of a wind plant cost model
+
+## The windIO file properties
+allOf:
+  - $ref: "#/definitions/wind_plant_costs"
+
+# Wind plant costs schema definitions
+definitions:
+
+  # Balance of system cost definitions
+  wind_bos_costs:
+    type: object
+    description: An object containing a cost breakdown of wind plant balance of system costs
+
+    properties:
+      bos_costs:
+        type: number
+        description: Total balance of system costs for a wind plant
+        minimum: 0.0
+      
+      management_costs:
+        type: number
+        description: Project management costs
+        minimum: 0.0
+      
+      development_costs:
+        type: number
+        description: Overall wind plant balance of station/system costs up to point of comissioning
+        minimum: 0.0
+      
+      preparation_and_staging_costs:
+        type: number
+        description: Site preparation and staging
+        minimum: 0.0
+      
+      transportation_costs:
+        type: number
+        description: Any transportation costs to site / staging site
+        minimum: 0.0
+      
+      foundation_and_substructure_costs:
+        type: number
+        description: Foundation and substructure costs
+        minimum: 0.0
+      
+      collection_and_substation_costs:
+        type: number
+        description: Collection system and onsite substation costs
+        minimum: 0.0
+        
+      transmission_and_interconnection_costs:
+        type: number
+        description: Transmission and grid interconnection costs
+        minimum: 0.0
+
+      assembly_and_installation_costs:
+        type: number
+        description: Assembly and installation costs
+        minimum: 0.0
+
+      contingencies_and_insurance_costs:
+        type: number
+        description: Contingencies, bonds, reserves for project
+        minimum: 0.0
+   
+      decommissioning_costs:
+        type: number
+        description: costs associated with plant decommissioning at end of life
+        minimum: 0.0
+   
+      construction_financing_costs:
+        type: number
+        description: Construction financing costs
+        minimum: 0.0  
+        
+      other_costs:
+        type: number
+        description: Any other unclassified costs
+        minimum: 0.0 
+
+      developer_profits:
+        type: number
+        description: Developer profits
+        minimum: 0.0 
+
+  # Operational expenditures definitions
+  wind_opex:
+    type: object
+    description: An object containing a cost breakdown of wind plant balance of system costs
+
+    properties:
+      avg_annual_opex:
+        type: number
+        description: Average annual Operating Expenditures for a wind plant over its lifetime
+        minimum: 0.0
+  
+  # Operational expenditures definitions when annual data is available
+  wind_opex_serial:
+      annual_opex:
+        type: array
+        items:
+          - type: number
+          - type: number
+        additionalItems: false
+        description: The annual costs (by year) for wind plant operational expenditures
