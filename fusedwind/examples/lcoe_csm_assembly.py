@@ -5,7 +5,7 @@ Copyright (c) NREL. All rights reserved.
 """
 
 from openmdao.api import IndepVarComp, Component, Problem, Group
-from fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
+from fusedwind.fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
 
 # NREL cost and scaling model sub-assemblies
 from nrel_csm_tcc import tcc_csm_fused
@@ -67,7 +67,7 @@ def example():
     prob['cut_in_wind_speed'] = 3.0 #Float(units = 'm/s', iotype='in', desc= 'cut in wind speed for the wind turbine')
     prob['cut_out_wind_speed'] = 25.0 #Float(units = 'm/s', iotype='in', desc= 'cut out wind speed for the wind turbine')
     prob['altitude'] = 0.0 #Float(units = 'm', iotype='in', desc= 'altitude of wind plant')
-    prob['air_density'] = 0 #Float(units = 'kg / (m * m * m)', iotype='in', desc= 'air density at wind plant site')  # default air density value is 0.0 - forces aero csm to calculate air density in model
+    prob['air_density'] = 1.225 #Float(units = 'kg / (m * m * m)', iotype='in', desc= 'air density at wind plant site')  # default air density value is 0.0 - forces aero csm to calculate air density in model
     prob['max_efficiency'] = 0.902 #Float(iotype='in', desc = 'maximum efficiency of rotor and drivetrain - at rated power')
     prob['thrust_coefficient'] = 0.5 #Float(iotype='in', desc='thrust coefficient at rated power')
     prob['soiling_losses'] = 0.0

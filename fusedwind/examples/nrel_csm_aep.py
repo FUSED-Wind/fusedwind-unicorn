@@ -11,7 +11,7 @@ from math import pi, gamma, exp
 from utilities import smooth_abs, smooth_min, hstack
 
 from openmdao.api import IndepVarComp, Component, Problem, Group
-from fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
+from fusedwind.fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
 
 
 class aero_csm(object):

@@ -8,7 +8,7 @@ import numpy as np
 
 from openmdao.api import IndepVarComp, Component, Problem, Group
 
-from fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
+from fusedwind.fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
 
 from config import *
 

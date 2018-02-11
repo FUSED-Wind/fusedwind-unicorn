@@ -4,8 +4,8 @@ tcc_csm.py
 Created by NWTC Systems Engineering Sub-Task on 2012-08-01.
 Copyright (c) NREL. All rights reserved.
 """
-from fused_wind import FUSED_Object , FUSED_OpenMDAO , fusedvar
-from windio_plant_costs import fifc_tcc_costs
+from fusedwind.fused_wind import FUSED_Object , FUSED_OpenMDAO , fusedvar
+from fusedwind.windio_plant_costs import fifc_tcc_costs
 
 from openmdao.api import IndepVarComp, Component, Problem, Group
 
@@ -75,7 +75,7 @@ class blades_csm(object):
         bladeCostCurrent = ( (slopeR3*(self.rotor_diameter/2.0)**3.0 + (intR3))*ppi_mat + \
                                   (laborCoeff*(self.rotor_diameter/2.0)**laborExp)*ppi_labor    ) / (1.0-0.28)
         self.blade_cost = bladeCostCurrent
-    
+
         # derivatives
         self.d_mass_d_diameter = massExp * (massCoeff*(self.rotor_diameter/2.0)**(massExp-1))* (1/2.)
         self.d_cost_d_diameter = (3.0*(slopeR3*(self.rotor_diameter/2.0)**2.0 )*ppi_mat * (1/2.) + \

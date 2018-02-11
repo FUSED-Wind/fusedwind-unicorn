@@ -5,8 +5,8 @@ Created by NWTC Systems Engineering Sub-Task on 2012-08-01.
 Copyright (c) NREL. All rights reserved.
 """
 
-from fused_wind import FUSED_Object , FUSED_OpenMDAO , fusedvar
-from windio_plant_costs import fifc_finance
+from fusedwind.fused_wind import FUSED_Object , FUSED_OpenMDAO , fusedvar
+from fusedwind.windio_plant_costs import fifc_finance
 
 from openmdao.api import IndepVarComp, Component, Problem, Group
 
