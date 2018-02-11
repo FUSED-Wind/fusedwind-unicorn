@@ -1,4 +1,4 @@
-from fused_wind import create_interface, set_output, set_input
+from fusedwind.fused_wind import create_interface, set_output, set_input
 
 ### Wind IO content (in windio - as yaml and in FUSED-Wind (or windio) as python dictionary translation)
 
