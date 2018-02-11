@@ -72,15 +72,20 @@ class PPITbl:
         end_row   = end_yr-self.years[0]
         
         if (start_row < 0):
-            #print "\n*** Year start_yr ${0:.2f} before table start {1}\n".format(start_yr,self.years[0])
+            #print "
+*** Year start_yr ${0:.2f} before table start {1}
+".format(start_yr,self.years[0])
             return None
         if (end_row >= len(self.cost)):
-            #print "\n*** Year end_yr ${0:.2f} after table end {1}\n".format(end_yr,self.years[-1])
+            #print "
+*** Year end_yr ${0:.2f} after table end {1}
+".format(end_yr,self.years[-1])
             return None            
         if (len(self.cost[start_row]) < start_mon):
             raise IndexError("Start_mon out of range")
         if (len(self.cost[int(end_row)]) < int(end_mon)):
-            #print "\n*** EM %d > LER %d in table %s" % (end_mon, len(self.cost[end_row]), self.code)
+            #print "
+*** EM %d > LER %d in table %s" % (end_mon, len(self.cost[end_row]), self.code)
             raise IndexError("End_mon out of range")
             
         try:
@@ -93,7 +98,7 @@ class PPITbl:
             return None
         esc = cost_end / cost_start
         '''if (printFlag):
-            print "%-9s C[%2d][%2d] = %6.2f  C[%2d][%2d] = %6.2f  Esc = %6.4f" % \
+            print "%-9s C[%2d][%2d] = %6.2f  C[%2d][%2d] = %6.2f  Esc = %6.4f" % 
                 (self.code, start_yr,start_mon,cost_start,end_yr,end_mon,cost_end,esc)'''
         return esc
 
@@ -133,11 +138,13 @@ class PPI:
         try:
             infile = open(fullfile, 'r') #infile = open(self.tblfile)
         except:
-            sys.stdout.write ("Error opening or reading %s\n" % fullfile)
+            sys.stdout.write ("Error opening or reading %s
+" % fullfile)
             quit()
         else:
             if (self.debug > 0):
-                sys.stdout.write ("Opened %s\n" % self.tblfile)
+                sys.stdout.write ("Opened %s
+" % self.tblfile)
             
         itable = -1
         found_tables = False
@@ -146,7 +153,7 @@ class PPI:
         code = ''
     
         for line in infile:
-            words = line.split("\t")
+            words = line.split("	")
             if not words:
                 continue
                 
@@ -162,7 +169,7 @@ class PPI:
                 continue
             if (found_GDP and words[0].startswith("Absolute Value")):
                 g = []
-                num_re = re.compile(r"[\d\.]+")
+                num_re = re.compile(r"[d.]+")
                 for i in range(1,len(words)):
                     if (num_re.search(words[i])):
                         g.append(float(words[i]))
@@ -197,7 +204,7 @@ class PPI:
             if (found_tables and words[0].startswith("20")): # a year number
                 rvals = []
                 i = 1
-                while (re.match(r"\d+\.",words[i])):
+                while (re.match(r"d+.",words[i])):
                     rvals.append(float(words[i]))
                     i += 1
                 self.ppitbls[code].add_row(int(words[0]), rvals)
@@ -285,4 +292,4 @@ def example():
 
 if __name__ == "__main__":
 
-    example()                                                                                           
+    example()
