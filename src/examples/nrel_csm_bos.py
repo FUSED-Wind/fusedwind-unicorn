@@ -55,7 +55,6 @@ class bos_csm_fused(FUSED_Object):
 
         self.bos.compute(machine_rating, rotor_diameter, hub_height, RNA_mass, turbine_cost, turbine_number, sea_depth, year, month, multiplier)
 
-        print(self.bos.bos_costs)
         # Outputs
         outputs['bos_costs'] = self.bos.bos_costs #  = Float(iotype='out', desc='Overall wind plant balance of station/system costs up to point of comissioning')
         #self.add_output(bos_breakdown = VarTree(BOSVarTree(), iotype='out', desc='BOS cost breakdown')

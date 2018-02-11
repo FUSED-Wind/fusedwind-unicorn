@@ -5,14 +5,15 @@ Created by NWTC Systems Engineering Sub-Task on 2012-08-01.
 Copyright (c) NREL. All rights reserved.
 """
 
+from fused_wind import FUSED_Object , FUSED_OpenMDAO , fusedvar
+from windio_plant_costs import fifc_aep
+
+from openmdao.api import IndepVarComp, Component, Problem, Group
+
 import numpy as np
 from math import pi, gamma, exp
 
 from utilities import smooth_abs, smooth_min, hstack
-
-from openmdao.api import IndepVarComp, Component, Problem, Group
-from fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
-
 
 class aero_csm(object):
 
@@ -332,10 +333,10 @@ class aep_csm_fused(FUSED_Object):
     def __init__(self):
         super(aep_csm_fused, self).__init__()
 
+        self.implement_fifc(fifc_aep) # pulls in variables from fused-wind interface (not explicit)
+
         # Add model specific inputs
-        self.add_input(**fusedvar('machine_rating', 100.))
         self.add_input(**fusedvar('max_tip_speed',0.0))
-        self.add_input(**fusedvar('rotor_diameter',0.0))
         self.add_input(**fusedvar('max_power_coefficient',0.0))
         self.add_input(**fusedvar('opt_tsr',0.0))
         self.add_input(**fusedvar('cut_in_wind_speed',0.0))
@@ -346,7 +347,6 @@ class aep_csm_fused(FUSED_Object):
         self.add_input(**fusedvar('soiling_losses',0.0))
         self.add_input(**fusedvar('array_losses',0.0))
         self.add_input(**fusedvar('availability',0.0))
-        self.add_input(**fusedvar('turbine_number',0.0))
         self.add_input(**fusedvar('shear_exponent',0.0))
         self.add_input(**fusedvar('wind_speed_50m',0.0))
         self.add_input(**fusedvar('weibull_k',0.0))
@@ -360,7 +360,6 @@ class aep_csm_fused(FUSED_Object):
         self.add_output(**fusedvar('rotor_torque', 0.)) # = Float(iotype='out', units='N * m', desc = 'torque from rotor at rated power')
         # self.add_output(**fusedvar('power_curve', np.zeros(161))) # = Array(np.array([[4.0,80.0],[25.0, 5000.0]]), iotype='out', desc = 'power curve for a particular rotor')
         self.add_output(**fusedvar('gross_aep', 0.)) # = Float(0.0, iotype='out', desc='Gross Annual Energy Production before availability and loss impacts', unit='kWh')
-        self.add_output(**fusedvar('net_aep', 0.)) # = Float(0.0, units= 'kW * h', iotype='out', desc='Annual energy production in kWh')  # use PhysicalUnits to set units='kWh'
         self.add_output(**fusedvar('capacity_factor', 0.)) # = Float(iotype='out', desc='plant capacity factor')
 
         self.aep_csm_assembly = aep_csm_assembly()

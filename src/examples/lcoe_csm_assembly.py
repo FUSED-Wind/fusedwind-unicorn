@@ -29,8 +29,7 @@ def example():
     																 ]),promotes=['*'])
     root.add('bos_csm_test', FUSED_OpenMDAO(bos_csm_fused()), promotes=['*'])
     root.add('tcc_csm_test', FUSED_OpenMDAO(tcc_csm_fused()), promotes=['*'])
-    root.add('fin_csm_test', FUSED_OpenMDAO(fin_csm_fused(fixed_charge_rate = 0.12, construction_finance_rate=0.0, tax_rate = 0.4, discount_rate = 0.07, \
-                      construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0)), promotes=['*'])
+    root.add('fin_csm_test', FUSED_OpenMDAO(fin_csm_fused()), promotes=['*'])
     root.add('bos_opex_test', FUSED_OpenMDAO(opex_csm_fused()), promotes=['*'])
     root.add('aep_test', FUSED_OpenMDAO(aep_csm_fused()), promotes=['*'])
     prob = Problem(root)

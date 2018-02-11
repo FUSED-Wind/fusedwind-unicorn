@@ -4,29 +4,29 @@ om_csm_component.py
 Created by NWTC Systems Engineering Sub-Task on 2012-08-01.
 Copyright (c) NREL. All rights reserved.
 """
-import numpy as np
+
+from fused_wind import FUSED_Object , FUSED_OpenMDAO , fusedvar
+from windio_plant_costs import fifc_opex
 
 from openmdao.api import IndepVarComp, Component, Problem, Group
 
-from fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
-
 from config import *
+import numpy as np
 
 class opex_csm_fused(FUSED_Object):
 
     def __init__(self):
         super(opex_csm_fused, self).__init__()
 
+        self.implement_fifc(fifc_opex)
+
         # Add model specific inputs
         self.add_input(**fusedvar('sea_depth',0.0)) # #20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
         self.add_input(**fusedvar('year',0.0)) # = Int(2009, iotype='in', desc='year for project start')
         self.add_input(**fusedvar('month',0.0)) # iotype = 'in', desc= 'month for project start') # units = months
-        self.add_input(**fusedvar('turbine_number',0.0)) # iotype = 'in', desc = 'number of turbines at plant')
-        self.add_input(**fusedvar('machine_rating',0.0)) # units = 'kW', iotype = 'in', desc = 'rated power for a wind turbine')
         self.add_input(**fusedvar('net_aep',0.0)) # units = 'kW * h', iotype = 'in', desc = 'annual energy production for the plant')
 
         # Add model specific outputs
-        self.add_output(**fusedvar('avg_annual_opex',0.0)) # desc='Average annual Operating Expenditures for a wind plant over its lifetime')
         self.add_output(**fusedvar('opex_breakdown_preventative_opex',0.0)) # desc='annual expenditures on preventative maintenance - BOP and turbines'
         self.add_output(**fusedvar('opex_breakdown_corrective_opex',0.0)) # desc='annual unscheduled maintenance costs (replacements) - BOP and turbines'
         self.add_output(**fusedvar('opex_breakdown_lease_opex',0.0)) # desc='annual lease expenditures'

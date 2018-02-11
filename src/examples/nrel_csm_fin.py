@@ -17,7 +17,7 @@ import numpy as np
 class fin_csm(object):
 
     def __init__(self, fixed_charge_rate = 0.12, construction_finance_rate=0.0, tax_rate = 0.4, discount_rate = 0.07, \
-                      construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0):
+                      construction_time = 1.0, project_lifetime = 20.0):
         """
         OpenMDAO component to wrap finance model of the NREL _cost and Scaling Model (csmFinance.py)
 
@@ -36,9 +36,8 @@ class fin_csm(object):
         self.discount_rate = discount_rate #Float(0.07, iotype = 'in', desc = 'applicable project discount rate')
         self.construction_time = construction_time #Float(1.0, iotype = 'in', desc = 'number of years to complete project construction')
         self.project_lifetime = project_lifetime #Float(20.0, iotype = 'in', desc = 'project lifetime for LCOE calculation')
-        self.sea_depth = sea_depth #Float(20.0, iotype='in', units='m', desc = 'depth of project for offshore, (0 for onshore)')
 
-    def compute(self, turbine_cost, turbine_number, bos_costs, avg_annual_opex, net_aep):
+    def compute(self, turbine_cost, turbine_number, bos_costs, avg_annual_opex, net_aep, sea_depth):
         """
         Executes finance model of the NREL _cost and Scaling model to determine overall plant COE and LCOE.
         """
@@ -49,6 +48,7 @@ class fin_csm(object):
         self.bos_costs = bos_costs #Float(iotype='in', desc='A Wind Plant Balance of Station _cost Model')
         self.avg_annual_opex = avg_annual_opex #Float(iotype='in', desc='A Wind Plant Operations Expenditures Model')
         self.net_aep = net_aep #Float(iotype='in', desc='A Wind Plant Annual Energy Production Model', units='kW*h')
+        self.sea_depth = sea_depth
 
         if self.sea_depth > 0.0:
            offshore = True
@@ -113,9 +113,10 @@ class fin_csm_fused(FUSED_Object):
 
         self.implement_fifc(fifc_finance) # pulls in variables from fused-wind interface (not explicit)
         self.add_output(**fusedvar('lcoe',0.0)) 
+        self.add_input(**fusedvar('sea_depth',0.0)) # #20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
         
         self.fin = fin_csm(fixed_charge_rate, construction_finance_rate, tax_rate, discount_rate, \
-                      construction_time, project_lifetime, sea_depth)
+                      construction_time, project_lifetime)
 
     def compute(self, inputs, outputs):
 
@@ -124,8 +125,9 @@ class fin_csm_fused(FUSED_Object):
         bos_costs = inputs['bos_costs']
         avg_annual_opex = inputs['avg_annual_opex']
         net_aep = inputs['net_aep']
+        sea_depth = inputs['sea_depth']
 
-        self.fin.compute(turbine_cost, turbine_number, bos_costs, avg_annual_opex, net_aep)
+        self.fin.compute(turbine_cost, turbine_number, bos_costs, avg_annual_opex, net_aep, sea_depth)
 
         # Outputs
         outputs['coe'] = self.fin.coe 
@@ -152,6 +154,7 @@ def example_finance():
     prob['avg_annual_opex'] = preventative_opex + corrective_opex + lease_opex
     prob['bos_costs'] = 7668775.3
     prob['net_aep'] = 15756299.843
+    prob['sea_depth'] = 20.0
 
     prob.run()
     print("Overall cost of energy for an offshore wind plant with 100 NREL 5 MW turbines")
