@@ -25,8 +25,8 @@ class Escalator:
         for i in range(len(self.wts)):
             self.wts[i] *= 0.01
             sum += self.wts[i]
-        #if (abs(sum-1.0) > 0.0001):
-            #print "Weights for %s add up to %.5f" % sum
+        if (abs(sum-1.0) > 0.0001):
+            print('Weights add up to {0:.5f}'.format(sum))
             
     def compute(self,ppitbls,sy,sm,ey,em):
         ''' 
@@ -36,11 +36,11 @@ class Escalator:
         sum = 0.0
         for i in range(len(self.tbls)):
             key = self.tbls[i].strip()
-            #if (key == 'GDP'):
-            #    print 'Skipping GDP'
-            #    continue
+            '''if (key == 'GDP'):
+                print('Skipping GDP')
+                continue'''
             if (key not in ppitbls):
-                #print 'No PPI table %s' % key
+                print ('No PPI table %s'.format(key))
                 continue           
             if (key == "326150P") and (self.name == "Advanced Blade material costs       "):
             		ce = ppitbls[key].getEsc(2002,sm,ey,em)
@@ -72,34 +72,26 @@ class PPITbl:
         end_row   = end_yr-self.years[0]
         
         if (start_row < 0):
-            #print "
-*** Year start_yr ${0:.2f} before table start {1}
-".format(start_yr,self.years[0])
+            print('\n*** Year start_yr ${0:.2f} before table start {1}\n'.format(start_yr,self.years[0]))
             return None
         if (end_row >= len(self.cost)):
-            #print "
-*** Year end_yr ${0:.2f} after table end {1}
-".format(end_yr,self.years[-1])
+            print('\n*** Year end_yr ${0:.2f} after table end {1}\n'.format(end_yr,self.years[-1]))
             return None            
         if (len(self.cost[start_row]) < start_mon):
             raise IndexError("Start_mon out of range")
         if (len(self.cost[int(end_row)]) < int(end_mon)):
-            #print "
-*** EM %d > LER %d in table %s" % (end_mon, len(self.cost[end_row]), self.code)
+            print('\n*** EM {0:2d} > LER {0:2d} in table {}'.format(end_mon, len(self.cost[end_row]), self.code))
             raise IndexError("End_mon out of range")
             
         try:
-            #print "SR %d ER %d" % (start_row,end_row)
-            #print "LSR %d LER %d" % (len(self.cost[start_row]),len(self.cost[end_row]))
+            '''print('SR {0:2d} ER {0:2d}'.format(start_row,end_row))
+            print('LSR {0:2d} LER {0:2d}'.format(len(self.cost[start_row]),len(self.cost[end_row])))'''
             cost_start = self.cost[start_row][start_mon-1]
             cost_end   = self.cost[int(end_row)][int(end_mon)-1]
         except:
-            #print "Index out of range for table %s %s" % (self.code, self.name)
+            print('Index out of range for table {} {}'.format(self.code, self.name))
             return None
         esc = cost_end / cost_start
-        '''if (printFlag):
-            print "%-9s C[%2d][%2d] = %6.2f  C[%2d][%2d] = %6.2f  Esc = %6.4f" % 
-                (self.code, start_yr,start_mon,cost_start,end_yr,end_mon,cost_end,esc)'''
         return esc
 
 #--------------------------------------------------------------------------------------
@@ -138,13 +130,11 @@ class PPI:
         try:
             infile = open(fullfile, 'r') #infile = open(self.tblfile)
         except:
-            sys.stdout.write ("Error opening or reading %s
-" % fullfile)
+            sys.stdout.write ("Error opening or reading %s\n" % fullfile)
             quit()
         else:
             if (self.debug > 0):
-                sys.stdout.write ("Opened %s
-" % self.tblfile)
+                sys.stdout.write ("Opened %s\n" % self.tblfile)
             
         itable = -1
         found_tables = False
@@ -153,7 +143,7 @@ class PPI:
         code = ''
     
         for line in infile:
-            words = line.split("	")
+            words = line.split("\t")
             if not words:
                 continue
                 
@@ -169,7 +159,7 @@ class PPI:
                 continue
             if (found_GDP and words[0].startswith("Absolute Value")):
                 g = []
-                num_re = re.compile(r"[d.]+")
+                num_re = re.compile(r"[\d\.]+")
                 for i in range(1,len(words)):
                     if (num_re.search(words[i])):
                         g.append(float(words[i]))
@@ -184,8 +174,8 @@ class PPI:
                     self.ppitbls[code].add_row(y[i], rvals)
                 ippi = len(self.ppitbls)-1
                 iCode[code] = ippi  # index of tables by code
-                #if (self.debug > 0): 
-                    #print "Created %2d %-10s %s" % (ippi, code, self.ppitbls[code].name)
+                if (self.debug > 0): 
+                    print('Created {0:2d} {} {}'.format(ippi, code, self.ppitbls[code].name))
                 continue
                 
             if (words[0].startswith("NAICS")):
@@ -197,14 +187,14 @@ class PPI:
                 code = words[1]
                 self.ppitbls[code] = PPITbl(code=code, name=words[2])  # add a new element to self.ppitbls
                 ippi = len(self.ppitbls)-1
-                #if (self.debug > 0): 
-                    #print "Created %2d %-10s %s" % (ippi, code, self.ppitbls[code].name)
+                if (self.debug > 0): 
+                    print('Created {0:2d} {} {}'.format(ippi, code, self.ppitbls[code].name))
                 iCode[code] = ippi  # index of tables by code 
                 
             if (found_tables and words[0].startswith("20")): # a year number
                 rvals = []
                 i = 1
-                while (re.match(r"d+.",words[i])):
+                while (re.match(r"\d+\.",words[i])):
                     rvals.append(float(words[i]))
                     i += 1
                 self.ppitbls[code].add_row(int(words[0]), rvals)
@@ -264,12 +254,12 @@ class PPI:
         """ 
         # returns the cost escalator for escData object 'escCode', using reference and current yr/mon values
         
-        #if (escCode not in self.escData):
-            #print "Warning - no such code in PPI '${0:.2f}'".format(escCode)
+        if (escCode not in self.escData):
+            print('Warning - no such code in PPI {0:.2f}'.format(escCode))
             #return 0
         esc = self.escData[escCode].compute(self.ppitbls,self.ref_yr,self.ref_mon,self.curr_yr,self.curr_mon)
-        #if (debug > 0):
-            #print "Escalator {} from {}{:02} to {}{:02} = {:.4}".format(escCode,self.ref_yr,self.ref_mon,self.curr_yr,self.curr_mon,esc)
+        if (debug > 0):
+            print('Escalator {} from {}{:02} to {}{:02} = {:.4}'.format(escCode,self.ref_yr,self.ref_mon,self.curr_yr,self.curr_mon,esc))
         return esc
         
 #--------------------------------------------------------------------------------------
@@ -282,14 +272,12 @@ def example():
     ey = 2010; em = 13;
     ppi = PPI(sy,sm,ey,em)
          
-    '''for i in list(ppi.escData.keys()):
-        print ppi.escData[i].name
-        
+    for i in list(ppi.escData.keys()):
+        print(ppi.escData[i].name)    
         # Use ppi.compute(code) to compute ppi for default interval
-        print "%-9s Esc %.4f " % (i, ppi.compute(i))
-        
-        print ' ' '''
+        print('{0:2d} {:.4} '.format(i, ppi.compute(i)))     
+        print(' ' '')
 
 if __name__ == "__main__":
 
-    example()
+    example()                                                                                           
