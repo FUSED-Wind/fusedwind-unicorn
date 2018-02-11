@@ -5,7 +5,7 @@ Created by NWTC Systems Engineering Sub-Task on 2012-08-01.
 Copyright (c) NREL. All rights reserved.
 """
 
-from fused_wind import FUSED_Object , FUSED_OpenMDAO , fusedvar
+from fusedwind.fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
 from windio_plant_costs import fifc_opex
 
 from openmdao.api import IndepVarComp, Component, Problem, Group
