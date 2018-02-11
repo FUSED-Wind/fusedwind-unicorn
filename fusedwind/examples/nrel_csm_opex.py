@@ -6,7 +6,7 @@ Copyright (c) NREL. All rights reserved.
 """
 
 from fusedwind.fused_wind import create_interface , FUSED_Object , FUSED_OpenMDAO , set_output, set_input, fusedvar
-from windio_plant_costs import fifc_opex
+from fusedwind.windio_plant_costs import fifc_opex
 
 from openmdao.api import IndepVarComp, Component, Problem, Group
 
