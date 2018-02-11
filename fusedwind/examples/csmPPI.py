@@ -6,7 +6,6 @@ Modified by Katherine Dykes 2012.
 Copyright (c) NREL. All rights reserved.
 """
 #import commonse
-import io
 import os
 import sys
 import re
@@ -129,7 +128,7 @@ class PPI:
 
         fullfile = self.tblfile #os.path.join(commonse.__path__[0], self.tblfile)
         try:
-            infile = io.open(fullfile, 'r', encoding='windows-1250') #infile = open(self.tblfile)
+            infile = open(fullfile, 'r') #infile = open(self.tblfile)
         except:
             sys.stdout.write ("Error opening or reading %s\n" % fullfile)
             quit()
