@@ -1,7 +1,46 @@
-from fusedwind.fused_wind import create_interface, set_output, set_input
+from fused_wind import create_interface, set_output, set_input
 
 ### Wind IO content (in windio - as yaml and in FUSED-Wind (or windio) as python dictionary translation)
-# plant costs
+
+## Turbine Cost
+# turbine costs
+turbine_cost = {'name': 'turbine_cost', 'type': float, 'val': 0.0}
+
+# turbine cost model description (basic)
+machine_rating =  { 'name': 'machine_rating' , 'type': float, 'val': 0.0 }
+rotor_diameter =  { 'name': 'rotor_diameter' , 'type': float, 'val': 0.0 }
+hub_height =  { 'name': 'hub_height' , 'type': float, 'val': 0.0 }
+blade_number = { 'name': 'blade_number', 'type': int, 'val': 3}
+
+# turbine cost 
+fifc_tcc_costs = create_interface()
+set_output(fifc_tcc_costs, turbine_cost)
+set_input(fifc_tcc_costs, machine_rating)
+set_input(fifc_tcc_costs, rotor_diameter)
+set_input(fifc_tcc_costs, hub_height)
+set_input(fifc_tcc_costs, blade_number)
+
+
+## Plant AEP
+# aep
+net_aep = {'name':'net_aep', 'type': float, 'val': 0.0}
+
+# plant aep model description (basic)
+machine_rating =  { 'name': 'machine_rating' , 'type': int, 'val': 1 }
+rotor_diameter =  { 'name': 'rotor_diameter' , 'type': int, 'val': 1 }
+hub_height =  { 'name': 'hub_height' , 'type': int, 'val': 1 }
+turbine_number =  { 'name': 'turbine_number' , 'type': int, 'val': 1 }
+
+#aep
+fifc_aep = create_interface()
+set_output(fifc_aep, net_aep)
+set_input(fifc_aep, machine_rating)
+set_input(fifc_aep, rotor_diameter)
+set_input(fifc_aep, hub_height)
+set_input(fifc_aep, turbine_number)
+
+## Plant Cost
+# bos costs
 bos_costs =  { 'name': 'bos_costs' , 'type': int, 'val': 1 }
 
 # plant cost model description (basic)
@@ -23,23 +62,20 @@ set_input(fifc_bos_costs, RNA_mass)
 set_input(fifc_bos_costs, turbine_cost)
 set_input(fifc_bos_costs, turbine_number)
 
-## Turbine Cost
-# turbine costs
-turbine_cost = {'name': 'turbine_cost', 'type': float, 'val': 0.0}
+# opex
+# bos costs
+avg_annual_opex =  { 'name': 'avg_annual_opex' , 'type': int, 'val': 1 }
 
-# turbine cost model description (basic)
-machine_rating =  { 'name': 'machine_rating' , 'type': float, 'val': 0.0 }
-rotor_diameter =  { 'name': 'rotor_diameter' , 'type': float, 'val': 0.0 }
-hub_height =  { 'name': 'hub_height' , 'type': float, 'val': 0.0 }
-blade_number = { 'name': 'blade_number', 'type': int, 'val': 3}
+# plant cost model description (basic)
+machine_rating =  { 'name': 'machine_rating' , 'type': int, 'val': 1 }
+turbine_number =  { 'name': 'turbine_number' , 'type': int, 'val': 1 }
 
-# turbine cost 
-fifc_tcc_costs = create_interface()
-set_output(fifc_tcc_costs, turbine_cost)
-set_input(fifc_tcc_costs, machine_rating)
-set_input(fifc_tcc_costs, rotor_diameter)
-set_input(fifc_tcc_costs, hub_height)
-set_input(fifc_tcc_costs, blade_number)
+# opex
+fifc_opex = create_interface()
+set_output(fifc_opex, avg_annual_opex)
+set_input(fifc_opex, machine_rating)
+set_input(fifc_opex, turbine_number)
+
 
 ## Financing
 # financial model output
