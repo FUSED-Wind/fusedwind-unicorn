@@ -186,12 +186,15 @@ def example_lcoe():
     																 ('turbine_number', 100.0),
     																 ('year', 2009.0),
     																 ('month',12.0),
+    																 ('sea_depth', 20.0),
     																 ]),promotes=['*'])
-    root.add('bos_csm_test', FUSED_OpenMDAO1(bos_csm_fused()), promotes=['*'])
+
     root.add('tcc_csm_test', FUSED_OpenMDAO1(tcc_csm_fused()), promotes=['*'])
-    root.add('fin_csm_test', FUSED_OpenMDAO1(fin_csm_fused()), promotes=['*'])
-    root.add('bos_opex_test', FUSED_OpenMDAO1(opex_csm_fused()), promotes=['*'])
     root.add('aep_test', FUSED_OpenMDAO1(aep_csm_fused()), promotes=['*'])
+    root.add('bos_csm_test', FUSED_OpenMDAO1(bos_csm_fused()), promotes=['*'])
+    root.add('opex_csm_test', FUSED_OpenMDAO1(opex_csm_fused()), promotes=['*'])
+    root.add('fin_csm_test', FUSED_OpenMDAO1(fin_csm_fused()), promotes=['*'])
+
     prob = Problem(root)
     prob.setup()
 

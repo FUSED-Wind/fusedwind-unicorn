@@ -20,7 +20,7 @@ import numpy as np
 def example_aep():
 
     root = Group()
-    root.add('aep_test', FUSED_OpenMDAO2(aep_csm_fused()), promotes=['*'])
+    root.add_subsystem('aep_test', FUSED_OpenMDAO2(aep_csm_fused()), promotes=['*'])
 
     prob = Problem(root)
     prob.setup()
@@ -45,7 +45,7 @@ def example_aep():
     prob['wind_speed_50m'] = 8.02
     prob['weibull_k']= 2.15
 
-    prob.run()
+    prob.run_driver()
 
     print("AEP output")
     root.list_outputs()
@@ -54,7 +54,7 @@ def example_turbine():
 
     # openmdao example of execution
     root = Group()
-    root.add('tcc_csm_test', FUSED_OpenMDAO2(tcc_csm_fused()), promotes=['*'])
+    root.add_subsystem('tcc_csm_test', FUSED_OpenMDAO2(tcc_csm_fused()), promotes=['*'])
     prob = Problem(root)
     prob.setup()
 
@@ -79,7 +79,7 @@ def example_turbine():
     prob['year'] = 2009
     prob['month'] = 12
 
-    prob.run()
+    prob.run_driver()
     
     print("The results for the NREL 5 MW Reference Turbine in an offshore 20 m water depth location are:")
     root.list_outputs()
@@ -88,7 +88,7 @@ def example_bos():
 
     # openmdao example of execution
     root = Group()
-    root.add('bos_csm_test', FUSED_OpenMDAO2(bos_csm_fused()), promotes=['*'])
+    root.add_subsystem('bos_csm_test', FUSED_OpenMDAO2(bos_csm_fused()), promotes=['*'])
     prob = Problem(root)
     prob.setup()
 
@@ -103,14 +103,14 @@ def example_bos():
     prob['month'] = 12
     prob['multiplier'] = 1.0
 
-    prob.run()
+    prob.run_driver()
     print("Balance of Station Costs for an offshore wind plant with 100 NREL 5 MW turbines")
     root.list_outputs()
 
     prob['sea_depth'] = 0.0
     prob['turbine_cost'] = 5229222.77
 
-    prob.run()
+    prob.run_driver()
     print("Balance of Station Costs for an land-based wind plant with 100 NREL 5 MW turbines")
     root.list_outputs()
 
@@ -119,7 +119,7 @@ def example_opex():
     # simple test of module
 
     root = Group()
-    root.add('bos_opex_test', FUSED_OpenMDAO2(opex_csm_fused()), promotes=['*'])
+    root.add_subsystem('bos_opex_test', FUSED_OpenMDAO2(opex_csm_fused()), promotes=['*'])
 
     prob = Problem(root)
     prob.setup()
@@ -131,12 +131,12 @@ def example_opex():
     prob['month'] = 12
     prob['turbine_number'] = 100
 
-    prob.run()
+    prob.run_driver()
     print("Average annual operational expenditures for an offshore wind plant with 100 NREL 5 MW turbines")
     root.list_outputs()
 
     prob['sea_depth'] = 0.0
-    prob.run()
+    prob.run_driver()
     print("Average annual operational expenditures for an land-based wind plant with 100 NREL 5 MW turbines")
     root.list_outputs()
 
@@ -146,7 +146,7 @@ def example_finance():
 
     # openmdao example of execution
     root = Group()
-    root.add('fin_csm_test', FUSED_OpenMDAO2(fin_csm_fused(fixed_charge_rate = 0.12, construction_finance_rate=0.0, tax_rate = 0.4, discount_rate = 0.07, \
+    root.add_subsystem('fin_csm_test', FUSED_OpenMDAO2(fin_csm_fused(fixed_charge_rate = 0.12, construction_finance_rate=0.0, tax_rate = 0.4, discount_rate = 0.07, \
                       construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0)), promotes=['*'])
     prob = Problem(root)
     prob.setup()
@@ -161,30 +161,33 @@ def example_finance():
     prob['net_aep'] = 15756299.843
     prob['sea_depth'] = 20.0
 
-    prob.run()
+    prob.run_driver()
     print("Overall cost of energy for an offshore wind plant with 100 NREL 5 MW turbines")
     root.list_outputs()
 
 
 ### Full NREL cost and scaling model LCOE assembly and problem execution
 #########################################################################
-'''
+
 def example_lcoe():
 
     # openmdao example of execution
     root = Group()
-    root.add('desvars',IndepVarComp([('machine_rating',5000.0),
+    root.add_subsystem('desvars',IndepVarComp([('machine_rating',5000.0),
     																 ('rotor_diameter', 126.0),
     																 ('hub_height', 90.0),
     																 ('turbine_number', 100.0),
     																 ('year', 2009.0),
     																 ('month',12.0),
+    																 ('sea_depth',20.0),
     																 ]),promotes=['*'])
-    root.add('bos_csm_test', FUSED_OpenMDAO2(bos_csm_fused()), promotes=['*'])
-    root.add('tcc_csm_test', FUSED_OpenMDAO2(tcc_csm_fused()), promotes=['*'])
-    root.add('fin_csm_test', FUSED_OpenMDAO2(fin_csm_fused()), promotes=['*'])
-    root.add('bos_opex_test', FUSED_OpenMDAO2(opex_csm_fused()), promotes=['*'])
-    root.add('aep_test', FUSED_OpenMDAO2(aep_csm_fused()), promotes=['*'])
+
+    root.add_subsystem('tcc_csm_test', FUSED_OpenMDAO2(tcc_csm_fused()), promotes=['*'])
+    root.add_subsystem('aep_csm_test', FUSED_OpenMDAO2(aep_csm_fused()), promotes=['*'])
+    root.add_subsystem('bos_csm_test', FUSED_OpenMDAO2(bos_csm_fused()), promotes=['*'])
+    root.add_subsystem('opex_csm_test', FUSED_OpenMDAO2(opex_csm_fused()), promotes=['*'])
+    root.add_subsystem('fin_csm_test', FUSED_OpenMDAO2(fin_csm_fused()), promotes=['*'])
+
     prob = Problem(root)
     prob.setup()
 
@@ -235,9 +238,9 @@ def example_lcoe():
     prob['sea_depth'] = 20.0
     prob['multiplier'] = 1.0
 
-    prob.run()
+    prob.run_driver()
     print("Overall cost of energy for an offshore wind plant with 100 NREL 5 MW turbines")
-    root.list_outputs()'''
+    root.list_outputs()
 
 
 
@@ -253,4 +256,4 @@ if __name__=="__main__":
     
     example_finance()
     
-    #example_lcoe()
+    example_lcoe()
