@@ -6,7 +6,7 @@ Copyright (c) NREL. All rights reserved.
 """
 
 # NREL CSM model set
-from nrel_csm.nrel_csm import aep_csm, tcc_csm, bos_csm, opex_csm, fin_csm
+from nrelcsm.nrel_csm import aep_csm, tcc_csm, bos_csm, opex_csm, fin_csm
 
 # FUSED helper functions and interface defintions
 from fusedwind.fused_wind import create_interface , FUSED_Object , set_output, set_input, fusedvar

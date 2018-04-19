@@ -10,7 +10,7 @@ from openmdao.api import IndepVarComp, ExplicitComponent, Problem, Group
 from fusedwind.fused_openmdao2 import FUSED_OpenMDAO2
 
 # NREL cost and scaling model sub-assemblies
-from fused_nrel_csm import tcc_csm_fused, bos_csm_fused, opex_csm_fused, fin_csm_fused, aep_csm_fused
+from fusedwind.examples.fused_nrel_csm import tcc_csm_fused, bos_csm_fused, opex_csm_fused, fin_csm_fused, aep_csm_fused
 
 import numpy as np
 
