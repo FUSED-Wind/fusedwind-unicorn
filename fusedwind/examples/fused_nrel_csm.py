@@ -9,7 +9,7 @@ Copyright (c) NREL. All rights reserved.
 from nrelcsm.nrel_csm import aep_csm, tcc_csm, bos_csm, opex_csm, fin_csm
 
 # FUSED helper functions and interface defintions
-from fusedwind.fused_wind import create_interface , FUSED_Object , set_output, set_input, fusedvar
+from fusedwind.fused_wind import create_interface , FUSED_Object , set_output, set_input #, fusedvar
 from fusedwind.windio_plant_costs import fifc_aep, fifc_tcc_costs, fifc_bos_costs, fifc_opex, fifc_finance
 
 import numpy as np
@@ -23,34 +23,33 @@ class aep_csm_fused(FUSED_Object):
         self.implement_fifc(fifc_aep) # pulls in variables from fused-wind interface (not explicit)
 
         # Add model specific inputs
-        self.add_input(**fusedvar('max_tip_speed',0.0))
-        self.add_input(**fusedvar('max_power_coefficient',0.0))
-        self.add_input(**fusedvar('opt_tsr',0.0))
-        self.add_input(**fusedvar('cut_in_wind_speed',0.0))
-        self.add_input(**fusedvar('cut_out_wind_speed',0.0))
-        self.add_input(**fusedvar('air_density',0.0))
-        self.add_input(**fusedvar('max_efficiency',0.0))
-        self.add_input(**fusedvar('thrust_coefficient',0.0))
-        self.add_input(**fusedvar('soiling_losses',0.0))
-        self.add_input(**fusedvar('array_losses',0.0))
-        self.add_input(**fusedvar('availability',0.0))
-        self.add_input(**fusedvar('shear_exponent',0.0))
-        self.add_input(**fusedvar('wind_speed_50m',0.0))
-        self.add_input(**fusedvar('weibull_k',0.0))
-        self.add_input(**fusedvar('hub_height',0.0))
-        self.add_input(**fusedvar('altitude',0.0))
+        self.add_input(**{'name': 'max_tip_speed', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'max_power_coefficient', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'opt_tsr', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'cut_in_wind_speed', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'cut_out_wind_speed', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'air_density', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'max_efficiency', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'thrust_coefficient', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'soiling_losses', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'array_losses', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'availability', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'shear_exponent', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'wind_speed_50m', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'weibull_k', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'hub_height', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'altitude', 'val' : 0.0, 'type' : float})
 
         # Add model specific outputs
-        self.add_output(**fusedvar('rated_wind_speed', 0.)) # = Float(11.506, units = 'm / s', iotype='out', desc='wind speed for rated power')
-        self.add_output(**fusedvar('rated_rotor_speed', 0.)) # = Float(12.126, units = 'rpm', iotype='out', desc = 'rotor speed at rated power')
-        self.add_output(**fusedvar('rotor_thrust', 0.)) # = Float(iotype='out', units='N', desc='maximum thrust from rotor')
-        self.add_output(**fusedvar('rotor_torque', 0.)) # = Float(iotype='out', units='N * m', desc = 'torque from rotor at rated power')
-        # self.add_output(**fusedvar('power_curve', np.zeros(161))) # = Array(np.array([[4.0,80.0],[25.0, 5000.0]]), iotype='out', desc = 'power curve for a particular rotor')
-        self.add_output(**fusedvar('gross_aep', 0.)) # = Float(0.0, iotype='out', desc='Gross Annual Energy Production before availability and loss impacts', unit='kWh')
-        self.add_output(**fusedvar('capacity_factor', 0.)) # = Float(iotype='out', desc='plant capacity factor')
+        self.add_output(**{'name': 'rated_wind_speed', 'val' : 0.0, 'type' : float})
+        self.add_output(**{'name': 'rated_rotor_speed', 'val' : 0.0, 'type' : float})
+        self.add_output(**{'name': 'rotor_thrust', 'val' : 0.0, 'type' : float})
+        self.add_output(**{'name': 'rotor_torque', 'val' : 0.0, 'type' : float})
+        self.add_output(**{'name': 'power_curve', 'val' : np.zeros(161), 'type' : float, 'shape' : (161,)})
+        self.add_output(**{'name': 'gross_aep', 'val' : 0.0, 'type' : float})
+        self.add_output(**{'name': 'capacity_factor', 'val' : 0.0, 'type' : float})
 
         self.aep_csm_assembly = aep_csm()
-
 
     def compute(self, inputs, outputs):
         self.aep_csm_assembly.compute(inputs['machine_rating'], inputs['max_tip_speed'], inputs['rotor_diameter'], inputs['max_power_coefficient'], inputs['opt_tsr'],
@@ -62,11 +61,10 @@ class aep_csm_fused(FUSED_Object):
         outputs['rated_rotor_speed'] = self.aep_csm_assembly.aero.rated_rotor_speed
         outputs['rotor_thrust'] = self.aep_csm_assembly.aero.rotor_thrust
         outputs['rotor_torque'] = self.aep_csm_assembly.aero.rotor_torque
-        # outputs['power_curve'] = self.aep_csm_assembly.aero.power_curve
+        outputs['power_curve'] = self.aep_csm_assembly.aero.power_curve
         outputs['gross_aep'] = self.aep_csm_assembly.aep.gross_aep
         outputs['net_aep'] = self.aep_csm_assembly.aep.net_aep
         outputs['capacity_factor'] = self.aep_csm_assembly.aep.capacity_factor
-
 
 
 ### FUSED-wrapper file 
@@ -87,15 +85,15 @@ class tcc_csm_fused(FUSED_Object):
         self.implement_fifc(fifc_tcc_costs) # pulls in variables from fused-wind interface (not explicit)
 
         # Add model specific inputs
-        self.add_input(**fusedvar('rotor_thrust',0.0))
-        self.add_input(**fusedvar('rotor_torque',0.0)) 
-        self.add_input(**fusedvar('year',2009)) 
-        self.add_input(**fusedvar('month',12))
+        self.add_input(**{'name': 'rotor_thrust', 'val' : 0.0, 'type' : float})
+        self.add_input(**{'name': 'rotor_torque', 'val' : 0.0, 'type' : float}) 
+        self.add_input(**{'name': 'year', 'val' : 2010, 'type' : int})
+        self.add_input(**{'name': 'month', 'val' : 12, 'type' : int})
 
         # Add model specific outputs
-        self.add_output(**fusedvar('rotor_cost',0.0))
-        self.add_output(**fusedvar('rotor_mass',0.0)) 
-        self.add_output(**fusedvar('turbine_mass',0.0)) 
+        self.add_output(**{'name': 'rotor_cost', 'val' : 0.0, 'type' : float})
+        self.add_output(**{'name': 'rotor_mass', 'val' : 0.0, 'type' : float}) 
+        self.add_output(**{'name': 'turbine_mass', 'val' : 0.0, 'type' : float}) 
 
         self.tcc = tcc_csm()
 
@@ -133,20 +131,20 @@ class bos_csm_fused(FUSED_Object):
         self.implement_fifc(fifc_bos_costs) # pulls in variables from fused-wind interface (not explicit)
 
         # Add model specific inputs
-        self.add_input(**fusedvar('sea_depth',0.0)) # = Float(20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
-        self.add_input(**fusedvar('year',0.0)) # = Int(2009, iotype='in', desc='year for project start')
-        self.add_input(**fusedvar('month',0.0)) # = Int(12, iotype = 'in', desc= 'month for project start')
-        self.add_input(**fusedvar('multiplier',0.0)) # = Float(1.0, iotype='in')
+        self.add_input(**{'name': 'sea_depth', 'val' : 0.0, 'type' : float}) # = Float(20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
+        self.add_input(**{'name': 'year', 'val' : 2010, 'type' : int}) # = Int(2009, iotype='in', desc='year for project start')
+        self.add_input(**{'name': 'month', 'val' : 12, 'type' : int}) # = Int(12, iotype = 'in', desc= 'month for project start')
+        self.add_input(**{'name': 'multiplier', 'val' : 0.0, 'type' : float}) # = Float(1.0, iotype='in')
 
         # Add model specific outputs
-        self.add_output(**fusedvar('bos_breakdown_development_costs',0.0)) #  = Float(desc='Overall wind plant balance of station/system costs up to point of comissioning')
-        self.add_output(**fusedvar('bos_breakdown_preparation_and_staging_costs',0.0)) #  = Float(desc='Site preparation and staging')
-        self.add_output(**fusedvar('bos_breakdown_transportation_costs',0.0)) #  = Float(desc='Any transportation costs to site / staging site') #BOS or turbine cost?
-        self.add_output(**fusedvar('bos_breakdown_foundation_and_substructure_costs',0.0)) # Float(desc='Foundation and substructure costs')
-        self.add_output(**fusedvar('bos_breakdown_electrical_costs',0.0)) # Float(desc='Collection system, substation, transmission and interconnect costs')
-        self.add_output(**fusedvar('bos_breakdown_assembly_and_installation_costs',0.0)) # Float(desc='Assembly and installation costs')
-        self.add_output(**fusedvar('bos_breakdown_soft_costs',0.0)) # = Float(desc='Contingencies, bonds, reserves, decommissioning, profits, and construction financing costs')
-        self.add_output(**fusedvar('bos_breakdown_other_costs',0.0)) # = Float(desc='Bucket for any other costs not captured above')
+        self.add_output(**{'name': 'bos_breakdown_development_costs', 'val' : 0.0, 'type' : float}) #  = Float(desc='Overall wind plant balance of station/system costs up to point of comissioning')
+        self.add_output(**{'name': 'bos_breakdown_preparation_and_staging_costs', 'val' : 0.0, 'type' : float}) #  = Float(desc='Site preparation and staging')
+        self.add_output(**{'name': 'bos_breakdown_transportation_costs', 'val' : 0.0, 'type' : float}) #  = Float(desc='Any transportation costs to site / staging site') #BOS or turbine cost?
+        self.add_output(**{'name': 'bos_breakdown_foundation_and_substructure_costs', 'val' : 0.0, 'type' : float}) # Float(desc='Foundation and substructure costs')
+        self.add_output(**{'name': 'bos_breakdown_electrical_costs', 'val' : 0.0, 'type' : float}) # Float(desc='Collection system, substation, transmission and interconnect costs')
+        self.add_output(**{'name': 'bos_breakdown_assembly_and_installation_costs', 'val' : 0.0, 'type' : float}) # Float(desc='Assembly and installation costs')
+        self.add_output(**{'name': 'bos_breakdown_soft_costs', 'val' : 0.0, 'type' : float}) # = Float(desc='Contingencies, bonds, reserves, decommissioning, profits, and construction financing costs')
+        self.add_output(**{'name': 'bos_breakdown_other_costs', 'val' : 0.0, 'type' : float}) # = Float(desc='Bucket for any other costs not captured above')
 
         self.bos = bos_csm()
 
@@ -181,8 +179,6 @@ class bos_csm_fused(FUSED_Object):
         return outputs
 
 
-
-
 ### FUSED-wrapper file 
 class opex_csm_fused(FUSED_Object):
 
@@ -192,16 +188,16 @@ class opex_csm_fused(FUSED_Object):
         self.implement_fifc(fifc_opex)
 
         # Add model specific inputs
-        self.add_input(**fusedvar('sea_depth',0.0)) # #20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
-        self.add_input(**fusedvar('year',0.0)) # = Int(2009, iotype='in', desc='year for project start')
-        self.add_input(**fusedvar('month',0.0)) # iotype = 'in', desc= 'month for project start') # units = months
-        self.add_input(**fusedvar('net_aep',0.0)) # units = 'kW * h', iotype = 'in', desc = 'annual energy production for the plant')
+        self.add_input(**{'name': 'sea_depth', 'val' : 0.0, 'type' : float}) # #20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
+        self.add_input(**{'name': 'year', 'val' : 2010, 'type' : int}) # = Int(2009, iotype='in', desc='year for project start')
+        self.add_input(**{'name': 'month', 'val' : 12, 'type' : int}) # iotype = 'in', desc= 'month for project start') # units = months
+        self.add_input(**{'name': 'net_aep', 'val' : 0.0, 'type' : float}) # units = 'kW * h', iotype = 'in', desc = 'annual energy production for the plant')
 
         # Add model specific outputs
-        self.add_output(**fusedvar('opex_breakdown_preventative_opex',0.0)) # desc='annual expenditures on preventative maintenance - BOP and turbines'
-        self.add_output(**fusedvar('opex_breakdown_corrective_opex',0.0)) # desc='annual unscheduled maintenance costs (replacements) - BOP and turbines'
-        self.add_output(**fusedvar('opex_breakdown_lease_opex',0.0)) # desc='annual lease expenditures'
-        self.add_output(**fusedvar('opex_breakdown_other_opex',0.0)) # desc='other operational expenditures such as fixed costs'
+        self.add_output(**{'name': 'opex_breakdown_preventative_opex', 'val' : 0.0, 'type' : float}) # desc='annual expenditures on preventative maintenance - BOP and turbines'
+        self.add_output(**{'name': 'opex_breakdown_corrective_opex', 'val' : 0.0, 'type' : float}) # desc='annual unscheduled maintenance costs (replacements) - BOP and turbines'
+        self.add_output(**{'name': 'opex_breakdown_lease_opex', 'val' : 0.0, 'type' : float}) # desc='annual lease expenditures'
+        self.add_output(**{'name': 'opex_breakdown_other_opex', 'val' : 0.0, 'type' : float}) # desc='other operational expenditures such as fixed costs'
 
         self.opex = opex_csm()
 
@@ -226,8 +222,10 @@ class fin_csm_fused(FUSED_Object):
         super(fin_csm_fused, self).__init__()
 
         self.implement_fifc(fifc_finance) # pulls in variables from fused-wind interface (not explicit)
-        self.add_output(**fusedvar('lcoe',0.0)) 
-        self.add_input(**fusedvar('sea_depth',0.0)) # #20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
+
+        self.add_input(**{'name': 'sea_depth', 'val' : 0.0, 'type' : float}) # #20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
+
+        self.add_output(**{'name': 'lcoe', 'val' : 0.0, 'type' : float}) 
         
         self.fin = fin_csm(fixed_charge_rate, construction_finance_rate, tax_rate, discount_rate, \
                       construction_time, project_lifetime)

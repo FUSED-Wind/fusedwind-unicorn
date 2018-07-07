@@ -30,10 +30,12 @@ def extend_interface(base, extension):
 
     return base
 
-def fusedvar(name,val,desc=''):
+'''
+# Consider adding to simplify including inputs into FUSED_Objects
+def fusedvar(name,val,desc='',shape=None):
 
-    return {'name' : name, 'val' : val, 'desc' : desc}
-
+    return {'name' : name, 'val' : val, 'desc' : desc, 'shape' : shape}
+'''
 
 # The following are helper functions to help objects implement interfaces
 #########################################################################
@@ -84,9 +86,7 @@ class FUSED_Object(object):
     def add_input(self, **kwargs):
 
         set_input(self.interface, kwargs)
-        #Component.add_param(self, **kwargs) # No longer openmdao-centric
 
     def add_output(self, **kwargs):
 
         set_output(self.interface, kwargs)
-        #Component.add_output(self, **kwargs) # No longer openmdao-centric

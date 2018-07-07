@@ -28,9 +28,9 @@ set_input(fifc_tcc_costs, blade_number)
 net_aep = {'name':'net_aep', 'type': float, 'val': 0.0}
 
 # plant aep model description (basic)
-machine_rating =  { 'name': 'machine_rating' , 'type': int, 'val': 1 }
-rotor_diameter =  { 'name': 'rotor_diameter' , 'type': int, 'val': 1 }
-hub_height =  { 'name': 'hub_height' , 'type': int, 'val': 1 }
+machine_rating =  { 'name': 'machine_rating' , 'type': float, 'val': 1 }
+rotor_diameter =  { 'name': 'rotor_diameter' , 'type': float, 'val': 1 }
+hub_height =  { 'name': 'hub_height' , 'type': float, 'val': 1 }
 turbine_number =  { 'name': 'turbine_number' , 'type': int, 'val': 1 }
 
 #aep
@@ -43,15 +43,15 @@ set_input(fifc_aep, turbine_number)
 
 ## Plant Cost
 # bos costs
-bos_costs =  { 'name': 'bos_costs' , 'type': int, 'val': 1 }
+bos_costs =  { 'name': 'bos_costs' , 'type': float, 'val': 1 }
 
 # plant cost model description (basic)
-machine_rating =  { 'name': 'machine_rating' , 'type': int, 'val': 1 }
-rotor_diameter =  { 'name': 'rotor_diameter' , 'type': int, 'val': 1 }
-hub_height =  { 'name': 'hub_height' , 'type': int, 'val': 1 }
-RNA_mass =  { 'name': 'RNA_mass' , 'type': int, 'val': 1 }
-turbine_cost =  { 'name': 'turbine_cost' , 'type': int, 'val': 1 }
-turbine_number =  { 'name': 'turbine_number' , 'type': int, 'val': 1 }
+machine_rating =  { 'name': 'machine_rating' , 'type': float, 'val': 1 }
+rotor_diameter =  { 'name': 'rotor_diameter' , 'type': float, 'val': 1 }
+hub_height =  { 'name': 'hub_height' , 'type': float, 'val': 1 }
+RNA_mass =  { 'name': 'RNA_mass' , 'type': float, 'val': 1 }
+turbine_cost =  { 'name': 'turbine_cost' , 'type': float, 'val': 1 }
+turbine_number =  { 'name': 'turbine_number' , 'type': float, 'val': 1 }
 
 ### FUSED-interface content (in FUSED-Wind)
 # bos_costs
