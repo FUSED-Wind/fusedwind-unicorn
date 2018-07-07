@@ -8,43 +8,41 @@ import numpy as np
 def FUSED_Component(*args, **kwargs):
 
     if int(op.__version__[0]) > 1:
-        return FUSED_OpenMDAO2(*args, **kwargs)
-    else:
-        return FUSED_OpenMDAO1(*args, **kwargs)
+        from openmdao.api import ExplicitComponent
+        class FUSED_OpenMDAO(ExplicitComponent):
+        
+            def __init__(self, model):
+        
+                super(FUSED_OpenMDAO,self).__init__()
+        
+                self.model = model
+        
+                process_io(self, self.model.interface['input'], 'add_input')
+                process_io(self, self.model.interface['output'], 'add_output')
+        
+            def compute(self, inputs, outputs):
+        
+                self.model.compute(inputs, outputs)
 
-# The following create OpenMDAO components from a FUSED object for 1.x and 2.x
-if int(op.__version__[0]) > 1:
-    from openmdao.api import ExplicitComponent
-    class FUSED_OpenMDAO2(ExplicitComponent):
-    
-        def __init__(self, model):
-    
-            super(FUSED_OpenMDAO2,self).__init__()
-    
-            self.model = model
-    
-            process_io(self, self.model.interface['input'], 'add_input')
-            process_io(self, self.model.interface['output'], 'add_output')
-    
-        def compute(self, inputs, outputs):
-    
-            self.model.compute(inputs, outputs)
-else:
-    from openmdao.api import Component
-    class FUSED_OpenMDAO1(Component):
-    
-        def __init__(self, model):
-    
-            super(FUSED_OpenMDAO1,self).__init__()
-    
-            self.model = model
-    
-            process_io(self, self.model.interface['input'], 'add_input')
-            process_io(self, self.model.interface['output'], 'add_output')
-    
-        def solve_nonlinear(self, params, unknowns, resids):
-    
-            self.model.compute(params, unknowns)
+        return FUSED_OpenMDAO(*args, **kwargs)
+    else:
+        from openmdao.api import Component
+        class FUSED_OpenMDAO(Component):
+        
+            def __init__(self, model):
+        
+                super(FUSED_OpenMDAO,self).__init__()
+        
+                self.model = model
+        
+                process_io(self, self.model.interface['input'], 'add_input')
+                process_io(self, self.model.interface['output'], 'add_output')
+        
+            def solve_nonlinear(self, params, unknowns, resids):
+        
+                self.model.compute(params, unknowns)
+
+        return FUSED_OpenMDAO(*args, **kwargs)
 
 # Add inputs and outputs to a class
 def process_io(component, interface, add_method):
