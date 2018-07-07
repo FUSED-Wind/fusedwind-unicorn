@@ -1,7 +1,6 @@
 """
-aero_csm_component.py
+FUSED csm example
 
-Created by NWTC Systems Engineering Sub-Task on 2012-08-01.
 Copyright (c) NREL. All rights reserved.
 """
 
@@ -9,7 +8,7 @@ Copyright (c) NREL. All rights reserved.
 from nrelcsm.nrel_csm import aep_csm, tcc_csm, bos_csm, opex_csm, fin_csm
 
 # FUSED helper functions and interface defintions
-from fusedwind.fused_wind import create_interface , FUSED_Object , set_output, set_input #, fusedvar
+from fusedwind.fused_wind import FUSED_Object
 from fusedwind.windio_plant_costs import fifc_aep, fifc_tcc_costs, fifc_bos_costs, fifc_opex, fifc_finance
 
 import numpy as np
