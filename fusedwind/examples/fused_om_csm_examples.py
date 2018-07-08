@@ -17,7 +17,7 @@ import numpy as np
 def example_aep():
 
     root = FUSED_Group()
-    FUSED_add(root, 'aep_test', FUSED_Component(aep_csm_fused()))
+    FUSED_add(root, 'aep_test', FUSED_Component(aep_csm_fused()), ['*'])
 
     prob = FUSED_Problem(root)
     FUSED_setup(prob)
@@ -51,7 +51,7 @@ def example_turbine():
 
     # openmdao example of execution
     root = FUSED_Group()
-    FUSED_add(root, 'tcc_csm_test', FUSED_Component(tcc_csm_fused()))
+    FUSED_add(root, 'tcc_csm_test', FUSED_Component(tcc_csm_fused()), ['*'])
     prob = FUSED_Problem(root)
     FUSED_setup(prob)
 
@@ -85,7 +85,7 @@ def example_bos():
 
     # openmdao example of execution
     root = FUSED_Group()
-    FUSED_add(root, 'bos_csm_test', FUSED_Component(bos_csm_fused()))
+    FUSED_add(root, 'bos_csm_test', FUSED_Component(bos_csm_fused()), ['*'])
     prob = FUSED_Problem(root)
     FUSED_setup(prob)
 
@@ -116,7 +116,7 @@ def example_opex():
     # simple test of module
 
     root = FUSED_Group()
-    FUSED_add(root, 'bos_opex_test', FUSED_Component(opex_csm_fused()))
+    FUSED_add(root, 'bos_opex_test', FUSED_Component(opex_csm_fused()), ['*'])
 
     prob = FUSED_Problem(root)
     FUSED_setup(prob)
@@ -144,7 +144,7 @@ def example_finance():
     # openmdao example of execution
     root = FUSED_Group()
     FUSED_add(root, 'fin_csm_test', FUSED_Component(fin_csm_fused(fixed_charge_rate = 0.12, construction_finance_rate=0.0, tax_rate = 0.4, discount_rate = 0.07, \
-                      construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0)))
+                      construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0)), ['*'])
     prob = FUSED_Problem(root)
     FUSED_setup(prob)
 
@@ -179,11 +179,11 @@ def example_lcoe():
     																 ('sea_depth', 20.0),
     																 ]))
 
-    FUSED_add(root, 'tcc_csm_test', FUSED_Component(tcc_csm_fused()))
-    FUSED_add(root, 'aep_test', FUSED_Component(aep_csm_fused()))
-    FUSED_add(root, 'bos_csm_test', FUSED_Component(bos_csm_fused()))
-    FUSED_add(root, 'opex_csm_test', FUSED_Component(opex_csm_fused()))
-    FUSED_add(root, 'fin_csm_test', FUSED_Component(fin_csm_fused()))
+    FUSED_add(root, 'tcc_csm_test', FUSED_Component(tcc_csm_fused()), ['*'])
+    FUSED_add(root, 'aep_test', FUSED_Component(aep_csm_fused()), ['*'])
+    FUSED_add(root, 'bos_csm_test', FUSED_Component(bos_csm_fused()), ['*'])
+    FUSED_add(root, 'opex_csm_test', FUSED_Component(opex_csm_fused()), ['*'])
+    FUSED_add(root, 'fin_csm_test', FUSED_Component(fin_csm_fused()), ['*'])
 
     prob = FUSED_Problem(root)
     FUSED_setup(prob)

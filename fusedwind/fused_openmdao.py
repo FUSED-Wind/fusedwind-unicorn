@@ -48,7 +48,7 @@ def FUSED_Component(*args, **kwargs):
 def process_io(component, interface, add_method):
 
     for k, v in interface.items():
-
+        
         # Apply the sizes of arrays
         if 'shape' in v.keys():
             for i, sz in enumerate(v['shape']):
@@ -86,12 +86,20 @@ def FUSED_Group(*args, **kwargs):
         return Group(*args, **kwargs)
 
 # Add component or subsystem to group based on version of OpenMDAO 1.x or 2.x
-def FUSED_add(group, component_name, component):
+def FUSED_add(group, component_name, component, promoters=['']):
   
     if int(op.__version__[0]) > 1:
-        return group.add_subsystem(component_name, component, promotes=['*'])
+        return group.add_subsystem(component_name, component, promotes=promoters)
     else:
-        return group.add(component_name, component, promotes=['*'])
+        return group.add(component_name, component, promotes=promoters)
+
+# Add explicit connections between group components based on version of OpenMDAO 1.x or 2.x
+def FUSED_connect(group, output_connection, input_connections):
+  
+    if int(op.__version__[0]) > 1:
+        return group.connect(output_connection, input_connections)
+    else:
+        return group.connect(output_connection, input_connections)
 
 # Add ability to print output for different openmdao versions
 def FUSED_print(group):
