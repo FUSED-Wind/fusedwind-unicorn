@@ -177,7 +177,7 @@ def example_lcoe():
     																 ('year', 2009.0),
     																 ('month',12.0),
     																 ('sea_depth', 20.0),
-    																 ]))
+    																 ]), ['*'])
 
     FUSED_add(root, 'tcc_csm_test', FUSED_Component(tcc_csm_fused()), ['*'])
     FUSED_add(root, 'aep_test', FUSED_Component(aep_csm_fused()), ['*'])

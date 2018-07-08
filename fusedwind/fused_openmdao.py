@@ -86,7 +86,7 @@ def FUSED_Group(*args, **kwargs):
         return Group(*args, **kwargs)
 
 # Add component or subsystem to group based on version of OpenMDAO 1.x or 2.x
-def FUSED_add(group, component_name, component, promoters=['']):
+def FUSED_add(group, component_name, component, promoters=None):
   
     if int(op.__version__[0]) > 1:
         return group.add_subsystem(component_name, component, promotes=promoters)
