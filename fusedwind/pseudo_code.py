@@ -41,6 +41,7 @@ class MDOBase(object):
 		self.object_name = object_name_in
 
 		# This is the interface
+		self.ifc_built = False
 		self.ifc={'input':{},'output':{}}
 
 		# This is the connection information
@@ -53,6 +54,8 @@ class MDOBase(object):
 		else:
 			self.state_version = state_version_in
 		self.my_state_version = 0
+		self.var_state_version = {}
+		self.output_values = {}
 
 		# Ensure these objects can be indeced
 		self._hash_value = self._object_count
@@ -70,13 +73,28 @@ class MDOBase(object):
 			self.state_version = state_version_in
 		self.my_state_version = 0
 
-	def _update_needed(self):
+	def _update_needed(self, var_list=[]):
 
-		return self.my_state_version!=self.state_version.get_state_version()
+		if len(var_list)==0:
+			return self.my_state_version!=self.state_version.get_state_version()
+		else:
+			# loop through the variables and find what needs to be updated
+			var_list_out = []
+			for var in var_list:
+				if not var in self.var_state_version:
+					self.var_state_version[var]=0
+				if self.var_state_version[var]!=self.state_version.get_state_version():
+					var_list_out.append(var)
+			return var_list_out
 
-	def _updating_data(self):
+	def _updating_data(self, var_list=[]):
 
-		self.my_state_version=self.state_version.get_state_version()
+		if len(var_list)==0:
+			self.my_state_version=self.state_version.get_state_version()
+		else:
+			# loop through the variables and register what was updated
+			for var in var_list:
+				self.var_state_version[var]=self.state_version.get_state_version()
 
 	# These are interface methods
 	#############################
@@ -107,15 +125,10 @@ class MDOBase(object):
 
 	def get_interface(self):
 
-		self._build_interface()
+		if not self.ifc_built:
+			self._build_interface()
+			self.ifc_built = True
 		return self.ifc
-
-	# This is the output method
-	###########################
-
-	def get_output_value(self, var_name=[]):
-
-		raise Exception('The get_output method has not been implemented')
 
 	# The following are used for generating hash keys
 	#################################################
@@ -399,6 +412,11 @@ class MDOBase(object):
 				print 'There appears to be no valid connection between', self.object_name, 'and', source_object.object_name
 			return
 
+		# Now that we have parsed the arguments... add the connections that we found
+		self._add_connection(source_object, src_dst_map, dst_src_map)
+
+	def _add_connection(self, source_object, src_dst_map, dst_src_map):
+
 		# Now we build the connection data structure
 		############################################
 
@@ -443,8 +461,16 @@ class MDOBase(object):
 			# Add the new variable to the conn_dict
 			self.conn_dict[dst_name]=(source_object, dst_src_map[dst_name])
 
+	# These are the methods for calculating 
+	###################################################
+
 	# This is for collecting the input data from connections
 	def _build_input_vector(self):
+
+		# Some connections are made in the build interface
+		if not self.ifc_built:
+			self._build_interface()
+			self.ifc_built = True
 
 		# Loop through all connections and collect the data
 		retval = {}
@@ -456,6 +482,24 @@ class MDOBase(object):
 
 		# return the results
 		return retval
+
+	# This is the calculation method that is called
+	def _calculate_output(self, input_values, var_name=[]):
+
+		raise Exception('The _calculate_output method has not been implemented')
+
+	def get_output_value(self, var_name=[]):
+
+		ans = self._update_needed(var_name)
+		if (len(var_name)==0 and ans) or (len(var_name)!=0 and len(ans)!=0):
+			input_values = self._build_input_vector()
+			if len(var_name)==0:
+				self.output_values.update(self._calculate_output(input_values))
+				self._updating_data()
+			else:
+				self.output_values.update(self._calculate_output(input_values, ans))
+				self._updating_data(ans)
+		return self.output_values
 
 
 # independent variable class is used to represent a source object for a calculation chain
@@ -496,10 +540,17 @@ class Independent_Variable(MDOBase):
 # Now computers cannot represent such data. They are ussually a set of control points and equations.
 # The result of the spline is another set of discrete data
 # So this is a situation where there is one set of discrete inputs, the can produce multiple sets of discrete output, where each output is a different grid
-# So the solution is one instance of output, the spline module is a single spline that produces all the output
-# In this framework, the spline module creates spline solution. However, the spline solution is a component that takes control points to produce results
+# So the 'solution' is one instance of output, the 'spline module' is a single spline that produces all the output
+# In this framework, the spline module creates spline solutions. However, the spline solution is a component that takes control points to produce results
 # ... however, all solutions from the same module have the same input configuration.
-# So a call to connect on one is a call to connect on all... the base class facilitates this.
+#
+# The connection diagram is below:
+#
+#                                     /-> spline-solution-1
+#       cp-source -> spline-module --+--> spline-solution-2
+#                                     \-> spline-solution-3
+#
+#
 
 # This is the spline solution.
 # It stores the grid that defines where spline data should be collected from
@@ -513,15 +564,14 @@ class SplineSolutionBase(MDOBase):
 		self.spline_module=spline_module_in
 		self.var_name=var_name_in
 
-	# Now we over-ride the connect method so all solutions are connected
-	def connect(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+	def _build_interface(self):
 
-		self.spline_module.connect(source_object, var_name_dest, var_name_source, alias)
-	
-	# This is the connect method that is called from the spline module
-	def _connect(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
-
-		MDOBase.connect(self, source_object, var_name_dest, var_name_source, alias)
+		# collect the input
+		control_point_name=self.spline_module.var_name
+		self.add_input(control_point_name)
+		src_dst_map={control_point_name:[control_point_name]}
+		dst_src_map={control_point_name:control_point_name}
+		self._add_connection(self.spline_module,src_dst_map,dst_src_map)
 
 # This is the spline module. It takes control points and 
 class SplineModuleBase(MDOBase):
@@ -529,7 +579,6 @@ class SplineModuleBase(MDOBase):
 	def __init__(self, var_name_in='unnamed_spline_module_control_points', object_name_in='unnamed_spline_module_object'):
 		super(SplineModuleBase, self).__init__(object_name_in)
 		self.var_name=var_name_in
-		self.connect_log = []
 		self.solution_list = []
 
 	# This will return a spline object
@@ -540,17 +589,7 @@ class SplineModuleBase(MDOBase):
 	# this will configure a spline solution
 	def _configure_solution(self, solution):
 
-		for conn in self.connect_log:
-			solution._connect(conn[0], conn[1], conn[2], conn[3])
 		self.solution_list.append(solution)
-
-	# This will call the connect method on all solutions
-	def connect(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
-
-		MDOBase.connect(self, source_object, var_name_dest, var_name_source, alias)
-		for solution in self.solution_list:
-			solution._connect(source_object, var_name_dest, var_name_source, alias)
-		self.connect_log.append( (source_object, var_name_dest, var_name_source, alias) )
 
 # This is the spline solution for a piece-wise linear curve
 class SplineSolution_PiecewiseLinear(SplineSolutionBase):
@@ -558,20 +597,11 @@ class SplineSolution_PiecewiseLinear(SplineSolutionBase):
 	def __init__(self, spline_module_in, grid_in, var_name_in='unnamed_piecewise_spline_values', object_name_in='unnamed_piecewise_spline_solution_object'):
 		super(SplineSolution_PiecewiseLinear, self).__init__(spline_module_in, var_name_in, object_name_in)
 
-		self.ifc_built = False
 		self.set_grid(grid_in)
 
 	def _build_interface(self):
-
-		if not self.ifc_built:
-			self.add_output(self.var_name)
-			self.spline_module._build_interface()
-			self.ifc_built=True
-
-	def _build_input_interface(self):
-
-		cp_name = self.spline_module.var_name
-		self.add_input(cp_name)
+		super(SplineSolution_PiecewiseLinear, self)._build_interface()
+		self.add_output(self.var_name)
 
 	# This will set the name of the input
 	def set_spline_name(self, var_name_in='unnamed_piecewise_linear_spline_control_point_variable'):
@@ -584,23 +614,23 @@ class SplineSolution_PiecewiseLinear(SplineSolutionBase):
 			old_meta=self.remove_output(old_name)
 			self.add_output(self.var_name, old_meta)
 
-	def get_output_value(self, var_name_in=[]):
+	def _calculate_output(self, input_values, var_name_in=[]):
 
 		if len(var_name_in)>1 or (len(var_name_in)==1 and var_name_in[0]!=self.var_name):
 			msg = "The variables requested do not match those in this spline solution"
 			raise Exception(msg)
 
-		self.spline_module._update_control_points()
-		self.cps=self.spline_module.cps
+		control_point_name=self.spline_module.var_name
 		values=np.zeros(len(self.grid))
 		retval={self.var_name:values}
+		cps=input_values[control_point_name]
 
-		if self.cps.size==1:
+		if cps.size==1:
 			for I in range(0,retval.size):
-				values[I]=self.cps[0]
+				values[I]=cps[0]
 		else:
 			for I in range(0,len(self.index_list)):
-				values[I]=self.weight_list[I]*self.cps[self.index_list[I]]+(1.0-self.weight_list[I])*self.cps[self.index_list[I]+1]
+				values[I]=self.weight_list[I]*cps[self.index_list[I]]+(1.0-self.weight_list[I])*cps[self.index_list[I]+1]
 
 		return retval
 
@@ -620,7 +650,7 @@ class SplineSolution_PiecewiseLinear(SplineSolutionBase):
 			for I in range(0, self.grid.size):
 				grid_value = self.grid[I]
 				J = 0
-				while (J+1)<=cp_grid.size and cp_grid[J+1]<grid_value:
+				while (J+2)<cp_grid.size and cp_grid[J+1]<grid_value:
 					J+=1
 				self.index_list.append(J)
 				w=(cp_grid[J+1]-grid_value)/(cp_grid[J+1]-cp_grid[J])
@@ -633,7 +663,6 @@ class SplineModule_PiecewiseLinear(SplineModuleBase):
 	def __init__(self, cp_grid_in, var_name_in='unnamed_piecewise_linear_spline_control_point_variable', object_name_in='unnamed_piecewise_linear_spline_object'):
 		super(SplineModule_PiecewiseLinear, self).__init__(var_name_in, object_name_in)
 
-		self.ifc_built = False
 		self.set_cp_grid(cp_grid_in)
 
 	# This will generate a new spline solution
@@ -660,41 +689,34 @@ class SplineModule_PiecewiseLinear(SplineModuleBase):
 		if self.ifc_built:
 			old_meta=self.remove_input(old_name)
 			self.add_input(self.var_name, old_meta)
-
-	# This is called by solutions to inform the module to collect the control points
-	def _update_control_points(self):
-
-		# collect the new control points if needed
-		if self._update_needed():
-			# Build the new input
-			input_val = self._build_input_vector()
-			# store the values at a fixed variable
-			self.cps = input_val[self.var_name]
-			# Save state version, to avoid duplicat calculations
-			self._updating_data()
+			old_meta=self.remove_output(old_name)
+			self.add_output(self.var_name, old_meta)
 
 	# This is a method that will trigger the construction of the input interface
 	def _build_interface(self):
 
-		if not self.ifc_built:
-			self.add_input(self.var_name)
-			for solution in self.solution_list:
-				solution._build_input_interface()
-			self.ifc_built = True
+		self.add_input(self.var_name)
+		self.add_output(self.var_name)
+
+	def _calculate_output(self, input_values, var_name=[]):
+
+		return input_values
 
 # Then lets, have a dummy simulation module
 class DummySimulation(MDOBase):
 
 	def __init__(self, object_name_in='unnamed_dummy_object'):
 		super(DummySimulation,self).__init__(object_name_in)
+
+	def _build_interface(self):
+
 		self.add_input('input_value')
 		self.add_output('sum_value')
 
-	def get_output_value(self, var_name=[]):
+	def _calculate_output(self, input_values, var_name=[]):
 
-		input_val = self._build_input_vector()
 		retval={}
-		retval['sum_value']=np.sum(input_val['input_value'])
+		retval['sum_value']=np.sum(input_values['input_value'])
 		return retval
 
 if __name__ == "__main__":
@@ -724,6 +746,8 @@ if __name__ == "__main__":
 	grid1_list=[0.25, 0.75]
 	grid2_list=[0.5 , 1.5 ]
 	grid3_list=[1.25, 1.75]
+	grid4_list=[1.75, 2.25]
+	grid5_list=[2.25, 2.75]
 	cp_values_list=[1.0,2.0,3.0]
 
 	# construct the arrays
@@ -731,6 +755,8 @@ if __name__ == "__main__":
 	grid1 = np.array(grid1_list)
 	grid2 = np.array(grid2_list)
 	grid3 = np.array(grid3_list)
+	grid4 = np.array(grid4_list)
+	grid5 = np.array(grid5_list)
 	cp_values = np.array(cp_values_list)
 
 	# Now lets build our work-flow objects
@@ -744,11 +770,18 @@ if __name__ == "__main__":
 	ss1 = sm.get_spline_solution(grid1, spline_name, 'spline_solution_1')
 	ss2 = sm.get_spline_solution(grid2, spline_name, 'spline_solution_2')
 	ss3 = sm.get_spline_solution(grid3, spline_name, 'spline_solution_3')
+	# MIMC
+	#import pdb; pdb.set_trace()
+	import pdb
+	ss4 = sm.get_spline_solution(grid4, spline_name, 'spline_solution_4')
+	ss5 = sm.get_spline_solution(grid5, spline_name, 'spline_solution_5')
 
 	# Then this is the dummy simulation
 	ds1=DummySimulation('dummy_simulation_1')
 	ds2=DummySimulation('dummy_simulation_2')
 	ds3=DummySimulation('dummy_simulation_3')
+	ds4=DummySimulation('dummy_simulation_4')
+	ds5=DummySimulation('dummy_simulation_5')
 
 	# connect things in our work-flow
 	#################################
@@ -761,6 +794,16 @@ if __name__ == "__main__":
 	ds2.connect(ss2, sim_input_name, spline_name)
 	# Explicit connection with alias
 	ds3.connect(ss3, sim_input_name, alias=ds_alias)
+	# Explicit connection
+	ds4.connect(ss4, [sim_input_name], [spline_name])
+	# Explicit connection with alias
+	ds5.connect(ss5, [sim_input_name], alias=ds_alias)
+
+	################################
+	#   for obj_dst in obj_list:
+	#   	for obj_src in obj_list
+	#   		obj_dst.connect(obj_src)
+	################################
 
 	# Now lets start to access the results
 	######################################
@@ -769,21 +812,29 @@ if __name__ == "__main__":
 	output1 = ss1.get_output_value([spline_name])
 	output2 = ss2.get_output_value([spline_name])
 	output3 = ss3.get_output_value([spline_name])
+	output4 = ss4.get_output_value([spline_name])
+	output5 = ss5.get_output_value([spline_name])
 
 	# now lets print the answer
 	print 'About to print the spline output'
 	print output1
 	print output2
 	print output3
+	print output4
+	print output5
 
 	# access the dummy simulation
 	output1 = ds1.get_output_value([sim_output_name])
 	output2 = ds2.get_output_value([sim_output_name])
 	output3 = ds3.get_output_value([sim_output_name])
+	output4 = ds4.get_output_value([sim_output_name])
+	output5 = ds5.get_output_value([sim_output_name])
 
 	# now lets print the answer
-	print 'About to print the simulation output, should be 3, 4, 5'
+	print 'About to print the simulation output, should be 3, 4, 5, 6, 7'
 	print output1
 	print output2
 	print output3
+	print output4
+	print output5
 
