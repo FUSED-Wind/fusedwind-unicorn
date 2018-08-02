@@ -37,7 +37,7 @@ class MDOBase(object):
 
 	def __init__(self, object_name_in='unnamed_object', state_version_in=None):
 
-		# This is the name
+		# This is the name of the object. Useful for printing helpful messages
 		self.object_name = object_name_in
 
 		# This is the interface
@@ -60,7 +60,7 @@ class MDOBase(object):
 		# Ensure these objects can be indeced
 		self._hash_value = self._object_count
 		self._object_count += 1
-	
+
 	# These are state version methods
 	#################################
 	

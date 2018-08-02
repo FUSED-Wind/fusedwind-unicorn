@@ -78,3 +78,6 @@ target/
 
 /.project
 /.pydevproject
+
+# vim temporary files
+*.swp
