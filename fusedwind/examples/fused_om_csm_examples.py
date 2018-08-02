@@ -4,7 +4,7 @@ FUSED LCOE assmbly example.
 
 # FUSED wrapper
 from fusedwind.fused_openmdao import FUSED_Component, FUSED_Group, FUSED_add, FUSED_print, \
-                                     FUSED_Problem, FUSED_setup, FUSED_run, FUSED_VarComp
+                                     FUSED_Problem, FUSED_setup, FUSED_run, FUSED_VarComp, FUSED_OpenMDAOBase
 
 # NREL cost and scaling model sub-assemblies
 from fusedwind.examples.fused_nrel_csm import tcc_csm_fused, bos_csm_fused, opex_csm_fused, fin_csm_fused, aep_csm_fused
@@ -186,8 +186,8 @@ def example_lcoe():
     FUSED_add(root, 'fin_csm_test', FUSED_Component(fin_csm_fused()), ['*'])
 
     prob = FUSED_Problem(root)
-    FUSED_setup(prob)
 
+    FUSED_setup(prob)
 
     # set inputs
     # simple test of module

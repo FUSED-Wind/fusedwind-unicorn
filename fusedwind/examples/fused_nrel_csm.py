@@ -8,7 +8,7 @@ Copyright (c) NREL. All rights reserved.
 from nrelcsm.nrel_csm import aep_csm, tcc_csm, bos_csm, opex_csm, fin_csm
 
 # FUSED helper functions and interface defintions
-from fusedwind.fused_wind import FUSED_Object
+from fusedwind.fused_wind import FUSED_Object, Independent_Variable, get_execution_order
 from fusedwind.windio_plant_costs import fifc_aep, fifc_tcc_costs, fifc_bos_costs, fifc_opex, fifc_finance
 
 import numpy as np
@@ -16,8 +16,13 @@ import numpy as np
 ### FUSED-wrapper file 
 class aep_csm_fused(FUSED_Object):
 
-    def __init__(self):
-        super(aep_csm_fused, self).__init__()
+    def __init__(self, object_name_in='unnamed_dummy_object'):
+
+        super(aep_csm_fused, self).__init__(object_name_in)
+
+        self.aep_csm_assembly = aep_csm()
+
+    def _build_interface(self):
 
         self.implement_fifc(fifc_aep) # pulls in variables from fused-wind interface (not explicit)
 
@@ -48,9 +53,12 @@ class aep_csm_fused(FUSED_Object):
         self.add_output(**{'name': 'gross_aep', 'val' : 0.0, 'type' : float})
         self.add_output(**{'name': 'capacity_factor', 'val' : 0.0, 'type' : float})
 
-        self.aep_csm_assembly = aep_csm()
-
     def compute(self, inputs, outputs):
+
+        # checking that inputs are getting set
+        for k,v in inputs.items():
+           print(k,v)
+
         self.aep_csm_assembly.compute(inputs['machine_rating'], inputs['max_tip_speed'], inputs['rotor_diameter'], inputs['max_power_coefficient'], inputs['opt_tsr'],
                 inputs['cut_in_wind_speed'], inputs['cut_out_wind_speed'], inputs['hub_height'], inputs['altitude'], inputs['air_density'],
                 inputs['max_efficiency'], inputs['thrust_coefficient'], inputs['soiling_losses'], inputs['array_losses'], inputs['availability'],
@@ -70,9 +78,9 @@ class aep_csm_fused(FUSED_Object):
 class tcc_csm_fused(FUSED_Object):
 
     def __init__(self, offshore=False, advanced_blade=True, drivetrain_design='geared', \
-                       crane=True, advanced_bedplate=0, advanced_tower=False):
+                       crane=True, advanced_bedplate=0, advanced_tower=False, object_name_in='unnamed_dummy_object'):
 
-        super(tcc_csm_fused, self).__init__()
+        super(tcc_csm_fused, self).__init__(object_name_in)
 
         self.offshore = offshore 
         self.advanced_blade = advanced_blade 
@@ -80,6 +88,10 @@ class tcc_csm_fused(FUSED_Object):
         self.crane = crane 
         self.advanced_bedplate = advanced_bedplate  
         self.advanced_tower = advanced_tower
+
+        self.tcc = tcc_csm()
+
+    def _build_interface(self):
 
         self.implement_fifc(fifc_tcc_costs) # pulls in variables from fused-wind interface (not explicit)
 
@@ -93,8 +105,6 @@ class tcc_csm_fused(FUSED_Object):
         self.add_output(**{'name': 'rotor_cost', 'val' : 0.0, 'type' : float})
         self.add_output(**{'name': 'rotor_mass', 'val' : 0.0, 'type' : float}) 
         self.add_output(**{'name': 'turbine_mass', 'val' : 0.0, 'type' : float}) 
-
-        self.tcc = tcc_csm()
 
     def compute(self, inputs, outputs):
 
@@ -123,11 +133,15 @@ class tcc_csm_fused(FUSED_Object):
 ### FUSED-wrapper file 
 class bos_csm_fused(FUSED_Object):
 
-    def __init__(self):
+    def __init__(self, object_name_in='unnamed_dummy_object'):
 
-        super(bos_csm_fused, self).__init__()
+        super(bos_csm_fused, self).__init__(object_name_in)
 
         self.implement_fifc(fifc_bos_costs) # pulls in variables from fused-wind interface (not explicit)
+
+        self.bos = bos_csm()
+
+    def _build_interface(self):
 
         # Add model specific inputs
         self.add_input(**{'name': 'sea_depth', 'val' : 0.0, 'type' : float}) # = Float(20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
@@ -144,8 +158,6 @@ class bos_csm_fused(FUSED_Object):
         self.add_output(**{'name': 'bos_breakdown_assembly_and_installation_costs', 'val' : 0.0, 'type' : float}) # Float(desc='Assembly and installation costs')
         self.add_output(**{'name': 'bos_breakdown_soft_costs', 'val' : 0.0, 'type' : float}) # = Float(desc='Contingencies, bonds, reserves, decommissioning, profits, and construction financing costs')
         self.add_output(**{'name': 'bos_breakdown_other_costs', 'val' : 0.0, 'type' : float}) # = Float(desc='Bucket for any other costs not captured above')
-
-        self.bos = bos_csm()
 
     def compute(self, inputs, outputs):
 
@@ -181,10 +193,14 @@ class bos_csm_fused(FUSED_Object):
 ### FUSED-wrapper file 
 class opex_csm_fused(FUSED_Object):
 
-    def __init__(self):
-        super(opex_csm_fused, self).__init__()
+    def __init__(self, object_name_in='unnamed_dummy_object'):
+        super(opex_csm_fused, self).__init__(object_name_in)
 
         self.implement_fifc(fifc_opex)
+
+        self.opex = opex_csm()
+
+    def _build_interface(self):
 
         # Add model specific inputs
         self.add_input(**{'name': 'sea_depth', 'val' : 0.0, 'type' : float}) # #20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
@@ -197,8 +213,6 @@ class opex_csm_fused(FUSED_Object):
         self.add_output(**{'name': 'opex_breakdown_corrective_opex', 'val' : 0.0, 'type' : float}) # desc='annual unscheduled maintenance costs (replacements) - BOP and turbines'
         self.add_output(**{'name': 'opex_breakdown_lease_opex', 'val' : 0.0, 'type' : float}) # desc='annual lease expenditures'
         self.add_output(**{'name': 'opex_breakdown_other_opex', 'val' : 0.0, 'type' : float}) # desc='other operational expenditures such as fixed costs'
-
-        self.opex = opex_csm()
 
     def compute(self, inputs, outputs):
 
@@ -216,18 +230,20 @@ class opex_csm_fused(FUSED_Object):
 class fin_csm_fused(FUSED_Object):
 
     def __init__(self,fixed_charge_rate = 0.12, construction_finance_rate=0.0, tax_rate = 0.4, discount_rate = 0.07, \
-                      construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0):
+                      construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0, object_name_in='unnamed_dummy_object'):
 
-        super(fin_csm_fused, self).__init__()
+        super(fin_csm_fused, self).__init__(object_name_in)
+
+        self.fin = fin_csm(fixed_charge_rate, construction_finance_rate, tax_rate, discount_rate, \
+                      construction_time, project_lifetime)
+
+    def _build_interface(self):
 
         self.implement_fifc(fifc_finance) # pulls in variables from fused-wind interface (not explicit)
 
         self.add_input(**{'name': 'sea_depth', 'val' : 0.0, 'type' : float}) # #20.0, units = 'm', iotype = 'in', desc = 'sea depth for offshore wind plant')
 
         self.add_output(**{'name': 'lcoe', 'val' : 0.0, 'type' : float}) 
-        
-        self.fin = fin_csm(fixed_charge_rate, construction_finance_rate, tax_rate, discount_rate, \
-                      construction_time, project_lifetime)
 
     def compute(self, inputs, outputs):
 
@@ -245,3 +261,132 @@ class fin_csm_fused(FUSED_Object):
         outputs['lcoe'] = self.fin.lcoe 
 
         return outputs
+
+
+### Full NREL cost and scaling model LCOE assembly and problem execution
+#########################################################################
+
+def example_lcoe():
+
+    TCC = tcc_csm_fused(object_name_in='TCC') # object name in???
+    AEP = aep_csm_fused(object_name_in='AEP')
+    BOS = bos_csm_fused(object_name_in='BOS')
+    OPEX = opex_csm_fused(object_name_in='OPEX')
+    FIN = fin_csm_fused(object_name_in ='FIN')
+    
+    MR = Independent_Variable(5000.0, 'machine_rating',object_name_in='MR') # would be nice to add a group of Ind Vars together like in OMDAO
+    RD = Independent_Variable(126.0, 'rotor_diameter', object_name_in='RD')
+    HH = Independent_Variable(90.0, 'hub_height', object_name_in='HH')
+    TN = Independent_Variable(100.0, 'turbine_number', object_name_in='TN')
+    Y = Independent_Variable(2009.0, 'year', object_name_in='Y')
+    M = Independent_Variable(12.0, 'month', object_name_in='M')
+    SD = Independent_Variable(20.0, 'sea_depth', object_name_in='SD')
+
+    # would be nice to be able to connect multiple obejcts at the same time
+    AEP.connect(MR)
+    AEP.connect(RD)
+    AEP.connect(HH)
+    AEP.connect(TN)
+    AEP.connect(Y)
+    AEP.connect(M)
+    AEP.connect(SD)
+
+    TCC.connect(MR)
+    TCC.connect(RD)
+    TCC.connect(HH)
+    TCC.connect(TN)
+    TCC.connect(Y)
+    TCC.connect(M)
+    TCC.connect(SD)
+
+    OPEX.connect(MR)
+    OPEX.connect(RD)
+    OPEX.connect(HH)
+    OPEX.connect(TN)
+    OPEX.connect(Y)
+    OPEX.connect(M)
+    OPEX.connect(SD)
+
+    BOS.connect(MR)
+    BOS.connect(RD)
+    BOS.connect(HH)
+    BOS.connect(TN)
+    BOS.connect(Y)
+    BOS.connect(M)
+    BOS.connect(SD)
+
+    FIN.connect(MR)
+    FIN.connect(RD)
+    FIN.connect(HH)
+    FIN.connect(TN)
+    FIN.connect(Y)
+    FIN.connect(M)
+    FIN.connect(SD)
+
+    # source and destination counterintuitive; connecting would seem like appending
+    TCC.connect(AEP)
+    OPEX.connect(AEP)
+    FIN.connect(AEP)
+    BOS.connect(TCC)
+    FIN.connect(TCC)
+    FIN.connect(BOS)
+    FIN.connect(OPEX)
+
+    # Now I want to set a bunch of model specific inputs that I dont want to specify as independent variables
+    '''
+    # set inputs
+    # simple test of module
+    # Turbine inputs
+    prob['rotor_diameter'] = 126.0
+    prob['blade_number'] = 3
+    prob['hub_height'] = 90.0    
+    prob['machine_rating'] = 5000.0
+
+    # Rotor force calculations for nacelle inputs
+    maxTipSpd = 80.0
+    maxEfficiency = 0.90201
+    ratedWindSpd = 11.5064
+    thrustCoeff = 0.50
+    airDensity = 1.225
+
+    ratedHubPower  = prob['machine_rating'] / maxEfficiency 
+    rotorSpeed     = (maxTipSpd/(0.5*prob['rotor_diameter'])) * (60.0 / (2*np.pi))
+    prob['rotor_thrust']  = airDensity * thrustCoeff * np.pi * prob['rotor_diameter']**2 * (ratedWindSpd**2) / 8
+    prob['rotor_torque'] = ratedHubPower/(rotorSpeed*(np.pi/30))*1000
+    
+    prob['year'] = 2009
+    prob['month'] = 12
+
+    # AEP inputs
+    prob['max_tip_speed'] = 80.0 #Float(units = 'm/s', iotype='in', desc= 'maximum allowable tip speed for the rotor')
+    prob['max_power_coefficient'] = 0.488 #Float(iotype='in', desc= 'maximum power coefficient of rotor for operation in region 2')
+    prob['opt_tsr'] = 7.525 #Float(iotype='in', desc= 'optimum tip speed ratio for operation in region 2')
+    prob['cut_in_wind_speed'] = 3.0 #Float(units = 'm/s', iotype='in', desc= 'cut in wind speed for the wind turbine')
+    prob['cut_out_wind_speed'] = 25.0 #Float(units = 'm/s', iotype='in', desc= 'cut out wind speed for the wind turbine')
+    prob['altitude'] = 0.0 #Float(units = 'm', iotype='in', desc= 'altitude of wind plant')
+    prob['air_density'] = 1.225 #Float(units = 'kg / (m * m * m)', iotype='in', desc= 'air density at wind plant site')  # default air density value is 0.0 - forces aero csm to calculate air density in model
+    prob['max_efficiency'] = 0.902 #Float(iotype='in', desc = 'maximum efficiency of rotor and drivetrain - at rated power')
+    prob['thrust_coefficient'] = 0.5 #Float(iotype='in', desc='thrust coefficient at rated power')
+    prob['soiling_losses'] = 0.0
+    prob['array_losses'] = 0.1
+    prob['availability'] = 0.941
+    prob['turbine_number'] = 100
+    prob['shear_exponent'] = 0.1
+    prob['wind_speed_50m'] = 8.02
+    prob['weibull_k']= 2.15
+
+    # Finance, BOS and OPEX inputs
+    prob['RNA_mass'] = 256634.5 # RNA mass is not used in this simple model
+    prob['sea_depth'] = 20.0
+    prob['multiplier'] = 1.0
+    '''
+
+    work_flow_objects = get_execution_order([TCC, AEP, BOS, OPEX, FIN, MR, RD, HH, TN, Y, M, SD])
+
+    print('Calculate LCOE for default values')
+    print(AEP.get_output_value())
+
+if __name__ == '__main__':
+
+    example_lcoe()
+

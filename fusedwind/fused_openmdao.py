@@ -103,7 +103,7 @@ def FUSED_Component(*args, **kwargs):
                 meta['name']=name
             if not 'val' in meta:
                 meta['val']=val
-            return FUSED_IndepVarComp(model, name, val, **meta)
+            return FUSED_IndepVarComp(model, **meta)
 
     if int(op.__version__[0]) > 1:
         from openmdao.api import ExplicitComponent
