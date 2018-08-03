@@ -82,9 +82,9 @@ class FUSED_Object(object):
         self.ifc_built = False
         self.interface = create_interface()
 
-		# Variables for a default input vector
-		self.is_default_input_built = False
-		self.default_input = {}
+        # Variables for a default input vector
+        self.is_default_input_built = False
+        self.default_input = {}
 
         # This is the connection information
         self.conn_dict={}
@@ -632,15 +632,15 @@ class FUSED_Object(object):
     # This is for collecting the input data from connections
     def _build_input_vector(self):
 
-		# Collect the default input values
-		if not self.is_default_input_built:
-			ifc = self.get_interface()
-			for name, meta in ifc['input'].items():
-				if 'val' in meta:
-					self.default_input[name]=meta['val']
-				elif 'shape' in meta:
-					self.default_input[name]=np.zeros(meta['shape'])
-			self.is_default_input_built = True
+        # Collect the default input values
+        if not self.is_default_input_built:
+            ifc = self.get_interface()
+            for name, meta in ifc['input'].items():
+                if 'val' in meta:
+                    self.default_input[name]=meta['val']
+                elif 'shape' in meta:
+                    self.default_input[name]=np.zeros(meta['shape'])
+            self.is_default_input_built = True
 
         # Loop through all connections and collect the data
         retval = copy.copy(self.default_input)
