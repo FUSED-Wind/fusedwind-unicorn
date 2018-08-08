@@ -365,7 +365,7 @@ def example_lcoe():
     work_flow_objects = get_execution_order([TCC, AEP, BOS, OPEX, FIN, MR, RD, HH, TN, Y, M, SD])
 
     print('Calculate LCOE for default values')
-    print(TCC.get_output_value())
+    print(FIN.get_output_value())
 
 if __name__ == '__main__':
 
