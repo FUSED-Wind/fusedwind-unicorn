@@ -646,6 +646,13 @@ class FUSED_Object(object):
         if not self.is_default_input_built:
             self._build_default_input_vector()
 
+        # Verify it in the interface and then set the value in the input interface
+        ifc = self.get_interface()
+		if name not in ifc['input']:
+			raise KeyError('That variable does not exist in the input interface')
+		ifc['input'][name]['nal'] = value
+
+        # set the default input
         self.default_input[name] = value
 
     # This is for collecting the input data from connections
