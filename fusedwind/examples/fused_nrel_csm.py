@@ -55,9 +55,6 @@ class aep_csm_fused(FUSED_Object):
 
     def compute(self, inputs, outputs):
 
-        # checking that inputs are getting set
-        for k,v in inputs.items():
-           print(k,v)
 
         self.aep_csm_assembly.compute(inputs['machine_rating'], inputs['max_tip_speed'], inputs['rotor_diameter'], inputs['max_power_coefficient'], inputs['opt_tsr'],
                 inputs['cut_in_wind_speed'], inputs['cut_out_wind_speed'], inputs['hub_height'], inputs['altitude'], inputs['air_density'],
