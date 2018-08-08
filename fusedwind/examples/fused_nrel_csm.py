@@ -55,7 +55,6 @@ class aep_csm_fused(FUSED_Object):
 
     def compute(self, inputs, outputs):
 
-
         self.aep_csm_assembly.compute(inputs['machine_rating'], inputs['max_tip_speed'], inputs['rotor_diameter'], inputs['max_power_coefficient'], inputs['opt_tsr'],
                 inputs['cut_in_wind_speed'], inputs['cut_out_wind_speed'], inputs['hub_height'], inputs['altitude'], inputs['air_density'],
                 inputs['max_efficiency'], inputs['thrust_coefficient'], inputs['soiling_losses'], inputs['array_losses'], inputs['availability'],
@@ -329,59 +328,44 @@ def example_lcoe():
     FIN.connect(BOS)
     FIN.connect(OPEX)
 
-    # Now I want to set a bunch of model specific inputs that I dont want to specify as independent variables
-    '''
-    # set inputs
-    # simple test of module
-    # Turbine inputs
-    prob['rotor_diameter'] = 126.0
-    prob['blade_number'] = 3
-    prob['hub_height'] = 90.0    
-    prob['machine_rating'] = 5000.0
-
-    # Rotor force calculations for nacelle inputs
+    # Set input values for specific components
     maxTipSpd = 80.0
     maxEfficiency = 0.90201
     ratedWindSpd = 11.5064
     thrustCoeff = 0.50
     airDensity = 1.225
 
-    ratedHubPower  = prob['machine_rating'] / maxEfficiency 
-    rotorSpeed     = (maxTipSpd/(0.5*prob['rotor_diameter'])) * (60.0 / (2*np.pi))
-    prob['rotor_thrust']  = airDensity * thrustCoeff * np.pi * prob['rotor_diameter']**2 * (ratedWindSpd**2) / 8
-    prob['rotor_torque'] = ratedHubPower/(rotorSpeed*(np.pi/30))*1000
-    
-    prob['year'] = 2009
-    prob['month'] = 12
+    ratedHubPower  = 5000.0 / maxEfficiency #prob['machine_rating']
+    rotorSpeed     = (maxTipSpd/(0.5 * 126.0)) * (60.0 / (2 * np.pi)) #prob['rotor_diameter']
+    TCC.set_default_input_value('rotor_thrust', airDensity * thrustCoeff * np.pi * 126.0 **2 * (ratedWindSpd**2) / 8) #prob['rotor_diameter']
+    TCC.set_default_input_value('rotor_torque', ratedHubPower/(rotorSpeed*(np.pi/30))*1000)
 
     # AEP inputs
-    prob['max_tip_speed'] = 80.0 #Float(units = 'm/s', iotype='in', desc= 'maximum allowable tip speed for the rotor')
-    prob['max_power_coefficient'] = 0.488 #Float(iotype='in', desc= 'maximum power coefficient of rotor for operation in region 2')
-    prob['opt_tsr'] = 7.525 #Float(iotype='in', desc= 'optimum tip speed ratio for operation in region 2')
-    prob['cut_in_wind_speed'] = 3.0 #Float(units = 'm/s', iotype='in', desc= 'cut in wind speed for the wind turbine')
-    prob['cut_out_wind_speed'] = 25.0 #Float(units = 'm/s', iotype='in', desc= 'cut out wind speed for the wind turbine')
-    prob['altitude'] = 0.0 #Float(units = 'm', iotype='in', desc= 'altitude of wind plant')
-    prob['air_density'] = 1.225 #Float(units = 'kg / (m * m * m)', iotype='in', desc= 'air density at wind plant site')  # default air density value is 0.0 - forces aero csm to calculate air density in model
-    prob['max_efficiency'] = 0.902 #Float(iotype='in', desc = 'maximum efficiency of rotor and drivetrain - at rated power')
-    prob['thrust_coefficient'] = 0.5 #Float(iotype='in', desc='thrust coefficient at rated power')
-    prob['soiling_losses'] = 0.0
-    prob['array_losses'] = 0.1
-    prob['availability'] = 0.941
-    prob['turbine_number'] = 100
-    prob['shear_exponent'] = 0.1
-    prob['wind_speed_50m'] = 8.02
-    prob['weibull_k']= 2.15
+    AEP.set_default_input_value('max_tip_speed', 80.0) #Float(units = 'm/s', iotype='in', desc= 'maximum allowable tip speed for the rotor')
+    AEP.set_default_input_value('max_power_coefficient', 0.488) #Float(iotype='in', desc= 'maximum power coefficient of rotor for operation in region 2')
+    AEP.set_default_input_value('opt_tsr', 7.525) #Float(iotype='in', desc= 'optimum tip speed ratio for operation in region 2')
+    AEP.set_default_input_value('cut_in_wind_speed', 3.0) #Float(units = 'm/s', iotype='in', desc= 'cut in wind speed for the wind turbine')
+    AEP.set_default_input_value('cut_out_wind_speed', 25.0) #Float(units = 'm/s', iotype='in', desc= 'cut out wind speed for the wind turbine')
+    AEP.set_default_input_value('altitude', 0.0) #Float(units = 'm', iotype='in', desc= 'altitude of wind plant')
+    AEP.set_default_input_value('air_density', 1.225) #Float(units = 'kg / (m * m * m)', iotype='in', desc= 'air density at wind plant site') ) # default air density value is 0.0 - forces aero csm to calculate air density in model
+    AEP.set_default_input_value('max_efficiency', 0.902) #Float(iotype='in', desc = 'maximum efficiency of rotor and drivetrain - at rated power')
+    AEP.set_default_input_value('thrust_coefficient', 0.5) #Float(iotype='in', desc='thrust coefficient at rated power')
+    AEP.set_default_input_value('soiling_losses', 0.0)
+    AEP.set_default_input_value('array_losses', 0.1)
+    AEP.set_default_input_value('availability', 0.941)
+    AEP.set_default_input_value('turbine_number', 100)
+    AEP.set_default_input_value('shear_exponent', 0.1)
+    AEP.set_default_input_value('wind_speed_50m', 8.02)
+    AEP.set_default_input_value('weibull_k', 2.15)
 
     # Finance, BOS and OPEX inputs
-    prob['RNA_mass'] = 256634.5 # RNA mass is not used in this simple model
-    prob['sea_depth'] = 20.0
-    prob['multiplier'] = 1.0
-    '''
+    #prob['RNA_mass'] = 256634.5 # RNA mass is not used in this simple model
+    BOS.set_default_input_value('multiplier', 1.0)
 
     work_flow_objects = get_execution_order([TCC, AEP, BOS, OPEX, FIN, MR, RD, HH, TN, Y, M, SD])
 
     print('Calculate LCOE for default values')
-    print(AEP.get_output_value())
+    print(TCC.get_output_value())
 
 if __name__ == '__main__':
 
