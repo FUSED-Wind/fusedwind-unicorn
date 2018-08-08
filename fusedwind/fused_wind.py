@@ -639,22 +639,6 @@ class FUSED_Object(object):
                 self.default_input[name]=np.zeros(meta['shape'])
         self.is_default_input_built = True
 
-    # This will set the default input value
-    def set_default_input_value(self, name, value):
-
-        # Collect the default input values
-        if not self.is_default_input_built:
-            self._build_default_input_vector()
-
-        # Verify it in the interface and then set the value in the input interface
-        ifc = self.get_interface()
-        if name not in ifc['input']:
-            raise KeyError('That variable does not exist in the input interface')
-        ifc['input'][name]['nal'] = value
-
-        # set the default input
-        self.default_input[name] = value
-
     # This is for collecting the input data from connections
     def _build_input_vector(self):
 
@@ -690,6 +674,49 @@ class FUSED_Object(object):
                 self.compute(input_values, self.output_values, ans)
                 self._updating_data(ans)
         return self.output_values
+
+    def get_input_value(self, var_name=None):
+
+        if isinstance(var_name,str):
+            var_name = [var_name]
+        input_values = self._build_input_vector()
+        if var_name is None:
+            return input_values
+        retval = {}
+        for name in var_name:
+            if not name in input_values:
+                raise KeyError('A requested input is not in the input vector')
+            retval[name] = input_values[name]
+
+    # This will set the default input value
+    def set_default_input_value(self, name, value):
+
+        # Collect the default input values
+        if not self.is_default_input_built:
+            self._build_default_input_vector()
+
+        # Verify it in the interface and then set the value in the input interface
+        ifc = self.get_interface()
+        if name not in ifc['input']:
+            raise KeyError('That variable does not exist in the input interface')
+        ifc['input'][name]['nal'] = value
+
+        # set the default input
+        self.default_input[name] = value
+
+    # This will set the default input value
+    def get_default_input_value(self, name, value):
+
+        # Collect the default input values
+        if not self.is_default_input_built:
+            self._build_default_input_vector()
+
+        # Verify it in the interface
+        if name not in self.default_input:
+            raise KeyError('That variable does not exist in the input interface')
+
+        # set the default input
+        return self.default_input[name]
 
 # independent variable class is used to represent a source object for a calculation chain
 class Independent_Variable(FUSED_Object):
