@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+from inspect import signature
 
 # The following are helper functions to create a custom interface
 #################################################################
@@ -259,6 +260,18 @@ class FUSED_Object(object):
     # This is the all important connect method. It tells where to get the input data from
     #####################################################################################
 
+    def connect_input_from(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+        self.connect(source_object, var_name_source, var_name_dest, alias)
+
+    def connect_output_to(self, dest_object, var_name_source=None, var_name_dest=None, alias={}):
+
+        if not isinstance(dest_object, FUSED_Object):
+            for obj in dest_object:
+                self.connect_output_to(obj, var_name_source, var_name_dest, alias)
+            return
+
+        dest_object.connect(self, var_name_dest=var_name_dest, var_name_source=var_name_source, alias=alias)
+
     # This will specify connections
     def connect(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
 
@@ -282,6 +295,14 @@ class FUSED_Object(object):
               This does not mean they are connected though, that depends on the other arguments
               This is used in cases where the naming scheme differs for a small group of variables, and the connections are not explicit
         '''
+
+        # If there are multiple source objects
+        #########################################################
+
+        if not isinstance(source_object, FUSED_Object):
+            for obj in source_object:
+                self.connect(obj, var_name_dest, var_name_source, alias)
+            return
 
         # First task is to create maps between the variable names
         #########################################################
@@ -663,6 +684,10 @@ class FUSED_Object(object):
         raise Exception('The _calculate_output method has not been implemented')
 
     def get_output_value(self, var_name=[]):
+
+        sig = signature(self.compute)
+        if len(sig.parameters)==2:
+            var_name=[]
 
         ans = self._update_needed(var_name)
         if (len(var_name)==0 and ans) or (len(var_name)!=0 and len(ans)!=0):
