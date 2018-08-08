@@ -629,18 +629,31 @@ class FUSED_Object(object):
     # These are the methods for calculating 
     ###################################################
 
+    # This will build the default input vector
+    def _build_default_input_vector(self):
+        ifc = self.get_interface()
+        for name, meta in ifc['input'].items():
+            if 'val' in meta:
+                self.default_input[name]=meta['val']
+            elif 'shape' in meta:
+                self.default_input[name]=np.zeros(meta['shape'])
+        self.is_default_input_built = True
+
+    # This will set the default input value
+    def set_default_input_value(self, name, value):
+
+        # Collect the default input values
+        if not self.is_default_input_built:
+            self._build_default_input_vector()
+
+        self.default_input[name] = value
+
     # This is for collecting the input data from connections
     def _build_input_vector(self):
 
         # Collect the default input values
         if not self.is_default_input_built:
-            ifc = self.get_interface()
-            for name, meta in ifc['input'].items():
-                if 'val' in meta:
-                    self.default_input[name]=meta['val']
-                elif 'shape' in meta:
-                    self.default_input[name]=np.zeros(meta['shape'])
-            self.is_default_input_built = True
+            self._build_default_input_vector()
 
         # Loop through all connections and collect the data
         retval = copy.copy(self.default_input)
