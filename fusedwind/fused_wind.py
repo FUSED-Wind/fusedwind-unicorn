@@ -648,9 +648,9 @@ class FUSED_Object(object):
 
         # Verify it in the interface and then set the value in the input interface
         ifc = self.get_interface()
-		if name not in ifc['input']:
-			raise KeyError('That variable does not exist in the input interface')
-		ifc['input'][name]['nal'] = value
+        if name not in ifc['input']:
+            raise KeyError('That variable does not exist in the input interface')
+        ifc['input'][name]['nal'] = value
 
         # set the default input
         self.default_input[name] = value
