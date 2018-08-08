@@ -267,7 +267,7 @@ class FUSED_Object(object):
 
         if not isinstance(dest_object, FUSED_Object):
             for obj in dest_object:
-                self.connect_output_to(obj, var_name_source, var_name_dest, alias)
+                obj.connect(self, var_name_dest=var_name_dest, var_name_source=var_name_source, alias=alias)
             return
 
         dest_object.connect(self, var_name_dest=var_name_dest, var_name_source=var_name_source, alias=alias)
@@ -730,7 +730,7 @@ class FUSED_Object(object):
         self.default_input[name] = value
 
     # This will set the default input value
-    def get_default_input_value(self, name, value):
+    def get_default_input_value(self, name):
 
         # Collect the default input values
         if not self.is_default_input_built:
