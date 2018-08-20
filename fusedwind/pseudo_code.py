@@ -770,9 +770,6 @@ if __name__ == "__main__":
 	ss1 = sm.get_spline_solution(grid1, spline_name, 'spline_solution_1')
 	ss2 = sm.get_spline_solution(grid2, spline_name, 'spline_solution_2')
 	ss3 = sm.get_spline_solution(grid3, spline_name, 'spline_solution_3')
-	# MIMC
-	#import pdb; pdb.set_trace()
-	import pdb
 	ss4 = sm.get_spline_solution(grid4, spline_name, 'spline_solution_4')
 	ss5 = sm.get_spline_solution(grid5, spline_name, 'spline_solution_5')
 

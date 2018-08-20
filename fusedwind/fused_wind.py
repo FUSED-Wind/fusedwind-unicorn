@@ -67,6 +67,14 @@ class StateVersion(object):
 
 class FUSED_Object(object):
 
+    '''
+    This is the base class for any calculation in a Fused-Wind work-flow
+
+    The user should inherit this and must implement the following methods:
+        
+        def compute(self, input_values, output_values, var_name=[]):
+    '''
+
     default_state_version = StateVersion()
     print_level = 0
     _object_count = 0
@@ -581,6 +589,11 @@ class FUSED_Object(object):
             # Add the new variable to the conn_dict
             self.conn_dict[dst_name]=(source_object, dst_src_map[dst_name])
 
+        # Make sure the state version is updated
+        ########################################
+
+        self.my_state_version.modifying_state()
+
     # This will list the connections associated with an object
     def get_connection_with_object(self, obj):
 
@@ -681,7 +694,7 @@ class FUSED_Object(object):
     # This is the calculation method that is called
     def compute(self, input_values, output_values, var_name=[]):
 
-        raise Exception('The _calculate_output method has not been implemented')
+        raise Exception('The compute method has not been implemented')
 
     def get_output_value(self, var_name=[]):
 
@@ -728,6 +741,10 @@ class FUSED_Object(object):
 
         # set the default input
         self.default_input[name] = value
+
+        # update the state version if this default will actually be used
+        if name in conn_dict.keys():
+            self.my_state_version.modifying_state()
 
     # This will set the default input value
     def get_default_input_value(self, name):
