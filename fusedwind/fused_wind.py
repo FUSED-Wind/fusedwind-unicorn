@@ -31,12 +31,22 @@ def extend_interface(base, extension):
 
     return base
 
-'''
-# Consider adding to simplify including inputs into FUSED_Objects
-def fusedvar(name,val,desc='',shape=None):
+def create_variable(name,val=None,desc='',shape=None):
 
-    return {'name' : name, 'val' : val, 'desc' : desc, 'shape' : shape}
-'''
+    retval = {'name' : name, 'desc' : ''}
+    if val is None and not shape is None:
+        val = np.zeros(shape)
+    else:
+        if isinstance(val, np.ndarray):
+            shape = val.shape
+        else:
+            shape = None
+    if not val is None:
+        retval['val']=val
+    if not shape is None:
+        retval['shape']=shape
+
+    return retval
 
 # This is a state version object
 ################################
@@ -73,6 +83,7 @@ class FUSED_Object(object):
     The user should inherit this and must implement the following methods:
         
         def compute(self, input_values, output_values, var_name=[]):
+        def _build_interface(self):
     '''
 
     default_state_version = StateVersion()
@@ -592,7 +603,7 @@ class FUSED_Object(object):
         # Make sure the state version is updated
         ########################################
 
-        self.my_state_version.modifying_state()
+        self.state_version.modifying_state()
 
     # This will list the connections associated with an object
     def get_connection_with_object(self, obj):
@@ -744,7 +755,7 @@ class FUSED_Object(object):
 
         # update the state version if this default will actually be used
         if name in conn_dict.keys():
-            self.my_state_version.modifying_state()
+            self.state_version.modifying_state()
 
     # This will set the default input value
     def get_default_input_value(self, name):
