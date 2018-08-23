@@ -31,7 +31,7 @@ def extend_interface(base, extension):
 
     return base
 
-def create_variable(name,val=None,desc='',shape=None):
+def create_variable(name, val=None, desc='', shape=None):
 
     retval = {'name' : name, 'desc' : ''}
     if val is None and not shape is None:
@@ -81,7 +81,7 @@ class FUSED_Object(object):
     This is the base class for any calculation in a Fused-Wind work-flow
 
     The user should inherit this and must implement the following methods:
-        
+
         def compute(self, input_values, output_values, var_name=[]):
         def _build_interface(self):
     '''
@@ -748,13 +748,13 @@ class FUSED_Object(object):
         ifc = self.get_interface()
         if name not in ifc['input']:
             raise KeyError('That variable does not exist in the input interface')
-        ifc['input'][name]['nal'] = value
+        ifc['input'][name]['val'] = value
 
         # set the default input
         self.default_input[name] = value
 
         # update the state version if this default will actually be used
-        if name in conn_dict.keys():
+        if not name in self.conn_dict.keys():
             self.state_version.modifying_state()
 
     # This will set the default input value
@@ -1282,7 +1282,7 @@ def split_worflow(split_points):
                             sub_system_input_map[source_sub_system_hash_value][sub_system_hash_value][source_name].append(dest_name)
                         else:
                             sub_system_input_map[source_sub_system_hash_value][sub_system_hash_value][source_name]=[dest_name]
-    
+ 
     #print('=================== MIMC Building the input map ===================')
     #print('MIMC sub_system_input_map:', sub_system_input_map)
 
