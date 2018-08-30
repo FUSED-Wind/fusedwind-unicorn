@@ -884,7 +884,7 @@ class FUSED_System(object):
                 has_duplicate = False
                 name_dict = {}
                 for output_obj, output_meta in output_list:
-                    name = output_obj.object_name+'>'+output_name
+                    name = output_obj.object_name+'__'+output_name
                     if name in name_dict.keys():
                         has_duplicate = True
                         break
@@ -892,7 +892,7 @@ class FUSED_System(object):
                 if has_duplicate:
                     name_dict = {}
                     for output_obj, output_meta in output_list:
-                        name = output_obj.object_name+'_'+str(output_obj._hash_value)+'>'+output_name
+                        name = output_obj.object_name+'_'+str(output_obj._hash_value)+'__'+output_name
                         name_dict[name] = (output_obj, output_meta)
                 for name, output_pair in name_dict.items():
                     output_obj = output_pair[0]
@@ -931,7 +931,7 @@ class FUSED_System(object):
                 has_duplicate = False
                 name_dict = {}
                 for input_obj, input_meta in input_list:
-                    name = input_obj.object_name+'>'+input_name
+                    name = input_obj.object_name+'__'+input_name
                     if name in name_dict.keys():
                         has_duplicate = True
                         break
@@ -939,7 +939,7 @@ class FUSED_System(object):
                 if has_duplicate:
                     name_dict = {}
                     for input_obj, input_meta in input_list:
-                        name = input_obj.object_name+'_'+str(input_obj._hash_value)+'>'+input_name
+                        name = input_obj.object_name+'_'+str(input_obj._hash_value)+'__'+input_name
                         name_dict[name] = (input_obj, input_meta)
                 for name, input_pair in name_dict.items():
                     input_obj = input_pair[0]

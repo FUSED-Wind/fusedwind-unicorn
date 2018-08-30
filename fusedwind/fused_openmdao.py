@@ -51,6 +51,10 @@ class FUSED_OpenMDAOBase(object):
         for obj in FUSED_OpenMDAOBase.wraps:
             obj.model = FUSED_OpenMDAOBase.models[obj.my_hash]
 
+        if int(op.__version__[0]) <= 1:
+            for wrap in FUSED_OpenMDAOBase.wraps:
+                wrap.setup()
+
 # Return FUSED Component based on version of OpenMDAO 1.x or 2.x
 ################################################################
 def FUSED_Component(*args, **kwargs):
@@ -97,7 +101,6 @@ def FUSED_Component(*args, **kwargs):
                 def setup(self):
                     if not FUSED_OpenMDAOBase.has_been_split:
                         FUSED_OpenMDAOBase.setup_splits()
-                    super(FUSED_IndepVarComp,self).setup()
 
             if not 'name' in meta:
                 meta['name']=name

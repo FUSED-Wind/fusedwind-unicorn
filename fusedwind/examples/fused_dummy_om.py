@@ -21,6 +21,7 @@ def run_total_openMDAO():
 
     root = FUSED_Group()
     for obj in dummy_work_flow_objects:
+        print('MIMC the interface for', obj.object_name, ':', obj.get_interface())
         FUSED_add(root, obj.object_name, FUSED_Component(obj))
 
     prob = FUSED_Problem(root)
@@ -41,7 +42,7 @@ def run_total_openMDAO():
 
 def run_partial_openMDAO():
 
-    output_name_list = [ 'G.G_data', 'H.H_data', 'I.I_data', 'J.J_data', 'B.E>sum', 'B.B>sum', 'C.sum', 'A.sum' ]
+    output_name_list = [ 'G.G_data', 'H.H_data', 'I.I_data', 'J.J_data', 'B.E__sum', 'B.B__sum', 'C.sum', 'A.sum' ]
 
     root = FUSED_Group()
     split_obj = [A, B, C]
