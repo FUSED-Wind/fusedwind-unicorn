@@ -21,7 +21,6 @@ def run_total_openMDAO():
 
     root = FUSED_Group()
     for obj in dummy_work_flow_objects:
-        print('MIMC the interface for', obj.object_name, ':', obj.get_interface())
         FUSED_add(root, obj.object_name, FUSED_Component(obj))
 
     prob = FUSED_Problem(root)

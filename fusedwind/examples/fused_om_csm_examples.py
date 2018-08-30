@@ -20,6 +20,7 @@ def example_aep():
     FUSED_add(root, 'aep_test', FUSED_Component(aep_csm_fused()), ['*'])
 
     prob = FUSED_Problem(root)
+    FUSED_OpenMDAOBase.setup_splits()
     FUSED_setup(prob)
 
     prob['machine_rating'] = 5000.0 #Float(units = 'kW', iotype='in', desc= 'rated machine power in kW')
@@ -53,6 +54,7 @@ def example_turbine():
     root = FUSED_Group()
     FUSED_add(root, 'tcc_csm_test', FUSED_Component(tcc_csm_fused()), ['*'])
     prob = FUSED_Problem(root)
+    FUSED_OpenMDAOBase.setup_splits()
     FUSED_setup(prob)
 
     # simple test of module
@@ -87,6 +89,7 @@ def example_bos():
     root = FUSED_Group()
     FUSED_add(root, 'bos_csm_test', FUSED_Component(bos_csm_fused()), ['*'])
     prob = FUSED_Problem(root)
+    FUSED_OpenMDAOBase.setup_splits()
     FUSED_setup(prob)
 
     prob['machine_rating'] = 5000.0
@@ -119,6 +122,7 @@ def example_opex():
     FUSED_add(root, 'bos_opex_test', FUSED_Component(opex_csm_fused()), ['*'])
 
     prob = FUSED_Problem(root)
+    FUSED_OpenMDAOBase.setup_splits()
     FUSED_setup(prob)
 
     prob['machine_rating'] = 5000.0 # Need to manipulate input or underlying cprob[onent will not execute
@@ -146,6 +150,7 @@ def example_finance():
     FUSED_add(root, 'fin_csm_test', FUSED_Component(fin_csm_fused(fixed_charge_rate = 0.12, construction_finance_rate=0.0, tax_rate = 0.4, discount_rate = 0.07, \
                       construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0)), ['*'])
     prob = FUSED_Problem(root)
+    FUSED_OpenMDAOBase.setup_splits()
     FUSED_setup(prob)
 
     prob['turbine_cost'] = 6087803.555 / 50
@@ -171,13 +176,13 @@ def example_lcoe():
     # openmdao example of execution
     root = FUSED_Group()
     FUSED_add(root, 'desvars',FUSED_VarComp([('machine_rating',5000.0),
-    																 ('rotor_diameter', 126.0),
-    																 ('hub_height', 90.0),
-    																 ('turbine_number', 100.0),
-    																 ('year', 2009.0),
-    																 ('month',12.0),
-    																 ('sea_depth', 20.0),
-    																 ]), ['*'])
+                                                                     ('rotor_diameter', 126.0),
+                                                                     ('hub_height', 90.0),
+                                                                     ('turbine_number', 100.0),
+                                                                     ('year', 2009.0),
+                                                                     ('month',12.0),
+                                                                     ('sea_depth', 20.0),
+                                                                     ]), ['*'])
 
     FUSED_add(root, 'tcc_csm_test', FUSED_Component(tcc_csm_fused()), ['*'])
     FUSED_add(root, 'aep_test', FUSED_Component(aep_csm_fused()), ['*'])
@@ -187,6 +192,7 @@ def example_lcoe():
 
     prob = FUSED_Problem(root)
 
+    FUSED_OpenMDAOBase.setup_splits()
     FUSED_setup(prob)
 
     # set inputs
@@ -243,13 +249,57 @@ def example_lcoe():
 if __name__=="__main__":
 
     example_aep()
-    
+
     example_turbine()
-    
+
     example_bos()
 
     example_opex()
-    
+
     example_finance()
-    
+
     example_lcoe()
+
+    # print('--------------------- aep --------------------------------')
+    # try:
+    #     example_aep()
+    # except Exception as e:
+    #     print('FAILED')
+    #     print(e)
+    # 
+    # print('--------------------- turbine --------------------------------')
+    # example_turbine()
+    # try:
+    #     example_turbine()
+    # except Exception as e:
+    #     print('FAILED')
+    #     print(e)
+    # 
+    # print('--------------------- bos --------------------------------')
+    # try:
+    #     example_bos()
+    # except Exception as e:
+    #     print('FAILED')
+    #     print(e)
+
+    # print('--------------------- opex --------------------------------')
+    # try:
+    #     example_opex()
+    # except Exception as e:
+    #     print('FAILED')
+    #     print(e)
+    # 
+    # print('--------------------- finance --------------------------------')
+    # try:
+    #     example_finance()
+    # except Exception as e:
+    #     print('FAILED')
+    #     print(e)
+    # 
+    # print('--------------------- lcoe --------------------------------')
+    # try:
+    #     example_lcoe()
+    # except Exception as e:
+    #     print('FAILED')
+    #     print(e)
+

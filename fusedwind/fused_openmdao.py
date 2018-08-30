@@ -12,16 +12,22 @@ from fusedwind.fused_wind import split_worflow
 class FUSED_OpenMDAOBase(object):
 
     has_been_split = False
-    objects = set()
-    wraps = set()
-    models = {}
+
+    staged_objects = set()
+    staged_wraps = set()
+    staged_models = {}
+
+    all_objects = set()
+    all_wraps = set()
+    all_models = {}
 
     def __init__(self, model):
         super(FUSED_OpenMDAOBase, self).__init__()
 
         # Add this as an object
-        FUSED_OpenMDAOBase.objects.add(model)
-        FUSED_OpenMDAOBase.wraps.add(self)
+        FUSED_OpenMDAOBase.staged_objects.add(model)
+        FUSED_OpenMDAOBase.staged_wraps.add(self)
+        FUSED_OpenMDAOBase.has_been_split = False
 
         self.my_hash = model._hash_value
         self.model = model
@@ -31,12 +37,12 @@ class FUSED_OpenMDAOBase(object):
 
         # first solve the splits
         if not FUSED_OpenMDAOBase.has_been_split:
-            (FUSED_OpenMDAOBase.models,input_output_map) = split_worflow(FUSED_OpenMDAOBase.objects)
+            (FUSED_OpenMDAOBase.staged_models,input_output_map) = split_worflow(FUSED_OpenMDAOBase.staged_objects)
             FUSED_OpenMDAOBase.has_been_split = True
 
         if not group is None:
             id_to_obj_map = {}
-            for obj in FUSED_OpenMDAOBase.objects:
+            for obj in FUSED_OpenMDAOBase.staged_objects:
                 id_to_obj_map[obj._hash_value]=obj
             for source_sub_system, dest_sub_system_map in input_output_map.items():
                 source_object_name = id_to_obj_map[source_sub_system].object_name
@@ -48,12 +54,20 @@ class FUSED_OpenMDAOBase(object):
                             group.connect(source_object_name+'.'+source_name, dest_object_name+'.'+dest_name)
 
         # second set our model based on the results
-        for obj in FUSED_OpenMDAOBase.wraps:
-            obj.model = FUSED_OpenMDAOBase.models[obj.my_hash]
+        for obj in FUSED_OpenMDAOBase.staged_wraps:
+            obj.model = FUSED_OpenMDAOBase.staged_models[obj.my_hash]
 
         if int(op.__version__[0]) <= 1:
-            for wrap in FUSED_OpenMDAOBase.wraps:
+            for wrap in FUSED_OpenMDAOBase.staged_wraps:
                 wrap.setup()
+
+        # Reset staging
+        FUSED_OpenMDAOBase.all_objects|=FUSED_OpenMDAOBase.staged_objects
+        FUSED_OpenMDAOBase.all_wraps|=FUSED_OpenMDAOBase.staged_wraps
+        FUSED_OpenMDAOBase.all_models.update(FUSED_OpenMDAOBase.staged_models)
+        FUSED_OpenMDAOBase.staged_objects = set()
+        FUSED_OpenMDAOBase.staged_wraps = set()
+        FUSED_OpenMDAOBase.staged_models = {}
 
 # Return FUSED Component based on version of OpenMDAO 1.x or 2.x
 ################################################################
