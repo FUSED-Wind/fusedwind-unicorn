@@ -1,6 +1,49 @@
 import numpy as np
 from fusedwind.fused_wind import FUSED_Object
 
+class Shift_Data(FUSED_Object):
+
+    def __init__(self, shift_value, input_name_in='unnamed_input', input_meta_in={}, output_name_in='unnamed_output', output_meta_in={}, object_name_in='unnamed_shift_object', state_version_in=None):
+        super(Shift_Data, self).__init__(object_name_in, state_version_in)
+        self.shift_value = shift_value
+        self.input_name=input_name_in
+        self.input_meta=input_meta_in
+        self.output_name=output_name_in
+        self.output_meta=output_meta_in
+
+    def set_input_variable(self, input_name_in, input_meta_in):
+        self.input_name=input_name_in
+        self.input_meta=input_meta_in
+
+    def set_output_variable(self, output_name_in, output_meta_in):
+        self.output_name=output_name_in
+        self.output_meta=output_meta_in
+
+    def set_shift_value(self, shift_value):
+        self.shift_value=shift_value
+
+    def _build_interface(self):
+        self.add_input(self.input_name, **self.input_meta)
+        self.add_output(self.output_name, **self.output_meta)
+
+    def compute(self, input_values, output_values, var_name=[]):
+        # get the interface
+        ifc = self.get_interface()
+        # get the input name
+        input_name = list(ifc['input'])
+        if len(input_name)!=1:
+            raise Exception('The object can only shift one variable')
+        input_name=input_name[0]
+        # get the output name
+        output_name = list(ifc['output'])
+        if len(output_name)!=1:
+            raise Exception('The object can only shift one variable')
+        output_name=output_name[0]
+        # calculate the shifted value
+        input=input_values[input_name]
+        output=input+self.shift_value
+        output_values[output_name]=output
+
 class Split_Vector(FUSED_Object):
 
     def __init__(self, input_name_in='unnamed_input', input_meta_in={}, object_name_in='unnamed_split_vector_object', state_version_in=None):
