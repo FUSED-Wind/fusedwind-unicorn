@@ -82,7 +82,7 @@ class FUSED_Object(object):
 
     The user should inherit this and must implement the following methods:
 
-        def compute(self, input_values, output_values, var_name=[]):
+        def compute(self, input_values, output_values):
         def _build_interface(self):
     '''
 
@@ -693,7 +693,7 @@ class FUSED_Object(object):
 
     def get_output_value(self):
 
-        ans = self._update_needed(var_name)
+        ans = self._update_needed()
         if ans:
             self._build_input_vector()
             self.compute(self.input_values, self.output_values)

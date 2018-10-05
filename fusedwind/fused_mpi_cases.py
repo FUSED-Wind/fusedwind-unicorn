@@ -15,9 +15,8 @@ class FUSED_MPI_Cases(object):
         super(FUSED_MPI_Cases, self).__init__()
 
         self.comm=comm
-        if MPI:
-            if self.comm==None:
-                self.comm=MPI.COMM_WORLD
+        if not MPI is None and self.comm==None:
+            self.comm=MPI.COMM_WORLD
 
         self.jobs = jobs
 
@@ -46,7 +45,7 @@ class FUSED_MPI_Cases(object):
     def execute(self):
 
         # Check if we are running under MPI
-        if self.comm and self.comm.size>1:
+        if not self.comm is None and self.comm.size>1:
 
             self.pre_run()
 
@@ -111,7 +110,7 @@ class FUSED_MPI_Cases(object):
         # If not in MPI run all the jobs serially
         else:
 
-            for job_id in range(0, len(self.jobs))
+            for job_id in range(0, len(self.jobs)):
                 self.execute_job(job_id)
 
     # set-up the communicator
@@ -137,25 +136,25 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
     def post_run(self, job_list):
 
-            comm=self.comm
-            size=comm.size
-            rank=comm.rank
+        comm=self.comm
+        size=comm.size
+        rank=comm.rank
 
-            # now perform broadcasts so all processes have the same data
-            for i, src in enumerate(job_list):
-                if rank==src:
-                    my_output = self.jobs[i].get_output_value()
-                    send_keys = list(my_output.keys())
-                    # broadcast the keys
-                    comm.bcast(send_keys, root=src)
-                    # loop over the results
-                    for k in send_keys:
-                        comm.bcast(my_output[k], root=src)
-                else:
-                    # broadcast the keys
-                    recv_keys = comm.bcast(None, root=src)
-                    # loop over the results
-                    for k in recv_keys:
-                        output_value = comm.bcast(None, root=src)
-                        self.jobs[i]._set_output_value(k, output_value)
+        # now perform broadcasts so all processes have the same data
+        for i, src in enumerate(job_list):
+            if rank==src:
+                my_output = self.jobs[i].get_output_value()
+                send_keys = list(my_output.keys())
+                # broadcast the keys
+                comm.bcast(send_keys, root=src)
+                # loop over the results
+                for k in send_keys:
+                    comm.bcast(my_output[k], root=src)
+            else:
+                # broadcast the keys
+                recv_keys = comm.bcast(None, root=src)
+                # loop over the results
+                for k in recv_keys:
+                    output_value = comm.bcast(None, root=src)
+                    self.jobs[i]._set_output_value(k, output_value)
 

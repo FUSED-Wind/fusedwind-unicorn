@@ -57,7 +57,7 @@ class Dakota_Parameter_File_Reader(object):
         # need to look at outputs to know the size of the data
         ifc = indep_var.get_interface()
         # search through each output variable to get the size of the data
-        for name, meta in ifc['outputs'].items():
+        for name, meta in ifc['output'].items():
             # Try to retrieve the variable size
             if 'val' in meta:
                 val = meta['val']
@@ -105,7 +105,7 @@ class Dakota_Parameter_File_Reader(object):
         for I in range(0, n_var):
             line = my_file.readline()
             words = line.split()
-            my_param_data[I] = float(words[0])
+            self.param_data[I] = float(words[0])
         my_file.close()
 
         # copy the data to the indep vars
@@ -122,10 +122,10 @@ class Dakota_Parameter_File_Reader(object):
 # This will write dakota results
 class Dakota_Results_File_Writer(object):
 
-    def __init__(self, results_file_name = None):
+    def __init__(self):
         super(Dakota_Results_File_Writer, self).__init__()
 
-        self.output_dict = []
+        self.output_dict = {}
         self.output_list = []
 
     def add_output(self, output_name, output_object, dakota_output_tag = None):
@@ -133,14 +133,14 @@ class Dakota_Results_File_Writer(object):
         if dakota_output_tag is None:
             dakota_output_tag = output_name
 
-        if not output_object in output_dict
+        if not output_object in self.output_dict:
             self.output_dict[output_object]=None
 
         self.output_list.append((output_object, output_name, dakota_output_tag))
 
     def write_results(self, results_file_name = None):
 
-        my_file = open(self.param_file, 'w')
+        my_file = open(results_file_name, 'w')
 
         # retrieve the data
         for obj in self.output_dict.keys():

@@ -25,7 +25,7 @@ class FUSED_Dummy_Simulation(FUSED_Object):
         self.add_input('data2', shape=2)
         self.add_output('sum', shape=2)
 
-    def compute(self, inputs, outputs, var_name=[]):
+    def compute(self, inputs, outputs):
 
         outputs['sum']=self.model.calculate_stuff(inputs['data1'],inputs['data2'])
 
