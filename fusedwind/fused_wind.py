@@ -116,7 +116,6 @@ class FUSED_Object(object):
         else:
             self.state_version = state_version_in
         self.my_state_version = 0
-        self.var_state_version = {}
         self.output_values = {}
 
         # Ensure these objects can be indeced
@@ -150,28 +149,13 @@ class FUSED_Object(object):
             self.state_version = state_version_in
         self.my_state_version = 0
 
-    def _update_needed(self, var_list=[]):
+    def _update_needed(self):
 
-        if len(var_list)==0:
-            return self.my_state_version!=self.state_version.get_state_version()
-        else:
-            # loop through the variables and find what needs to be updated
-            var_list_out = []
-            for var in var_list:
-                if not var in self.var_state_version:
-                    self.var_state_version[var]=0
-                if self.var_state_version[var]!=self.state_version.get_state_version():
-                    var_list_out.append(var)
-            return var_list_out
+        return self.my_state_version!=self.state_version.get_state_version()
 
-    def _updating_data(self, var_list=[]):
+    def _updating_data(self):
 
-        if len(var_list)==0:
-            self.my_state_version=self.state_version.get_state_version()
-        else:
-            # loop through the variables and register what was updated
-            for var in var_list:
-                self.var_state_version[var]=self.state_version.get_state_version()
+        self.my_state_version=self.state_version.get_state_version()
 
     # These are interface methods
     #############################
@@ -692,50 +676,54 @@ class FUSED_Object(object):
             self._build_default_input_vector()
 
         # Loop through all connections and collect the data
-        retval = copy.copy(self.default_input)
+        self.input_values = copy.copy(self.default_input)
         for obj, src_dst_map in self.connections.items():
-            output = obj.get_output_value(list(src_dst_map.keys()))
+            output = obj.get_output_value()
             for src_name, dst_list in src_dst_map.items():
                 for dst_name in dst_list:
-                    retval[dst_name]=output[src_name]
+                    self.input_values[dst_name]=output[src_name]
 
         # return the results
-        return retval
+        return self.input_values
 
     # This is the calculation method that is called
-    def compute(self, input_values, output_values, var_name=[]):
+    def compute(self, input_values, output_values):
 
         raise Exception('The compute method has not been implemented')
 
-    def get_output_value(self, var_name=[]):
-
-        sig = signature(self.compute)
-        if len(sig.parameters)==2:
-            var_name=[]
+    def get_output_value(self):
 
         ans = self._update_needed(var_name)
-        if (len(var_name)==0 and ans) or (len(var_name)!=0 and len(ans)!=0):
-            input_values = self._build_input_vector()
-            if len(var_name)==0:
-                self.compute(input_values, self.output_values)
-                self._updating_data()
-            else:
-                self.compute(input_values, self.output_values, ans)
-                self._updating_data(ans)
+        if ans:
+            self._build_input_vector()
+            self.compute(self.input_values, self.output_values)
+            self._updating_data()
         return self.output_values
+
+    # This method is used by case generators to set the output values from other objects
+    def _set_output_values(self, output_values):
+        if not isinstance(output_values, dict):
+            raise ValueError('The output values must be a dictionary')
+        self.output_values=output_values
+        self._updating_data()
+
+    # This method is used by case generators to set the output values from other objects
+    def _set_output_value(self, output_key, output_value):
+        self.output_values[output_key]=output_value
+        self._updating_data()
 
     def get_input_value(self, var_name=None):
 
         if isinstance(var_name,str):
             var_name = [var_name]
-        input_values = self._build_input_vector()
+        self._build_input_vector()
         if var_name is None:
-            return input_values
+            return self.input_values
         retval = {}
         for name in var_name:
-            if not name in input_values:
+            if not name in self.input_values:
                 raise KeyError('A requested input is not in the input vector')
-            retval[name] = input_values[name]
+            retval[name] = self.input_values[name]
 
     # This will set the default input value
     def set_default_input_value(self, name, value):
@@ -818,68 +806,89 @@ class Independent_Variable(FUSED_Object):
         self.data = data_in
         self.retval = {self.name:self.data}
 
-    def get_output_value(self, var_name=[]):
-
-        # quick check for errors
-        if len(var_name)>1 or (len(var_name)==1 and var_name[0]!=self.name):
-            raise Exception('That name does not exist')
+    def get_output_value(self):
 
         return self.retval
 
 # The following function will solve the split configuration of a work-flow
 ##########################################################################
 
-class FUSED_System(object):
+# This is a stand-alone system object
+# It contains a set of fused wind objects:
+#    Some are just pure input objects
+#    Some are tagged as giving output to the larger system
+# Together these objects are expected to operate as a system
+# The system base class packages these objects so they act as a single object
+
+class FUSED_System_Base(object):
 
     def __init__(self, objects_in, output_objects_in):
         super(FUSED_System, self).__init__()
 
         # basically store the objects
-        self.objects = objects_in
-        self.output_objects = output_objects_in
-        self.input_objects = set()
+        self.system_objects = objects_in
+        self.system_output_objects = output_objects_in
+        self.system_input_objects = set()
+
+        # whether it has been configured or not
+        self.system_has_been_configured = False
+
+    def configure_system(self):
 
         # find all the input objects
-        for obj in self.objects:
+        for obj in self.system_objects:
             if obj.is_independent_variable():
-                self.input_objects.add(obj)
+                self.system_input_objects.add(obj)
 
         # check if the lengths are acceptable
-        if len(self.objects)==0 or len(self.output_objects)==0 or len(self.input_objects)==0:
+        if len(self.system_objects)==0 or len(self.system_output_objects)==0 or len(self.system_input_objects)==0:
             raise Exception('The object lists are empty')
-        if not set(self.output_objects)<=set(self.objects):
+        if not set(self.system_output_objects)<=set(self.system_objects):
             raise Exception('The output objects are not within the object set')
 
         # We will be building the interface
-        self.ifc = create_interface()
+        self.system_ifc = create_interface()
 
         # This will be a map for the input and output variables
         #     *put_map[obj][lcl_var]=sys_var
-        self.output_map = {}
+        self.system_output_map = {}
 
         # now lets collect the output names
+        #
+        # This basically creates a map from local_output_name to an object that has that output and it's meta
+        #    output_data[local_output_name][list_index]=(object, output_meta)
+        #
         output_data = {}
-        for obj in self.output_objects:
+        for obj in self.system_output_objects:
             output_ifc = obj.get_interface()['output']
             for output_name, output_meta in output_ifc.items():
                 if output_name in output_data.keys():
                     output_data[output_name].append((obj, output_meta))
                 else:
                     output_data[output_name]=[(obj, output_meta)]
+
         # Loop through the output data and build the inteface
-        self.output_map = {}
+        #
+        # This basically creates a map from local_output_name to an object that has that output and it's meta
+        #    output_map[output_obj]=([], {})
+        #        # This form is used to get a list of all the outputs from a given object that are needed
+        #        output_map[output_obj][0][list_index]=local_output_name
+        #        # This form shows how the local output name maps to the global output name
+        #        output_map[output_obj][1][local_output_name]=global_output_name
+        #
+        self.system_output_map = {}
         for output_name, output_list in output_data.items():
             if len(output_list)==1:
                 output_pair = output_list[0]
                 output_obj = output_pair[0]
                 output_meta = output_pair[1]
                 output_meta['name'] = output_name
-                set_output(self.ifc, output_meta)
-                if output_obj in self.output_map:
-                    self.output_map[output_obj][0].append(output_name)
-                    self.output_map[output_obj][1][output_name]=output_name
+                set_output(self.system_ifc, output_meta)
+                if output_obj in self.system_output_map:
+                    self.system_output_map[output_obj][0].append(output_name)
+                    self.system_output_map[output_obj][1][output_name]=output_name
                 else:
-                    self.output_map[output_obj] = ([output_name], {output_name:output_name})
+                    self.system_output_map[output_obj] = ([output_name], {output_name:output_name})
             else:
                 has_duplicate = False
                 name_dict = {}
@@ -898,35 +907,36 @@ class FUSED_System(object):
                     output_obj = output_pair[0]
                     output_meta = output_pair[1]
                     output_meta['name'] = name
-                    set_output(self.ifc, output_meta)
-                    if output_obj in self.output_map:
-                        self.output_map[output_obj][0].append(output_name)
-                        self.output_map[output_obj][1][output_name]=name
+                    set_output(self.system_ifc, output_meta)
+                    if output_obj in self.system_output_map:
+                        self.system_output_map[output_obj][0].append(output_name)
+                        self.system_output_map[output_obj][1][output_name]=name
                     else:
-                        self.output_map[output_obj] = ([output_name], {output_name:name})
+                        self.system_output_map[output_obj] = ([output_name], {output_name:name})
 
         # Now lets configure the input interface
         input_data = {}
-        for obj in self.input_objects:
+        for obj in self.system_input_objects:
             input_ifc = obj.get_interface()['output']
             for input_name, input_meta in input_ifc.items():
                 if input_name in input_data.keys():
                     input_data[input_name].append((obj, input_meta))
                 else:
                     input_data[input_name]=[(obj, input_meta)]
+
         # Loop through the input data and build the inteface
-        self.input_map = {}
+        self.system_input_map = {}
         for input_name, input_list in input_data.items():
             if len(input_list)==1:
                 input_pair = input_list[0]
                 input_obj = input_pair[0]
                 input_meta = input_pair[1]
                 input_meta['name'] = input_name
-                set_input(self.ifc, input_meta)
-                if input_obj in self.input_map:
-                    self.input_map[input_obj][input_name]=input_name
+                set_input(self.system_ifc, input_meta)
+                if input_obj in self.system_input_map:
+                    self.system_input_map[input_obj][input_name]=input_name
                 else:
-                    self.input_map[input_obj] = {input_name:input_name}
+                    self.system_input_map[input_obj] = {input_name:input_name}
             else:
                 has_duplicate = False
                 name_dict = {}
@@ -945,65 +955,87 @@ class FUSED_System(object):
                     input_obj = input_pair[0]
                     input_meta = input_pair[1]
                     input_meta['name'] = name
-                    set_input(self.ifc, input_meta)
-                    if input_obj in self.input_map:
-                        self.input_map[input_obj][input_name]=name
+                    set_input(self.system_ifc, input_meta)
+                    if input_obj in self.system_input_map:
+                        self.system_input_map[input_obj][input_name]=name
                     else:
-                        self.input_map[input_obj] = {input_name:name}
+                        self.system_input_map[input_obj] = {input_name:name}
 
         # Generate the gbl to lcl map for inputs
-        self.input_gbl_to_lcl_map={}
-        for obj, name_map in self.input_map.items():
+        self.system_input_gbl_to_lcl_map={}
+        for obj, name_map in self.system_input_map.items():
             for lcl_name, gbl_name in name_map.items():
-                self.input_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
+                self.system_input_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
 
         # Generate the gbl to lcl map for outputs
-        self.output_gbl_to_lcl_map={}
-        for obj, output_pair in self.output_map.items():
+        self.system_output_gbl_to_lcl_map={}
+        for obj, output_pair in self.system_output_map.items():
             name_map = output_pair[1]
             for lcl_name, gbl_name in name_map.items():
-                self.output_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
+                self.system_output_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
 
         # Add a new state version for this sub-system
-        self.state_version = StateVersion()
-        for obj in self.objects:
-            obj.set_state_version(self.state_version)
+        self.system_state_version = StateVersion()
+        for obj in self.system_objects:
+            obj.set_state_version(self.system_state_version)
+
+        self.system_has_been_configured = True
 
     def get_object_and_local_from_global_input(self, gbl_name):
 
-        return self.input_gbl_to_lcl_map[gbl_name]
+        return self.system_input_gbl_to_lcl_map[gbl_name]
 
     def get_object_and_local_from_global_output(self, gbl_name):
 
-        return self.output_gbl_to_lcl_map[gbl_name]
+        return self.system_output_gbl_to_lcl_map[gbl_name]
 
     def get_global_from_object_and_local_input(self, obj, lcl_name):
 
-        return self.input_map[obj][lcl_name]
+        return self.system_input_map[obj][lcl_name]
 
     def get_global_from_object_and_local_output(self, obj, lcl_name):
 
-        return self.output_map[obj][1][lcl_name]
+        return self.system_output_map[obj][1][lcl_name]
 
-    def get_interface(self):
+    def get_system_interface(self):
 
-        return self.ifc
+        return self.system_ifc
 
-    def compute(self, input_values, output_values):
+    def system_compute(self, input_values, output_values):
 
         # First set the inputs on the input objects
-        for obj, name_map in self.input_map.items():
+        for obj, name_map in self.system_input_map.items():
             if len(name_map)!=1:
                 raise Exception('Currently, the expectation is that independent variable objects only contain 1 variable')
             for local_name, global_name in name_map.items():
                 obj.set_data(input_values[global_name])
 
         # Now collect the output
-        for obj, name_pair in self.output_map.items():
-            output = obj.get_output_value(name_pair[0])
+        for obj, name_pair in self.system_output_map.items():
+            output = obj.get_output_value()
             output_map = name_pair[1]
             for local_name, global_name in output_map.items():
                 output_values[global_name] = output[local_name]
+
+# This is a merge of the FUSED_Object and FUSED_System_Base
+class FUSED_System(FUSED_Object, FUSED_System_Base):
+
+    def __init__(self, objects_in=[], output_objects_in=[], object_name_in='unnamed_system_object', state_version_in=None):
+        FUSED_Object.__init__(self, object_name_in=object_name_in, state_version_in=state_version_in)
+        FUSED_System_Base.__init__(self, objects_in=objects_in, output_objects_in=output_objects_in)
+
+    def compute(self, input_values, output_values):
+
+        if not self.system_has_been_configured:
+            self.configure_system()
+
+        self.system_compute(input_values, output_values)
+
+    def _build_interface(self):
+
+        if not self.system_has_been_configured:
+            self.configure_system()
+        self.inteface = self.get_system_interface()
 
 def obj_list_to_id_set(obj_list):
     retval = set()
