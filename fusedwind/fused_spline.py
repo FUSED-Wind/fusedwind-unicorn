@@ -85,11 +85,7 @@ class SplineSolution_PiecewiseLinear(SplineSolutionBase):
             old_meta=self.remove_output(old_name)
             self.add_output(self.var_name, old_meta)
 
-    def compute(self, input_values, output_values, var_name_in=[]):
-
-        if len(var_name_in)>1 or (len(var_name_in)==1 and var_name_in[0]!=self.var_name):
-            msg = "The variables requested do not match those in this spline solution"
-            raise Exception(msg)
+    def compute(self, input_values, output_values):
 
         control_point_name=self.spline_module.var_name
         values=np.zeros(len(self.grid))
@@ -167,7 +163,122 @@ class SplineModule_PiecewiseLinear(SplineModuleBase):
         self.add_input(self.var_name)
         self.add_output(self.var_name)
 
-    def compute(self, input_values, output_values, var_name=[]):
+    def compute(self, input_values, output_values):
 
         output_values[self.var_name] = input_values[self.var_name]
+
+# This is when only the tip of a space curve is modified, the blade curve ordinate needs to be re-mapped so data at the blade base stays the same
+class Partial_Ordinate_Scaling(object):
+
+    def __init__(self, original_ordinate=None, fix_idx=None, renorm=False):
+        super(Partial_Spline, self).__init__()
+
+        self.set_original(original_ordinate)
+        self.set_fix_index(fix_idx)
+        self.renorm = renorm
+
+    def _calc_lengths(self):
+
+        if not self.orig_ord is None and not self.fix_idx is None:
+            self.orig_l = 0.0
+            self.base_l = 0.0
+            self.tip_l = 0.0
+            for I in range(1,len(self.orig_ord)):
+                delta_l=self.orig_ord[I]-self.orig_ord[I-1]
+                self.orig_l+=delta_l
+                if I<=self.fix_idx:
+                    self.base_l+=delta_l
+                else:
+                    self.tip_l+=delta_l
+        else:
+            self.orig_l = None
+            self.base_l = None
+            self.tip_l = None
+
+    def set_original(self, original_ordinate):
+        self.orig_ord = original_ordinate
+        self._calc_lengths()
+
+    def set_fix_index(self, idx):
+        self.fix_idx = idx
+        self._calc_lengths()
+
+    def set_renormalize(self, renorm=True):
+        self.renorm = renorm
+
+    def remap_ordinate(self, new_l):
+        if self.orig_l is None or self.base_l is None or self.tip_l is None:
+            return None
+
+        #self.new_l = 0.0
+        #for I in range(1,len(self.new_ord)):
+        #    delta_l=self.new_ord[I]-self.new_ord[I-1]
+        #    self.new_l+=delta_l
+
+        # re-scale the tip accordingly
+        tip_scale=(new_l-self.base_l)/self.tip_l
+        retval=copy.deepcopy(orig_ord)
+        for I in range(1,len(retval)):
+            if I>self.fix_idx:
+                delta_l=(self.orig_ord[I]-self.orig_ord[I-1])*tip_scale
+                retval[I]=retval[I-1]+delta_l
+
+        # normalize if needed
+        if self.renorm:
+            for I in range(0, len(retval)):
+                retval[I]/=new_l
+        return retval
+
+# This is a fused wind wrap for Partial_Ordinate_Scaling
+class FUSED_Partial_Ordinate_Scaling(FUSED_Object):
+
+    # This is the constructor
+    def __init__(self, input_name='new_length', input_meta={'val':0.0}, output_name='ordinate', output_meta={}, original_ordinate=None, fix_idx=None, renorm=False, object_name_in='unnamed_partial_ordinate_scaling_object', state_version_in=None):
+        super(SplineSolutionBase, self).__init__(object_name_in, state_version_in)
+        self.model=Partial_Ordinate_Scaling(original_ordinate, fix_idx, renorm)
+
+        self.in_name = input_name
+        self.in_meta = input_meta
+        self.out_name = output_name
+        self.out_meta = output_meta
+
+    # Sets the oridinal ordinate
+    def set_original(self, original_ordinate):
+        self.model.set_original(original_ordinate)
+
+    # The last index in the data where the data is held constant
+    def set_fix_index(self, idx):
+        self.model.set_fix_index(idx)
+
+    # specify that the ordinate should be normalized
+    def set_renormalize(self, renorm=True):
+        self.model.set_renormalize(renorm)
+
+    # Interface construction
+    def _build_interface(self):
+
+        # make sure the input is consistent
+        if self.input_meta is None:
+            self.input_meta = {}
+        self.input_meta['name']=self.input_name
+
+        # make sure the input is consistent
+        if self.output_meta is None:
+            self.output_meta = {}
+        if not self.orig_ord is None:
+            self.output_meta['val']=self.orig_ord
+            self.output_meta['shape']=self.orig_ord.shape
+        self.output_meta['name']=self.output_name
+
+        # add the input
+        self.add_input(self.input_name, self.input_meta)
+
+        # add the output
+        self.add_output(self.output_name, self.output_meta)
+
+    # The compute method
+    def compute(self, input_values, output_values):
+
+        # perform the computation
+        output_values[self.output_name]=self.model.remap_ordinate(input_values[self.input_name])
 
