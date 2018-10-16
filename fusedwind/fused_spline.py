@@ -282,3 +282,25 @@ class FUSED_Partial_Ordinate_Scaling(FUSED_Object):
         # perform the computation
         output_values[self.output_name]=self.model.remap_ordinate(input_values[self.input_name])
 
+class FUSED_Vector_Extend(FUSED_Object):
+
+    def __init__(self, input_names=None, input_meta=None, output_name=None, output_meta=None, object_name='unnamed_vector_extend_object', state_version=None):
+        super(FUSED_Vector_Extend, self).__init__(object_name, state_version)
+        self.input_names=input_names
+        self.input_meta=input_meta
+        self.output_name=output_name
+        self.output_meta=output_meta
+
+    def _build_interface(self):
+        if isinstance(self.input_names, str):
+            self.input_names=[self.input_names]
+            self.input_meta=[self.input_meta]
+        for I, in_name in enumerate(self.input_names):
+            self.add_input(in_name, **self.input_meta[I])
+        self.add_output(self.output_name, **self.output_meta)
+
+    def compute(self, input_values, output_values):
+        output_values[self.output_name]=input_values[self.input_names[0]]
+        for I in range(1,len(self.input_names)):
+            output_values[self.output_name]=np.append(output_values[self.output_name], input_values[self.input_names[I]])
+

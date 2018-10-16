@@ -26,7 +26,7 @@ class Shift_Data(FUSED_Object):
         self.add_input(self.input_name, **self.input_meta)
         self.add_output(self.output_name, **self.output_meta)
 
-    def compute(self, input_values, output_values, var_name=[]):
+    def compute(self, input_values, output_values):
         # get the interface
         ifc = self.get_interface()
         # get the input name
@@ -98,10 +98,9 @@ class Split_Vector(FUSED_Object):
             meta = {'shape':(size,),'val':np.zeros(size)}
             self.add_output(name, **meta)
 
-    def compute(self, input_values, output_values, var_name=[]):
+    def compute(self, input_values, output_values):
 
-        if len(var_name)==0:
-            var_name = self.output.keys()
+        var_name = self.output.keys()
 
         input_vector = input_values[self.input_name]
         for name in var_name:
@@ -118,4 +117,26 @@ class Split_Vector(FUSED_Object):
         self.output[name]=(param_1,param_2)
         if param_2>self.size:
             self.size=param_2
+
+class FUSED_Multiply(FUSED_Object):
+
+    def __init__(self, lhs_name='lhs', lhs_default_value=1.0, rhs_name='rhs', rhs_default_value=1.0, output_name='solution', output_default_value=1.0, object_name='unnamed_multiply_object', state_version=None):
+        super(FUSED_Multiply, self).__init__(object_name_in=object_name, state_version_in=state_version)
+        self.lhs_name = lhs_name
+        self.lhs_default_value = lhs_default_value
+        self.rhs_name = rhs_name
+        self.rhs_default_value = rhs_default_value
+        self.output_name = output_name
+        self.output_default_value = output_default_value
+        if not self.lhs_default_value is None and not self.rhs_default_value is None:
+            self.output_default_value = self.lhs_default_value*self.rhs_default_value
+        
+    def _build_interface(self):
+        self.add_input(self.lhs_name, val=self.lhs_default_value)
+        self.add_input(self.rhs_name, val=self.rhs_default_value)
+        self.add_output(self.output_name, val=self.output_default_value)
+
+    def compute(self, input_values, output_values):
+
+        output_values[self.output_name] = input_values[self.lhs_name] * input_values[self.rhs_name]
 
