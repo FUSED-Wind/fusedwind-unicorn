@@ -1,6 +1,5 @@
 import numpy as np
 import copy
-from inspect import signature
 
 # The following are helper functions to create a custom interface
 #################################################################

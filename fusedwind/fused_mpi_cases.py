@@ -45,7 +45,7 @@ class FUSED_MPI_Cases(object):
     def pre_run(self):
         pass
 
-    def post_run(self):
+    def post_run(self, job_list):
         pass
 
     def execute_job(self, job_id):
