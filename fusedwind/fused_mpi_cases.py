@@ -50,19 +50,20 @@ class FUSED_MPI_Cases(object):
 
     def execute_job(self, job_id):
 
-        self.jobs[job_id].execute()
+        result = self.jobs[job_id].execute()
+        return result
 
     def execute(self):
 
         # Check if we are running under MPI
         if not self.comm is None and self.comm.size>1:
-
             self.pre_run()
 
             # prepare the case data
             comm=self.comm
             size=comm.size
             rank=comm.rank
+            status=MPI.Status()
             job_list=[]
 
             # If we have enough processors then just execute all jobs at once according to rank
@@ -70,7 +71,21 @@ class FUSED_MPI_Cases(object):
                 for i in range(len(self.jobs)):
                     job_list.append(i)
                 if rank<len(self.jobs):
-                    self.execute_job(rank)
+                    result = self.execute_job(rank)
+                    print('{} doing his job'.format(rank))
+
+                #Preparing the case where the result is not None and should be gathered:
+                if rank == 0 and not result is None:
+                    results = [result]
+                    num_workers = size-1
+                    closed_workers = 0
+                    while closed_workers < num_workers:
+                        data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
+                        results.append(data)
+                        closed_workers +=1
+                    return results
+                elif not result is None:
+                    comm.send(result, dest=0, tag=tags.DONE)
 
             # We do not have enough processors so execute with a round robin
             else:
@@ -81,6 +96,8 @@ class FUSED_MPI_Cases(object):
                     task_index = 0
                     num_workers = size - 1
                     closed_workers = 0
+                    result_index = 0
+                    results = [None]*len(self.jobs)
                     while closed_workers < num_workers:
                         data = comm.recv(source=MPI.ANY_SOURCE, tag=MPI.ANY_TAG, status=status)
                         source = status.Get_source()
@@ -93,10 +110,12 @@ class FUSED_MPI_Cases(object):
                             else:
                                 comm.send(None, dest=source, tag=tags.EXIT)
                         elif tag == tags.DONE:
-                            results = data
+                            results[result_index] = data
+                            result_index += 1
                         elif tag == tags.EXIT:
                             closed_workers += 1
                     comm.bcast(job_list, root=0)
+                    return results
                 # No I am a worker...
                 else:
                     while True:
@@ -105,8 +124,7 @@ class FUSED_MPI_Cases(object):
                         tag = status.Get_tag()
                         if tag == tags.START:
                             # Do the work here
-                            self.execute_job(task)
-                            result=0
+                            result = self.execute_job(task)
                             comm.send(result, dest=0, tag=tags.DONE)
                         elif tag == tags.EXIT:
                             break
@@ -119,7 +137,6 @@ class FUSED_MPI_Cases(object):
 
         # If not in MPI run all the jobs serially
         else:
-
             for job_id in range(0, len(self.jobs)):
                 self.execute_job(job_id)
 
