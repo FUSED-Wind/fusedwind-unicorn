@@ -107,7 +107,7 @@ class np_Array_Results_Writer(object):
 
         self.output_list.append((output_object, output_name, output_tag))
 
-    def write_results(self, result_file = None, number_of_runs = 1):
+    def write_results(self):
         for obj in self.output_dict.keys():
             self.output_dict[obj]=obj.get_output_value()
 
@@ -120,7 +120,6 @@ class np_Array_Results_Writer(object):
                 if not len(ifc[0].interface['output'].keys())==0:
                     no_output = False
 
-        # ------- For now just save it to different files: -------
         result = []
         if no_output:
             return result
@@ -141,20 +140,18 @@ class np_Array_Work_Flow(object):
         for output_name, output_object, name in output_list:
             self.writer.add_output(output_name, output_object, name)
 
-    def execute(self, np_array_in, result_file=None, number_of_runs=None):
+    def execute(self, np_array_in):
         self.reader.read_np_array(np_array_in)
-        result = self.writer.write_results(result_file, number_of_runs)
+        result = self.writer.write_results()
         return result
 
 class np_Array_Job(object):
 
-    def __init__(self, work_flow, np_array, result_file=None, number_of_runs=None):
+    def __init__(self, work_flow, np_array):
 
         self.work_flow = work_flow
         self.np_array = np_array
-        self.result_file = result_file
-        self.number_of_runs = number_of_runs
 
     def execute(self):
-        result = self.work_flow.execute(self.np_array, self.result_file, self.number_of_runs)
-        return {'result_file':self.result_file,'np_array':self.np_array,'result':result}
+        result = self.work_flow.execute(self.np_array)
+        return {'np_array':self.np_array,'result':result}
