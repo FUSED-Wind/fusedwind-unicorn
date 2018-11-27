@@ -151,7 +151,9 @@ class np_Array_Job(object):
 
         self.work_flow = work_flow
         self.np_array = np_array
+        self.result = None
+        self.executed = False
 
     def execute(self):
-        result = self.work_flow.execute(self.np_array)
-        return {'np_array':self.np_array,'result':result}
+        self.result = self.work_flow.execute(self.np_array)
+        return {'np_array':self.np_array,'result':self.result}
