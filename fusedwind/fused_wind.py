@@ -1,3 +1,21 @@
+
+#########################################################################
+#
+# Things that I am working on
+#
+#      1) Creating the capability to wrap a work-flow as a group so that it behaves like a component
+#      2) Creating the capability to wrap a work-flow as a group so that is becomes a job in a case runner
+#
+# Basic tasks
+#
+#      1) The group has been created for grouping objects and having an overall interface
+#      2) It has connection methods now for connecting both up-stream and down-stream
+#      3) The group has methods now for triggering the upstream calculations
+#      4) The system-base can now identify the up-stream and down stream
+#      5) Need to get some methods for gathers ... 
+#      6) Need to get some methods for triggering case runner
+#
+
 import numpy as np
 import copy
 
@@ -47,6 +65,17 @@ def create_variable(name, val=None, desc='', shape=None):
 
     return retval
 
+def print_interface(fifc):
+
+    out_ifc = fifc['output']
+    in_ifc = fifc['input']
+    print("Input:")
+    for name, meta in in_ifc.items():
+        print('\t%s: %s'%(name, str(meta)))
+    print("Output:")
+    for name, meta in out_ifc.items():
+        print('\t%s: %s'%(name, str(meta)))
+
 # This is a state version object
 ################################
 
@@ -71,7 +100,253 @@ class StateVersion(object):
         self.isSet=True
         return self.version
 
-# The following are helper functions to help objects implement interfaces
+# The following is a helper function for parsing the arguments for a connect method
+###################################################################################
+
+def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_source=None, alias={}):
+
+    '''
+    These are the different ways of specifying a connection
+    
+    1) dst.connect(src)
+          The assumption here is that all common variables in the interface are connected
+    2) dst.connect(src, 'var1')
+          This specifies that var1 in both objects should be connected
+    3) dst.connect(src, ['var1','var2'])
+          This specifies that var1 and var2 in both objects should be connected
+    4) dst.connect(src, 'var1', 'var2')
+          This specifies that 'var1' in the destination should be connected to 'var2' in the source
+    5) dst.connect(src, ['var1', 'var3'], ['var2', 'var4'])
+          This specifies that 'var1' and 'var3' in the destination should be connected to 'var2' and 'var4' in the source respectively
+    6) dst.connect(src, {'var1':'var2', 'var3':'var4'})
+          This specifies that 'var1' and 'var3' in the destination should be connected to 'var2' and 'var4' in the source respectively
+    7) dst.connect(src, ..., alias={'var1':'var2', 'var3':'var4'})
+          This specifies that 'var1' and 'var3' in the destination is equivalent to 'var2' and 'var4' in the source respectively.
+          This does not mean they are connected though, that depends on the other arguments
+          This is used in cases where the naming scheme differs for a small group of variables, and the connections are not explicit
+    '''
+
+    # First task is to create maps between the variable names
+    #########################################################
+
+    # Retrieve the interfaces
+    dst_ifc = dest_object.get_interface()
+    src_ifc = source_object.get_interface()
+    dst_var = dst_ifc['input'].keys()
+    src_var = src_ifc['output'].keys()
+
+    # These are the variable name maps
+    src_dst_map = {}
+    dst_src_map = {}
+
+    # construct reverse alias if needed
+    r_alias={}
+    if var_name_dest is None and not var_name_source is None:
+        for k,v in alias.items():
+            r_alias[v]=k
+
+    # Is my dest name None? Then we construct based on source type
+    if var_name_dest is None:
+        # In this case we must find all common names
+        if var_name_source is None:
+            for dst_name in dst_var:
+                src_name = dst_name
+                if dst_name in alias:
+                    src_name = alias[dst_name]
+                if src_name in src_var:
+                    src_dst_map[src_name]=[dst_name]
+                    dst_src_map[dst_name]=src_name
+        # In this case only the source name is specified
+        elif isinstance(var_name_source, str):
+            src_name = var_name_source
+            # Use Alias and Verify
+            if not src_name in src_var:
+                raise Exception('That source variable name does not exist')
+            dst_name = src_name
+            # Apply alias
+            if src_name in r_alias:
+                dst_name = r_alias[src_name]
+            if dst_name not in dst_var:
+                raise Exception('That destination variable name does not exist')
+            if dst_name in dst_src_map:
+                raise Exception('That destination variable name specified twice')
+            # Add to the map
+            if src_name in src_dst_map:
+                src_dst_map[src_name].append(dst_name)
+            else:
+                src_dst_map[src_name]=[dst_name]
+            dst_src_map[dst_name]=src_name
+        # In this case a list of source names is specified
+        elif hasattr(var_name_source, '__iter__'):
+            for src_name in var_name_source:
+                # Use Alias and Verify
+                if not src_name in src_var:
+                    raise Exception('That source variable name does not exist')
+                dst_name = src_name
+                if src_name in r_alias:
+                    dst_name = r_alias[src_name]
+                if not dst_name in dst_var:
+                    raise Exception('That destination variable name does not exist')
+                if dst_name in dst_src_map:
+                    raise Exception('That destination variable name specified twice')
+                # Add to the map
+                if src_name in src_dst_map:
+                    src_dst_map[src_name].append(dst_name)
+                else:
+                    src_dst_map[src_name]=[dst_name]
+                dst_src_map[dst_name]=src_name
+        # In this case we have a type error
+        else:
+            raise Exception('Cannot use the type passed as the source variable list')
+    # A single variable name is specified
+    elif isinstance(var_name_dest, str):
+        # In this case only the destination name matters
+        if var_name_source is None:
+            dst_name = var_name_dest
+            if not dst_name in dst_var:
+                raise Exception('That destination variable name does not exist')
+            src_name = dst_name
+            if dst_name in alias:
+                src_name = alias[dst_name]
+            if not src_name in src_var:
+                raise Exception('That source variable name does not exist')
+            if dst_name in dst_src_map:
+                raise Exception('That destination variable name specified twice')
+            # Add to the map
+            if src_name in src_dst_map:
+                src_dst_map[src_name].append(dst_name)
+            else:
+                src_dst_map[src_name]=[dst_name]
+            dst_src_map[dst_name]=src_name
+        # In this case only the source name is also specified
+        elif isinstance(var_name_source, str):
+            dst_name = var_name_dest
+            src_name = var_name_source
+            # Verify things are OK
+            if not dst_name in dst_var:
+                raise Exception('That destination variable name does not exist')
+            if not src_name in src_var:
+                raise Exception('That source variable name does not exist')
+            if dst_name in dst_src_map:
+                raise Exception('That destination variable name specified twice')
+            # Add to the map
+            if src_name in src_dst_map:
+                src_dst_map[src_name].append(dst_name)
+            else:
+                src_dst_map[src_name]=[dst_name]
+            dst_src_map[dst_name]=src_name
+        # In this case a list of source names is specified
+        elif hasattr(var_name_source, '__iter__'):
+            dst_name = var_name_dest
+            if len(var_name_source)!=1:
+                raise Exception('Different sizes in the source and destination variables')
+            src_name = var_name_source[0]
+            # Verify things are OK
+            if not dst_name in dst_var:
+                raise Exception('That destination variable name does not exist')
+            if not src_name in src_var:
+                raise Exception('That source variable name does not exist')
+            if dst_name in dst_src_map:
+                raise Exception('That destination variable name specified twice')
+            # Add to the map
+            if src_name in src_dst_map:
+                src_dst_map[src_name].append(dst_name)
+            else:
+                src_dst_map[src_name]=[dst_name]
+            dst_src_map[dst_name]=src_name
+        # In this case we have a type error
+        else:
+            raise Exception('Cannot use the type passed as the source variable list')
+    # In this case the dst->src variable map is given directly
+    elif isinstance(var_name_dest,dict):
+        # In this case only the destination name matters
+        if var_name_source is None:
+            for k, v in var_name_dest.items():
+                dst_name = k
+                src_name = v
+                # Verify things are OK
+                if not dst_name in dst_var:
+                    raise Exception('That destination variable name does not exist')
+                if not src_name in src_var:
+                    raise Exception('That source variable name does not exist')
+                if dst_name in dst_src_map:
+                    raise Exception('That destination variable name specified twice')
+                # Add to the map
+                if src_name in src_dst_map:
+                    src_dst_map[src_name].append(dst_name)
+                else:
+                    src_dst_map[src_name]=[dst_name]
+                dst_src_map[dst_name]=src_name
+        # In this case we have a type error
+        else:
+            raise Exception('Cannot use the type passed as the source variable list')
+    elif hasattr(var_name_dest, '__iter__'):
+        # In this case only the destination name matters
+        if var_name_source is None:
+            for dst_name in var_name_dest:
+                if not dst_name in dst_var:
+                    raise Exception('That destination variable name does not exist')
+                src_name = dst_name
+                if dst_name in alias:
+                    src_name = alias[dst_name]
+                if not src_name in src_var:
+                    raise Exception('That source variable name does not exist')
+                if dst_name in dst_src_map:
+                    raise Exception('That destination variable name specified twice')
+                # Add to the map
+                if src_name in src_dst_map:
+                    src_dst_map[src_name].append(dst_name)
+                else:
+                    src_dst_map[src_name]=[dst_name]
+                dst_src_map[dst_name]=src_name
+        # In this case only the source name is also specified
+        elif isinstance(var_name_source, str):
+            if len(var_name_dest)!=1:
+                raise Exception('Different sizes in the source and destination variables')
+            dst_name = var_name_dest[0]
+            src_name = var_name_source
+            # Verify things are OK
+            if not dst_name in dst_var:
+                raise Exception('That destination variable name does not exist')
+            if not src_name in src_var:
+                raise Exception('That source variable name does not exist')
+            if dst_name in dst_src_map:
+                raise Exception('That destination variable name specified twice')
+            # Add to the map
+            if src_name in src_dst_map:
+                src_dst_map[src_name].append(dst_name)
+            else:
+                src_dst_map[src_name]=[dst_name]
+            dst_src_map[dst_name]=src_name
+        # In this case a list of source names is specified
+        elif hasattr(var_name_source, '__iter__'):
+            if len(var_name_source)!=len(var_name_dest):
+                raise Exception('Different sizes in the source and destination variables')
+            for i in range(0,len(var_name_dest)):
+                dst_name = var_name_dest[i]
+                src_name = var_name_source[i]
+                # Verify things are OK
+                if not dst_name in dst_var:
+                    raise Exception('That destination variable name does not exist')
+                if not src_name in src_var:
+                    raise Exception('That source variable name does not exist')
+                if dst_name in dst_src_map:
+                    raise Exception('That destination variable name specified twice')
+                # Add to the map
+                if src_name in src_dst_map:
+                    src_dst_map[src_name].append(dst_name)
+                else:
+                    src_dst_map[src_name]=[dst_name]
+                dst_src_map[dst_name]=src_name
+        # In this case we have a type error
+        else:
+            raise Exception('Cannot use the type passed as the source variable list')
+    else:
+        raise Exception('Cannot use the type passed as the destination variable list')
+
+    return src_dst_map, dst_src_map
+
+# The following is the FUSED Object
 #########################################################################
 
 class FUSED_Object(object):
@@ -106,8 +381,20 @@ class FUSED_Object(object):
         self.default_input = {}
 
         # This is the connection information
+        ####################################
+
+        # Registers where the input of this object is from
+        # indexed by
+        # conn_dict[my_input_name]=(source_object, source_output_name)
         self.conn_dict={}
+        # Stores input connections
+        # indexed by
+        # self.connections[source_object][source_output_name]=['my_input_name_1', 'my_input_name_2', ...]
         self.connections={}
+        # Stores output connections
+        # indexed by
+        # self.output_connections[my_output_name][dest_object]=['dest_input_name_1', 'dest_input_name_2', ...]
+        self.output_connections={}
 
         # This is the state version
         if state_version_in is None:
@@ -117,7 +404,7 @@ class FUSED_Object(object):
         self.my_state_version = 0
         self.output_values = {}
 
-        # Ensure these objects can be indeced
+        # Ensure these objects can be indexed
         self._hash_value = FUSED_Object._object_count
         FUSED_Object._object_count += 1
         FUSED_Object.all_objects.append(self)
@@ -130,10 +417,13 @@ class FUSED_Object(object):
 
         return FUSED_Object.all_objects
 
-    # Identifies whether it is an independent variable
-    ##################################################
+    # Identifies whether it is an independent variable or Group
+    ###########################################################
 
     def is_independent_variable(self):
+        return False
+
+    def is_group(self):
         return False
 
     # These are state version methods
@@ -301,7 +591,7 @@ class FUSED_Object(object):
         # If there are multiple source objects
         #########################################################
 
-        if not isinstance(source_object, FUSED_Object):
+        if not isinstance(source_object, FUSED_Object) and not source_object.is_group():
             for obj in source_object:
                 self.connect(obj, var_name_dest, var_name_source, alias)
             return
@@ -309,220 +599,8 @@ class FUSED_Object(object):
         # First task is to create maps between the variable names
         #########################################################
 
-        # Retrieve the interfaces
-        dst_ifc = self.get_interface()
-        src_ifc = source_object.get_interface()
-        dst_var = dst_ifc['input'].keys()
-        src_var = src_ifc['output'].keys()
-
-        # These are the variable name maps
-        src_dst_map = {}
-        dst_src_map = {}
-
-        # construct reverse alias if needed
-        r_alias={}
-        if var_name_dest is None and not var_name_source is None:
-            for k,v in alias.items():
-                r_alias[v]=k
-
-        # Is my dest name None? Then we construct based on source type
-        if var_name_dest is None:
-            # In this case we must find all common names
-            if var_name_source is None:
-                for dst_name in dst_var:
-                    src_name = dst_name
-                    if dst_name in alias:
-                        src_name = alias[dst_name]
-                    if src_name in src_var:
-                        src_dst_map[src_name]=[dst_name]
-                        dst_src_map[dst_name]=src_name
-            # In this case only the source name is specified
-            elif isinstance(var_name_source, str):
-                src_name = var_name_source
-                # Use Alias and Verify
-                if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
-                dst_name = src_name
-                # Apply alias
-                if src_name in r_alias:
-                    dst_name = r_alias[src_name]
-                if dst_name not in dst_var:
-                    raise Exception('That destination variable name does not exist')
-                if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
-                # Add to the map
-                if src_name in src_dst_map:
-                    src_dst_map[src_name].append(dst_name)
-                else:
-                    src_dst_map[src_name]=[dst_name]
-                dst_src_map[dst_name]=src_name
-            # In this case a list of source names is specified
-            elif hasattr(var_name_source, '__iter__'):
-                for src_name in var_name_source:
-                    # Use Alias and Verify
-                    if not src_name in src_var:
-                        raise Exception('That source variable name does not exist')
-                    dst_name = src_name
-                    if src_name in r_alias:
-                        dst_name = r_alias[src_name]
-                    if not dst_name in dst_var:
-                        raise Exception('That destination variable name does not exist')
-                    if dst_name in dst_src_map:
-                        raise Exception('That destination variable name specified twice')
-                    # Add to the map
-                    if src_name in src_dst_map:
-                        src_dst_map[src_name].append(dst_name)
-                    else:
-                        src_dst_map[src_name]=[dst_name]
-                    dst_src_map[dst_name]=src_name
-            # In this case we have a type error
-            else:
-                raise Exception('Cannot use the type passed as the source variable list')
-        # A single variable name is specified
-        elif isinstance(var_name_dest, str):
-            # In this case only the destination name matters
-            if var_name_source is None:
-                dst_name = var_name_dest
-                if not dst_name in dst_var:
-                    raise Exception('That destination variable name does not exist')
-                src_name = dst_name
-                if dst_name in alias:
-                    src_name = alias[dst_name]
-                if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
-                if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
-                # Add to the map
-                if src_name in src_dst_map:
-                    src_dst_map[src_name].append(dst_name)
-                else:
-                    src_dst_map[src_name]=[dst_name]
-                dst_src_map[dst_name]=src_name
-            # In this case only the source name is also specified
-            elif isinstance(var_name_source, str):
-                dst_name = var_name_dest
-                src_name = var_name_source
-                # Verify things are OK
-                if not dst_name in dst_var:
-                    raise Exception('That destination variable name does not exist')
-                if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
-                if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
-                # Add to the map
-                if src_name in src_dst_map:
-                    src_dst_map[src_name].append(dst_name)
-                else:
-                    src_dst_map[src_name]=[dst_name]
-                dst_src_map[dst_name]=src_name
-            # In this case a list of source names is specified
-            elif hasattr(var_name_source, '__iter__'):
-                dst_name = var_name_dest
-                if len(var_name_source)!=1:
-                    raise Exception('Different sizes in the source and destination variables')
-                src_name = var_name_source[0]
-                # Verify things are OK
-                if not dst_name in dst_var:
-                    raise Exception('That destination variable name does not exist')
-                if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
-                if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
-                # Add to the map
-                if src_name in src_dst_map:
-                    src_dst_map[src_name].append(dst_name)
-                else:
-                    src_dst_map[src_name]=[dst_name]
-                dst_src_map[dst_name]=src_name
-            # In this case we have a type error
-            else:
-                raise Exception('Cannot use the type passed as the source variable list')
-        # In this case the dst->src variable map is given directly
-        elif isinstance(var_name_dest,dict):
-            # In this case only the destination name matters
-            if var_name_source is None:
-                for k, v in var_name_dest.items():
-                    dst_name = k
-                    src_name = v
-                    # Verify things are OK
-                    if not dst_name in dst_var:
-                        raise Exception('That destination variable name does not exist')
-                    if not src_name in src_var:
-                        raise Exception('That source variable name does not exist')
-                    if dst_name in dst_src_map:
-                        raise Exception('That destination variable name specified twice')
-                    # Add to the map
-                    if src_name in src_dst_map:
-                        src_dst_map[src_name].append(dst_name)
-                    else:
-                        src_dst_map[src_name]=[dst_name]
-                    dst_src_map[dst_name]=src_name
-            # In this case we have a type error
-            else:
-                raise Exception('Cannot use the type passed as the source variable list')
-        elif hasattr(var_name_dest, '__iter__'):
-            # In this case only the destination name matters
-            if var_name_source is None:
-                for dst_name in var_name_dest:
-                    if not dst_name in dst_var:
-                        raise Exception('That destination variable name does not exist')
-                    src_name = dst_name
-                    if dst_name in alias:
-                        src_name = alias[dst_name]
-                    if not src_name in src_var:
-                        raise Exception('That source variable name does not exist')
-                    if dst_name in dst_src_map:
-                        raise Exception('That destination variable name specified twice')
-                    # Add to the map
-                    if src_name in src_dst_map:
-                        src_dst_map[src_name].append(dst_name)
-                    else:
-                        src_dst_map[src_name]=[dst_name]
-                    dst_src_map[dst_name]=src_name
-            # In this case only the source name is also specified
-            elif isinstance(var_name_source, str):
-                if len(var_name_dest)!=1:
-                    raise Exception('Different sizes in the source and destination variables')
-                dst_name = var_name_dest[0]
-                src_name = var_name_source
-                # Verify things are OK
-                if not dst_name in dst_var:
-                    raise Exception('That destination variable name does not exist')
-                if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
-                if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
-                # Add to the map
-                if src_name in src_dst_map:
-                    src_dst_map[src_name].append(dst_name)
-                else:
-                    src_dst_map[src_name]=[dst_name]
-                dst_src_map[dst_name]=src_name
-            # In this case a list of source names is specified
-            elif hasattr(var_name_source, '__iter__'):
-                if len(var_name_source)!=len(var_name_dest):
-                    raise Exception('Different sizes in the source and destination variables')
-                for i in range(0,len(var_name_dest)):
-                    dst_name = var_name_dest[i]
-                    src_name = var_name_source[i]
-                    # Verify things are OK
-                    if not dst_name in dst_var:
-                        raise Exception('That destination variable name does not exist')
-                    if not src_name in src_var:
-                        raise Exception('That source variable name does not exist')
-                    if dst_name in dst_src_map:
-                        raise Exception('That destination variable name specified twice')
-                    # Add to the map
-                    if src_name in src_dst_map:
-                        src_dst_map[src_name].append(dst_name)
-                    else:
-                        src_dst_map[src_name]=[dst_name]
-                    dst_src_map[dst_name]=src_name
-            # In this case we have a type error
-            else:
-                raise Exception('Cannot use the type passed as the source variable list')
-        else:
-            raise Exception('Cannot use the type passed as the destination variable list')
+        # This will parse the arguments to get the variables that are suppose to be connected
+        src_dst_map, dst_src_map = parse_connect_args(self, source_object, var_name_dest, var_name_source, alias)
 
         # If there are no common variables then just return
         if len(src_dst_map)==0 or len(dst_src_map)==0:
@@ -541,6 +619,33 @@ class FUSED_Object(object):
         This method is used to do this task
         '''
 
+        # If connecting to a group, then extract the output objects and connect directly to them
+        if source_object.is_group():
+
+            # Collect all the objects and their maps
+            source_object_dict = {}
+            for source_name, dest_list in src_dst_map.items():
+                obj, local_name = source_object.get_object_and_local_from_global_output(source_name)
+                if obj in source_object_dict:
+                    local_src_dst_map = source_object_dict[obj][0]
+                    local_dst_src_map = source_object_dict[obj][1]
+                    local_src_dst_map[source_name]=dest_list
+                    for dest_name in dest_list:
+                        local_dst_src_map[dest_name]=source_name
+                else:
+                    local_dst_src_map = {}
+                    for dest_name in dest_list:
+                        local_dst_src_map[dest_name]=source_name
+                    source_object_dict[obj]=({local_name:dest_list},local_dst_src_map)
+
+            # now loop through all the extracted objects and connect to them
+            for source_object_local, map_pair in source_object_dict.items():
+                local_src_dst_map = map_pair[0]
+                local_dst_src_map = map_pair[1]
+                self._add_connection(source_object_local, local_src_dst_map, local_dst_src_map)
+
+            return
+
         # Now we build the connection data structure
         ############################################
 
@@ -551,12 +656,26 @@ class FUSED_Object(object):
                     for new_dst_name in new_dst_list:
                         if not new_dst_name in self.connections[source_object][new_source_name]:
                             self.connections[source_object][new_source_name].append(new_dst_name)
+                            # add the upstream connection
+                            if not new_source_name in source_object.output_connections:
+                                source_object.output_connections[new_source_name]={}
+                            if not self in source_object.output_connections[new_source_name]:
+                                source_object.output_connections[new_source_name][self]=[]
+                            source_object.output_connections[new_source_name][self].append(new_dst_name)
                         elif FUSED_Object.print_level>=2:
                             print('The connection between '+self.object_name+' and '+source_object.object_name+' connected '+new_dst_name+' and '+new_source_name+' again')
                 else:
                     self.connections[source_object][new_source_name]=new_dst_list
+                    # add the upstream connection
+                    if not new_source_name in source_object.output_connections:
+                        source_object.output_connections[new_source_name]={}
+                    source_object.output_connections[new_source_name][self]=copy.copy(new_dst_list)
         else:
             self.connections[source_object]=src_dst_map
+            for source_name, dest_list in src_dst_map.items():
+                if not source_name in source_object.output_connections:
+                    source_object.output_connections[source_name]={}
+                source_object.output_connections[source_name][self]=copy.copy(dest_list)
 
         # this will then update the connection dictionaries
         ###################################################
@@ -572,12 +691,22 @@ class FUSED_Object(object):
                 # Remove the over-ride from the connections
                 if dst_name in self.connections[tmp_source_object][tmp_src_name]:
                     self.connections[tmp_source_object][tmp_src_name].remove(dst_name)
+                    # 
                     # Remove that source name, if it is no longer used
                     if len(self.connections[tmp_source_object][tmp_src_name])==0:
                         del self.connections[tmp_source_object][tmp_src_name]
                         # Remove the source object, if it is no longer used
                         if len(self.connections[tmp_source_object]):
                             del self.connections[tmp_source_object]
+                else:
+                    raise Exception('Connection data structure corrupted')
+                # Remove the upstream connection
+                if dst_name in tmp_source_object.output_connections[tmp_src_name][self]:
+                    tmp_source_object.output_connections[tmp_src_name][self].remove(dst_name)
+                    if len(tmp_source_object.output_connections[tmp_src_name][self])==0:
+                        del tmp_source_object.output_connections[tmp_src_name][self]
+                        if len(tmp_source_object.output_connections[tmp_src_name])==0:
+                            del tmp_source_object.output_connections[tmp_src_name]
                 else:
                     raise Exception('Connection data structure corrupted')
             # Add the new variable to the conn_dict
@@ -587,6 +716,76 @@ class FUSED_Object(object):
         ########################################
 
         self.state_version.modifying_state()
+
+    # This will verify the connections on both inputs and outputs
+    def _verify_connections(self):
+
+        # Test all data from connections
+        for source_object, src_dst_map in self.connections.items():
+            for source_name, dest_list in src_dst_map.items():
+                for dest_name in dest_list:
+                    # Verify that the data in conn_dict is correct
+                    if not dest_name in self.conn_dict:
+                        raise KeyError('The connections are not correct')
+                    source_pair = self.conn_dict[dst_name]
+                    if not source_object == source_pair[0]:
+                        raise KeyError('The connections are not correct')
+                    if not source_name == source_pair[1]:
+                        raise KeyError('The connections are not correct')
+                    # Verify that the data in output_connections is correct
+                    if not source_name in source_object.output_connections:
+                        raise KeyError('The connections are not correct')
+                    if not self in source_object.output_connections[source_name]:
+                        raise KeyError('The connections are not correct')
+                    if not dest_name in source_object.output_connections[source_name][self]:
+                        raise KeyError('The connections are not correct')
+
+        # Test all data from conn_dict
+        for dest_name, source_pair in self.conn_dict.items():
+            source_object = source_pair[0]
+            source_name = source_pair[1]
+            # Verify that the data in output_connections is correct
+            if not source_name in source_object.output_connections:
+                raise KeyError('The connections are not correct')
+            if not self in source_object.output_connections[source_name]:
+                raise KeyError('The connections are not correct')
+            if not dest_name in source_object.output_connections[source_name][self]:
+                raise KeyError('The connections are not correct')
+            # Verify all the data from connections
+            if not source_object in self.connections:
+                raise KeyError('The connections are not correct')
+            src_dst_map = self.connections[source_object]
+            if not source_name in src_dst_map:
+                raise KeyError('The connections are not correct')
+            dest_list = src_dst_map[source_name]
+            if not dest_name in dest_list:
+                raise KeyError('The connections are not correct')
+
+        # Test all data from output_connections
+        for source_name, dest_dict in self.output_connections.items():
+            for dest_object, dest_list in dest_dict.items():
+                for dest_name in dest_list:
+                    # Verify that the data in conn_dict is correct
+                    if not dest_name in dest_object.conn_dict:
+                        raise KeyError('The connections are not correct')
+                    source_pair = dest_object.conn_dict[dst_name]
+                    if not self == source_pair[0]:
+                        raise KeyError('The connections are not correct')
+                    if not source_name == source_pair[1]:
+                        raise KeyError('The connections are not correct')
+                    # Verify all the data from connections
+                    if not self in dest_object.connections:
+                        raise KeyError('The connections are not correct')
+                    src_dst_map = dest_object.connections[self]
+                    if not source_name in src_dst_map:
+                        raise KeyError('The connections are not correct')
+                    if not dest_name in src_dst_map[source_name]:
+                        raise KeyError('The connections are not correct')
+
+    @staticmethod
+    def _verify_all_connections():
+        for obj in FUSED_Object.all_objects:
+            obj._verify_connections()
 
     # This will list the connections associated with an object
     def get_connection_with_object(self, obj):
@@ -690,13 +889,22 @@ class FUSED_Object(object):
 
         raise Exception('The compute method has not been implemented')
 
+    # This instructs this class to collect the input data
+    def collect_input_data(self):
+        self._build_input_vector()
+
+    # This instructs this class to update it's data
+    def update_output_data(self):
+        self._build_input_vector()
+        self.compute(self.input_values, self.output_values)
+        self._updating_data()
+
+    # This will retrieve the output dictionary
     def get_output_value(self):
 
         ans = self._update_needed()
         if ans:
-            self._build_input_vector()
-            self.compute(self.input_values, self.output_values)
-            self._updating_data()
+            self.update_output_data()
         return self.output_values
 
     # This method is used by case generators to set the output values from other objects
@@ -809,6 +1017,9 @@ class Independent_Variable(FUSED_Object):
 
         return self.retval
 
+# This following is a workflow
+##########################################################################
+
 # The following function will solve the split configuration of a work-flow
 ##########################################################################
 
@@ -822,22 +1033,75 @@ class Independent_Variable(FUSED_Object):
 class FUSED_System_Base(object):
 
     def __init__(self, objects_in, output_objects_in):
-        super(FUSED_System, self).__init__()
+        super(FUSED_System_Base, self).__init__()
 
         # basically store the objects
         self.system_objects = objects_in
+        # stores the objects that provide an output
         self.system_output_objects = output_objects_in
+        # stores the independent variable components
         self.system_input_objects = set()
+        # stores the input connections
+        self.system_input_connections = {}
 
         # whether it has been configured or not
         self.system_has_been_configured = False
 
+    def dissolve_groups(self, object_list = None):
+
+        # If no object list is given, use my own
+        my_objects = False
+        if object_list is None:
+            my_objects = True
+            object_list = self.system_objects
+ 
+        # First, dissolve any groups
+        need_check = True
+        while need_check:
+            tmp_system_objects = []
+            need_check = False
+            for obj in object_list:
+                if isinstance(obj, FUSED_System_Base) and not isinstance(obj, FUSED_Object):
+                    need_check = True
+                    for sub_obj in obj.system_objects:
+                        tmp_system_objects.append(sub_obj)
+                else:
+                    tmp_system_objects.append(obj)
+            object_list = tmp_system_objects
+
+        # Set my objects if needed
+        if my_objects:
+            self.system_objects = object_list
+
+        return object_list
+
     def configure_system(self):
+
+        # Lets dissolve my groups
+        self.dissolve_groups()
 
         # find all the input objects
         for obj in self.system_objects:
             if obj.is_independent_variable():
+                # Save the input object
                 self.system_input_objects.add(obj)
+                # Save the output connections
+                self.system_input_connections[obj]={}
+                oc0=self.system_input_connections[obj]
+                # Now create the data structure recursively
+                # loop over the output names
+                for output_name, dest_obj_dict in obj.output_connections.items():
+                    if not output_name in oc0:
+                        oc0[output_name]={}
+                    oc1=oc0[output_name]
+                    # loop over the destination objects
+                    for dest_obj, dest_list in dest_obj_dict.items():
+                        if not dest_obj in oc1:
+                            oc1[dest_obj]=[]
+                        oc2=oc1[dest_obj]
+                        # loop over the destination names
+                        for dest_name in dest_list:
+                            oc2.append(dest_name)
 
         # check if the lengths are acceptable
         if len(self.system_objects)==0 or len(self.system_output_objects)==0 or len(self.system_input_objects)==0:
@@ -973,12 +1237,18 @@ class FUSED_System_Base(object):
             for lcl_name, gbl_name in name_map.items():
                 self.system_output_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
 
+        self.system_has_been_configured = True
+
+    def system_set_state_version(self, state_version_in=None):
+
+        # create a new state version if nothing has been specified
+        if state_version_in is None:
+            state_version_in = FUSED_System.default_state_version
+
         # Add a new state version for this sub-system
-        self.system_state_version = StateVersion()
+        self.system_state_version = state_version_in
         for obj in self.system_objects:
             obj.set_state_version(self.system_state_version)
-
-        self.system_has_been_configured = True
 
     def get_object_and_local_from_global_input(self, gbl_name):
 
@@ -1000,6 +1270,7 @@ class FUSED_System_Base(object):
 
         return self.system_ifc
 
+    # This will tell this system to compute
     def system_compute(self, input_values, output_values):
 
         # First set the inputs on the input objects
@@ -1016,13 +1287,210 @@ class FUSED_System_Base(object):
             for local_name, global_name in output_map.items():
                 output_values[global_name] = output[local_name]
 
+    # This will find all the objects and the connection information that provides information to this group. 
+    # This will find the connections from objects outside this group
+    def find_source_connections(self):
+
+        # the result, a dictionary with all the connection information {source_object: {dest_object: (src_dst_map, dst_src_map)}}
+        retval = {}
+
+        # loop through all my objects to get my source objects
+        for obj in self.system_objects:
+            # Look at all the source connections
+            for src_obj, src_dst_map in obj.connections.items():
+                # test if that object is external
+                if not src_obj in self.system_objects:
+                    # Build the entries for the retval
+                    if not src_obj in retval:
+                        retval[src_obj]={obj:({},{})}
+                    if not obj in retval[src_obj]:
+                        retval[src_obj][obj]=({},{})
+                    # Retrieve the maps that we must update
+                    system_src_dst_map, system_dst_src_map = retval[src_obj][obj]
+                    # Loop through all the source variables
+                    for src_name, dst_list in src_dst_map.items():
+                        # loop through all the dest variables
+                        for dest_name in dst_list:
+                            # Add it to the system_dst_src_map
+                            if src_name in system_src_dst_map:
+                                system_src_dst_map[src_name].append(dst_name)
+                            else:
+                                system_src_dst_map[src_name]=[dst_name]
+                            # Add it to the system_dst_src_map
+                            if dest_name in system_dst_src_map:
+                                raise Exception('It seems the connection configuration has been corrupted')
+                            system_dst_src_map[dest_name]=src_name
+                    retval[src_obj][obj]=(system_src_dst_map, system_dst_src_map)
+
+        # Return the result
+        return retval
+
+    # This will find all the objects and the connection information that recieves information from this group. 
+    # This will find the connections from objects outside this group
+    def find_dest_connections(self):
+
+        # the result, a dictionary with all the connection information {dest_object: {source_object: (src_dst_map, dst_src_map)}}
+        retval = {}
+
+        # loop through all my objects to get my source objects
+        for obj in self.system_objects:
+            # Look at all the output connections
+            for src_name, dest_dict in obj.output_connections.items():
+                # Look at all the dest objects
+                for dest_obj, dest_list in dest_dict.items():
+                    # test if that object is external
+                    if not dest_obj in self.system_objects:
+                        # Build the entries for the retval
+                        if not dest_obj in retval:
+                            retval[dest_obj]={obj:({},{})}
+                        if not obj in retval[src_obj]:
+                            retval[dest_obj][obj]=({},{})
+                        # Retrieve the maps that we must update
+                        system_src_dst_map, system_dst_src_map = retval[src_obj][obj]
+                        # loop through all the dest variables
+                        for dest_name in dst_list:
+                            # Add it to the system_dst_src_map
+                            if src_name in system_src_dst_map:
+                                system_src_dst_map[src_name].append(dst_name)
+                            else:
+                                system_src_dst_map[src_name]=[dst_name]
+                            # Add it to the system_dst_src_map
+                            if dest_name in system_dst_src_map:
+                                raise Exception('It seems the connection configuration has been corrupted')
+                            system_dst_src_map[dest_name]=src_name
+                        retval[src_obj][obj]=(system_src_dst_map, system_dst_src_map)
+
+        # Return the result
+        return retval
+
+# This is a group based on system base, here the object does not have a seperate StateVersion
+class FUSED_Group(FUSED_System_Base):
+
+    # This is the constructor
+    def __init__(self, objects_in=[], output_objects_in=[]):
+        super(FUSED_Group, self).__init__(objects_in=objects_in, output_objects_in=output_objects_in)
+
+    # Identifies whether it is an independent variable
+    def is_independent_variable(self):
+        return False
+
+    # Identifies if group
+    def is_group(self):
+        return True
+
+    # This will build the interface
+    def get_interface(self):
+        if not self.system_has_been_configured:
+            self.configure_system()
+        return self.get_system_interface()
+
+    # This will connect the input from an object
+    def connect_input_from(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+        self.connect(source_object, var_name_source, var_name_dest, alias)
+
+    # This will connect the output to a certain object
+    def connect_output_to(self, dest_object, var_name_source=None, var_name_dest=None, alias={}):
+
+        if not isinstance(dest_object, FUSED_Object):
+            for obj in dest_object:
+                obj.connect(self, var_name_dest=var_name_dest, var_name_source=var_name_source, alias=alias)
+            return
+
+        dest_object.connect(self, var_name_dest=var_name_dest, var_name_source=var_name_source, alias=alias)
+
+    # This will specify connections
+    def connect(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+ 
+        # 1) Parse the arguments
+        src_dst_map, dst_src_map = parse_connect_args(self, source_object, var_name_dest, var_name_source, alias)
+
+        # obj, dest name -> src name
+        dest_conn_struct = {}
+
+        # 2) for every destination create a dest map
+        for dest_name, source_name in dst_src_map.items():
+            #   2a) collect the true dest object
+            obj, local_dest_name = self.get_object_and_local_from_global_input(dest_name)
+            # test if out object is an independent variable
+            if obj.is_independent_variable():
+                # Now that the obj has been over-riden ensure that it is no longer in my object list
+                if obj in self.system_objects:
+                    self.system_objects.remove(obj)
+                # Now we loop through the output connection of indep variable
+                output_connections = self.system_input_connections[obj]
+                # Loop through output connections
+                for iv_source_name, iv_output_dict in output_connections.items():
+                    # Loop through the output dict
+                    for iv_dst_obj, iv_dest_list in iv_output_dict.items():
+                        # Loop through the destination names
+                        for iv_dest_name in iv_dest_list:
+                            if iv_dst_obj in dest_conn_struct:
+                                if iv_dest_name in dest_conn_struct[iv_dst_obj]:
+                                    raise NameError('A variable is being connected to twice')
+                                dest_conn_struct[iv_dst_obj][iv_dest_name] = source_name
+                            else:
+                                dest_conn_struct[iv_dst_obj]={iv_dest_name:source_name}
+            else:
+                print('It is assumed that no non-independent variables are inputs so this branch should not be executed')
+                if obj in dest_conn_struct:
+                    if local_dest_name in dest_conn_struct[obj]:
+                        raise NameError('A variable is being connected to twice')
+                    dest_conn_struct[obj][local_dest_name] = source_name
+                else:
+                    dest_conn_struct[obj]={local_dest_name:source_name}
+
+        # 3) for every dest object, run connect on that object
+        for obj, conn_dict in dest_conn_struct.items():
+            obj.connect(source_object, conn_dict)
+
+    # This will call on all objects feeding objects in this group to update their output data
+    def collect_input_data(self):
+
+        # Collect the external source objects
+        source_dict = self.find_source_connections()
+
+        # Then update the output data for the input object
+        for src_obj in source_dict.keys():
+            src_obj.update_output_data()
+
+    # This will call objects in this group to update their data
+    def update_output_data(self):
+
+        # Loop through each object and update output data
+        for obj in self.system_objects:
+            obj.update_output_data()
+
+    # This will retrieve the output values for the group
+    def get_output_value(self):
+
+        # this is the return value
+        retval = {}
+
+        # retrieve the interface
+        ifc = self.get_interface()
+
+        # loop over the outputs
+        for out_name, out_meta in ifc['output'].items():
+            local_object, local_name = self.get_object_and_local_from_global_output(out_name)
+            output_values = local_object.get_output_value()
+            retval[out_name]=output_values[local_name]
+
+        return retval
+
 # This is a merge of the FUSED_Object and FUSED_System_Base
 class FUSED_System(FUSED_Object, FUSED_System_Base):
 
+    # This is the constructor
     def __init__(self, objects_in=[], output_objects_in=[], object_name_in='unnamed_system_object', state_version_in=None):
         FUSED_Object.__init__(self, object_name_in=object_name_in, state_version_in=state_version_in)
         FUSED_System_Base.__init__(self, objects_in=objects_in, output_objects_in=output_objects_in)
 
+    # Over-ride the configuration method to create an independent sub-system
+    def configure_system(self):
+        FUSED_System_Base.configure_system(self)
+        self.system_set_state_version(StateVersion())
+
+    # This is the compute method
     def compute(self, input_values, output_values):
 
         if not self.system_has_been_configured:
@@ -1030,6 +1498,7 @@ class FUSED_System(FUSED_Object, FUSED_System_Base):
 
         self.system_compute(input_values, output_values)
 
+    # This will build the interface
     def _build_interface(self):
 
         if not self.system_has_been_configured:
