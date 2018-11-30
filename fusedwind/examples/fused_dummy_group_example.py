@@ -380,7 +380,6 @@ if __name__ == '__main__':
     print('==================')
     print('interface:')
     print('------------------')
-    import pdb; pdb.set_trace()
     nest_group.get_interface()
     print_interface(nest_group.get_interface())
     print('output:')

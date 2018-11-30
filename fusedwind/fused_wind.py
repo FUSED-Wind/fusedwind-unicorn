@@ -366,8 +366,7 @@ class FUSED_Object(object):
     all_objects = []
 
     def __init__(self, object_name_in='unnamed_object', state_version_in=None):
-
-        super(FUSED_Object,self).__init__()
+        object.__init__(self)
 
         # This is the name of the object. Useful for printing helpful messages
         self.object_name = object_name_in
@@ -591,7 +590,7 @@ class FUSED_Object(object):
         # If there are multiple source objects
         #########################################################
 
-        if not isinstance(source_object, FUSED_Object) and not source_object.is_group():
+        if not isinstance(source_object, FUSED_Object) and not isinstance(source_object, FUSED_Group):
             for obj in source_object:
                 self.connect(obj, var_name_dest, var_name_source, alias)
             return
@@ -1753,6 +1752,7 @@ def split_worflow(split_points):
         # build a system
         else:
             sub_system_models[sub_system_hash_value] = FUSED_System(object_set, sub_system_output_objects[sub_system_hash_value])
+            sub_system_models[sub_system_hash_value].configure_system()
             sub_system_models_is_system[sub_system_hash_value] = True
 
     #print('=================== MIMC After generating the sub-system models ===================')
