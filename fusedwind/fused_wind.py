@@ -1129,7 +1129,7 @@ class FUSED_System_Base(object):
                 else:
                     output_data[output_name]=[(obj, output_meta)]
 
-        # Loop through the output data and build the inteface
+        # Loop through the output data and build the interface
         #
         # This basically creates a map from local_output_name to an object that has that output and it's meta
         #    output_map[output_obj]=([], {})
@@ -1145,6 +1145,7 @@ class FUSED_System_Base(object):
                 output_obj = output_pair[0]
                 output_meta = output_pair[1]
                 output_meta['name'] = output_name
+                #print('MIMC adding %s to the output'%(output_name))
                 set_output(self.system_ifc, output_meta)
                 if output_obj in self.system_output_map:
                     self.system_output_map[output_obj][0].append(output_name)
@@ -1169,6 +1170,7 @@ class FUSED_System_Base(object):
                     output_obj = output_pair[0]
                     output_meta = output_pair[1]
                     output_meta['name'] = name
+                    #print('MIMC adding %s to the output'%(name))
                     set_output(self.system_ifc, output_meta)
                     if output_obj in self.system_output_map:
                         self.system_output_map[output_obj][0].append(output_name)
@@ -1186,7 +1188,7 @@ class FUSED_System_Base(object):
                 else:
                     input_data[input_name]=[(obj, input_meta)]
 
-        # Loop through the input data and build the inteface
+        # Loop through the input data and build the interface
         self.system_input_map = {}
         for input_name, input_list in input_data.items():
             if len(input_list)==1:
@@ -1194,6 +1196,7 @@ class FUSED_System_Base(object):
                 input_obj = input_pair[0]
                 input_meta = input_pair[1]
                 input_meta['name'] = input_name
+                #print('MIMC adding %s to the input'%(input_name))
                 set_input(self.system_ifc, input_meta)
                 if input_obj in self.system_input_map:
                     self.system_input_map[input_obj][input_name]=input_name
@@ -1217,6 +1220,7 @@ class FUSED_System_Base(object):
                     input_obj = input_pair[0]
                     input_meta = input_pair[1]
                     input_meta['name'] = name
+                    #print('MIMC adding %s to the input'%(name))
                     set_input(self.system_ifc, input_meta)
                     if input_obj in self.system_input_map:
                         self.system_input_map[input_obj][input_name]=name
@@ -1238,11 +1242,13 @@ class FUSED_System_Base(object):
 
         self.system_has_been_configured = True
 
+        #print('MIMC after configuration, the interface looks like this:', self.system_ifc)
+
     def system_set_state_version(self, state_version_in=None):
 
         # create a new state version if nothing has been specified
         if state_version_in is None:
-            state_version_in = FUSED_System.default_state_version
+            state_version_in = FUSED_Object.default_state_version
 
         # Add a new state version for this sub-system
         self.system_state_version = state_version_in
@@ -1502,7 +1508,7 @@ class FUSED_System(FUSED_Object, FUSED_System_Base):
 
         if not self.system_has_been_configured:
             self.configure_system()
-        self.inteface = self.get_system_interface()
+        self.interface = self.get_system_interface()
 
 def obj_list_to_id_set(obj_list):
     retval = set()
@@ -1556,7 +1562,7 @@ def get_execution_order(objects=None):
 # Solves the split configuration
 # It will group the objects into sub-systems
 # It will solve the objects within the sub-system that provide output for other sub-systems
-# It will solve the objects that accept intput from other sub-system objects
+# It will solve the objects that accept input from other sub-system objects
 def get_split_configuration(split_points):
 
     # 1) Collect all the modules in this work-flow
@@ -1751,7 +1757,9 @@ def split_worflow(split_points):
             sub_system_models_is_system[sub_system_hash_value] = False
         # build a system
         else:
-            sub_system_models[sub_system_hash_value] = FUSED_System(object_set, sub_system_output_objects[sub_system_hash_value])
+            sub_system_models[sub_system_hash_value] = FUSED_System(object_set, sub_system_output_objects[sub_system_hash_value], object_name_in=id_obj_map[sub_system_hash_value].object_name)
+            #print('MIMC adding pdb directive here. Looking at configure syste for system object %s'%(id_obj_map[sub_system_hash_value].object_name))
+            #import pdb; pdb.set_trace()
             sub_system_models[sub_system_hash_value].configure_system()
             sub_system_models_is_system[sub_system_hash_value] = True
 
