@@ -29,6 +29,7 @@ class FUSED_MPI_Cases(object):
             self.comm=MPI.COMM_WORLD
 
         self.jobs = jobs
+        self.i_am_executing = False
 
     def add_job(self, job):
 
@@ -53,6 +54,11 @@ class FUSED_MPI_Cases(object):
         self.jobs[job_id].execute()
 
     def execute(self):
+
+        if self.i_am_executing:
+            return
+
+        self.i_am_executing = True
 
         # Check if we are running under MPI
         if not self.comm is None and self.comm.size>1:
@@ -123,6 +129,8 @@ class FUSED_MPI_Cases(object):
             for job_id in range(0, len(self.jobs)):
                 self.execute_job(job_id)
 
+        self.i_am_executing = False
+
     # set-up the communicator
     def _setup_communicators(self, comm, parent_dir):
 
@@ -134,15 +142,18 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
     def __init__(self, jobs=[], comm=None):
         super(FUSED_MPI_ObjectCases, self).__init__(jobs, comm)
 
+        for job in self.jobs:
+            job.set_case_runner(self)
+
     def pre_run(self):
 
         # we need to pull the input so that part of the script runs in serial
-        for job in jobs:
-            job._build_input_vector()
+        for job in self.jobs:
+            job.collect_input_data()
 
     def execute_job(self, job_id):
 
-        self.jobs[job_id].get_output_value()
+        self.jobs[job_id].update_output_data()
 
     def post_run(self, job_list):
 

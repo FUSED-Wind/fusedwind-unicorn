@@ -402,6 +402,7 @@ class FUSED_Object(object):
             self.state_version = state_version_in
         self.my_state_version = 0
         self.output_values = {}
+        self.my_case_runner = None
 
         # Ensure these objects can be indexed
         self._hash_value = FUSED_Object._object_count
@@ -892,15 +893,26 @@ class FUSED_Object(object):
     def collect_input_data(self):
         self._build_input_vector()
 
+    # This will set the case runner for this object
+    def set_case_runner(self, case_runner_in = None):
+
+        if not self.my_case_runner is None:
+            print('It appears that you are setting a case runner to this object twice. Note, that nested case-runners are not supported at this time.')
+        self.my_case_runner = case_runner_in
+
     # This instructs this class to update it's data
     def update_output_data(self):
-        self._build_input_vector()
-        self.compute(self.input_values, self.output_values)
-        self._updating_data()
+        if self.my_case_runner is None or self.my_case_runner.i_am_executing:
+            self._build_input_vector()
+            self.compute(self.input_values, self.output_values)
+            self._updating_data()
+        else:
+            self.my_case_runner.execute()
 
     # This will retrieve the output dictionary
     def get_output_value(self):
 
+        print('WARNING: This method may be depricated')
         ans = self._update_needed()
         if ans:
             self.update_output_data()
@@ -1481,6 +1493,13 @@ class FUSED_Group(FUSED_System_Base):
             retval[out_name]=output_values[local_name]
 
         return retval
+
+    # This will set the case runner for all objects
+    def set_case_runner(self, case_runner_in=None):
+
+        # Loop through each object and update output data
+        for obj in self.system_objects:
+            obj.set_case_runner(case_runner_in)
 
 # This is a merge of the FUSED_Object and FUSED_System_Base
 class FUSED_System(FUSED_Object, FUSED_System_Base):
