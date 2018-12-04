@@ -18,7 +18,6 @@ tags = enum('READY','DONE','EXIT','START')
 class FUSED_MPI_Cases(object):
 
     def __init__(self, jobs=[], comm=None):
-
         super(FUSED_MPI_Cases, self).__init__()
 
         self.comm=comm
@@ -50,7 +49,6 @@ class FUSED_MPI_Cases(object):
         self.jobs[job_id].execute()
 
     def execute(self):
-
         # Check if we are running under MPI
         if not self.comm is None and self.comm.size>1:
 
@@ -183,3 +181,20 @@ class FUSED_MPI_np_Array(FUSED_MPI_Cases):
             else:
                 output_value = comm.bcast(None, root=src)
                 self.jobs[i].result = output_value
+
+ 
+class FUSED_MPI_DataSetCases(FUSED_MPI_Cases):
+    def __init__(self, jobs=[], comm=None):
+        super(FUSED_MPI_DataSetCases, self).__init__(jobs, comm)
+    def post_run(self, job_list):
+        comm=self.comm
+        size=comm.size
+        rank=comm.rank
+
+        for i, src in enumerate(job_list):
+            if rank == src:
+                my_output = self.jobs[i].get_output()
+                comm.bcast(my_output, root=src)
+            else:
+                output = comm.bcast(None, root=src)
+                self.jobs[i].set_output(output)

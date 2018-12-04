@@ -187,3 +187,28 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
             if rank==0:
                 import pdb;pdb.set_trace()
+
+class FUSED_MPI_DataSetCases(FUSED_MPI_Cases):
+
+    def __init__(self, data_set_object, jobs=[], comm=None):
+        super(FUSED_MPI_DataSetCases, self).__init__(jobs, comm)
+
+    def post_run(self, job_list):
+
+        comm=self.comm
+        size=comm.size
+        rank=comm.rank
+
+        numpy_arrays = data_set_object.get_numpy_array()
+        
+        for i, src in enumerate(job_list):
+            if rank == src:
+                my_output = self.jobs[i].get_output()
+                comm.bcast(my_output, root=src)
+            else:
+                output = comm.bcast(None, root=src)
+                self.jobs[i].set_output(output)
+
+
+        #Here is needed a method that collects everything
+
