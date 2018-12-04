@@ -19,6 +19,12 @@
 import numpy as np
 import copy
 
+try:
+    from mpi4py import MPI
+except:
+    print('It seems that we are not able to import MPI')
+    MPI = None
+
 # The following are helper functions to create a custom interface
 #################################################################
 
@@ -75,6 +81,40 @@ def print_interface(fifc):
     print("Output:")
     for name, meta in out_ifc.items():
         print('\t%s: %s'%(name, str(meta)))
+
+# This is a class that tracks where a value is located within an MPI environment
+# ##############################################################################
+
+# How do we differentiate between local access and distributed access?
+#
+#     All access is assumed to be local
+#
+
+# THIS SEEMS A LITTLE TOO CLUNKY class MPI_Value(object):
+# THIS SEEMS A LITTLE TOO CLUNKY 
+# THIS SEEMS A LITTLE TOO CLUNKY     def __init__(self, comm = None):
+# THIS SEEMS A LITTLE TOO CLUNKY 
+# THIS SEEMS A LITTLE TOO CLUNKY         self.value = None
+# THIS SEEMS A LITTLE TOO CLUNKY         self.need_sync = False
+# THIS SEEMS A LITTLE TOO CLUNKY         self.at_rank = -1
+# THIS SEEMS A LITTLE TOO CLUNKY 
+# THIS SEEMS A LITTLE TOO CLUNKY         if not MPI is None and self.comm==None:
+# THIS SEEMS A LITTLE TOO CLUNKY             self.comm=MPI.COMM_WORLD
+# THIS SEEMS A LITTLE TOO CLUNKY 
+# THIS SEEMS A LITTLE TOO CLUNKY     def get_value(self):
+# THIS SEEMS A LITTLE TOO CLUNKY 
+# THIS SEEMS A LITTLE TOO CLUNKY         if self.need_sync or self.at_rank>=0:
+# THIS SEEMS A LITTLE TOO CLUNKY             if MPI is None:
+# THIS SEEMS A LITTLE TOO CLUNKY                 raise ValueError('It seems the value is not owned, but we are not running under MPI')
+# THIS SEEMS A LITTLE TOO CLUNKY             self.comm.bcast(self.value, self.at_rank)
+# THIS SEEMS A LITTLE TOO CLUNKY             self.owned = True
+# THIS SEEMS A LITTLE TOO CLUNKY         return self.value
+# THIS SEEMS A LITTLE TOO CLUNKY 
+# THIS SEEMS A LITTLE TOO CLUNKY     def set_value(self, value_in, at_rank_in = -1):
+# THIS SEEMS A LITTLE TOO CLUNKY 
+# THIS SEEMS A LITTLE TOO CLUNKY         if at_rank_in<0 or self.comm.rank==at_rank_in
+# THIS SEEMS A LITTLE TOO CLUNKY         self.value = value_in
+# THIS SEEMS A LITTLE TOO CLUNKY         self.at_rank = at_rank_in
 
 # This is a state version object
 ################################
@@ -402,6 +442,7 @@ class FUSED_Object(object):
             self.state_version = state_version_in
         self.my_state_version = 0
         self.output_values = {}
+        self.output_at_rank = {}
         self.my_case_runner = None
 
         # Ensure these objects can be indexed
@@ -900,7 +941,7 @@ class FUSED_Object(object):
             print('It appears that you are setting a case runner to this object twice. Note, that nested case-runners are not supported at this time.')
         self.my_case_runner = case_runner_in
 
-    # This instructs this class to update it's data
+    # This instructs this class to update it's data through calculation
     def update_output_data(self):
         if self.my_case_runner is None or self.my_case_runner.i_am_executing:
             self._build_input_vector()
@@ -908,6 +949,80 @@ class FUSED_Object(object):
             self._updating_data()
         else:
             self.my_case_runner.execute()
+
+    # This will retrieve a specific variable
+    def __getitem__(self, key):
+        
+        # First verify this is a valid key
+        ifc = self.get_interface()
+        if not key in ifc['output'].keys():
+            raise KeyError('That data is not in the interface')
+        # Verify that the data is calculated based on the latest state
+        if self._update_needed():
+            self.update_output_data()
+        # Verify that the data is synchronized properly
+        if key in self.output_at_rank and self.output_at_rank[key]>=0:
+            self.sync_output(key)
+        # Return the result
+        return self.output_values[key]
+
+    # This will label all variables as remotely calculated
+    def set_as_remotely_calculated(self, at_rank):
+
+        ifc = self.get_interface()
+        for out_name in ifc['output'].keys():
+            self.output_at_rank[out_name] = at_rank
+        self._updating_data()
+
+    # This will synchronize the variables across MPI processes
+    def sync_output(self, var_name = None):
+        # None indicates all variables
+        # '__upstream__' indicates all upstream
+        
+        # If we tranfer all
+        if var_name is None:
+            cont = True
+            at_rank = -1
+            var_name = []
+            for k, v in self.output_at_rank.items():
+                at_rank = v
+                if v<0:
+                    cont = False
+                else:
+                    var_name.append(k)
+            if cont:
+                # broadcast everything
+                self.comm.bcast(self.output_values, at_rank)
+                # reset the output at rank data structure
+                self.output_at_rank = {}
+                # return
+                return
+
+        # if we transfer only upstream
+        if var_name == '__upstream__':
+            var_name = []
+            for output_name in self.output_connections.keys():
+                if output_name in self.output_at_rank and self.output_at_rank[output_name]>=0:
+                    var_name.append(output_name)
+
+        # if we transfer a single variable
+        if isinstance(var_name, str):
+            var_name = [var_name]
+
+        # process a list of variables
+        for name in var_name:
+            # Only if the list contains a valid variable
+            if name in self.output_at_rank and self.output_at_rank[name]>=0:
+                at_rank = self.output_at_rank[name]
+                if not name in output_values:
+                    output_values[name] = None
+                self.comm.bcast( output_values[name], at_rank)
+                del self.output_at_rank[name]
+            else:
+                raise KeyError('Tried to sync a variable that does not exist')
+
+    # The following is depricated
+    ##############################
 
     # This will retrieve the output dictionary
     def get_output_value(self):
@@ -920,6 +1035,8 @@ class FUSED_Object(object):
 
     # This method is used by case generators to set the output values from other objects
     def _set_output_values(self, output_values):
+
+        print('WARNING: This method may be depricated')
         if not isinstance(output_values, dict):
             raise ValueError('The output values must be a dictionary')
         self.output_values=output_values
@@ -927,6 +1044,8 @@ class FUSED_Object(object):
 
     # This method is used by case generators to set the output values from other objects
     def _set_output_value(self, output_key, output_value):
+
+        print('WARNING: This method may be depricated')
         self.output_values[output_key]=output_value
         self._updating_data()
 
