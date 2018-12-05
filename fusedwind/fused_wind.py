@@ -1189,24 +1189,87 @@ class FUSED_System_Base(object):
         self.system_output_objects = output_objects_in
         # stores the independent variable components
         self.system_input_objects = set()
-        # stores the input connections
+
+        # stores the input connection information
         # CURRENT: system_input_connections[indep_var_obj][indep_var_variable_name][dest_obj]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
         # FUTURE: system_input_connections[global_input_name][internal_dest_object]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
         self.system_input_connections = {}
+
         # For the case that we set independent variables, we need to know how the global input name maps to those input variables
         # FUTURE: A data structure that is system_independent_input[global_input_name][independent_object]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
 
         # whether it has been configured or not
         self.system_has_been_configured = False
 
-    def get_output_interface_from_objects(self, object_list = None):
+    # This is suppose to use the independent variables to build an input interface
+    def add_input_interface_from_independent_variables(self, object_list = None):
+        # The objects in the object list must be objects within this object
+        # When the object list is None, then all the objects in this object are considered
+        # The method will search for independent variables from within the list
+        # This is an automated interface generation scheme
         # MIMC TODO
-        # This is suppose to assume that all outputs of all objects in the list are public output variables. When none, all objects are used
         pass
 
-    def get_input_interface_from_independent_variables(self, object_list = None):
+    # This is suppose to get an input interface from connections
+    def add_input_interface_from_connections(self, use_set_connections = True):
+        # This will build an input interface from the existing connections
+        # In cases where a single input goes to two variables within this group, only one input variable is declared
+        # Furthermore, in this case, the default name for this variable is based on the first associated object in the internal object list
+        # When 'use_set_connections' is true, then existing connections are used
+        # When 'use_set_connections' is false, then each empty connection is used
+        # This is an automated interface generation scheme
         # MIMC TODO
-        # This is suppose to use the independent variables to build an input interface
+        pass
+
+    # This is suppose to assume that all inputs of all objects in the list are public input variables.
+    def add_input_interface_from_objects(self, object_list = None):
+        # The object list must be a list of objects contained within this object
+        # When object_list is none, Then it is assumed that all objects are used
+        # This is an automated interface generation scheme
+        # MIMC TODO
+        pass
+
+    # This is suppose to add an input based on a fused var.
+    # Note, that this interface item takes precedent over all automated interface constructions
+    def set_input_variable(self, var_name, obj_dict = None, dest_list = None):
+        # var_name:               Can be a name for the variable, or
+        #                         Actual fused variable, Note the meta data from the object will be absorbed
+        # obj_dict:               A dictionary of objects to make connections to
+        #                         The entries of dictionary contain the input variables of that object that should be associated with this var_name
+        #                         The entries of the dictionary can be None, in which case the input with the same name is assumed
+        #                         When this is None, then all objects will be searched for input variables that could match the name
+        # dest_list:              
+        # Note 1: That when both obj_dict and dest_list are None, all objects are searched for candidates based on the var_name
+        # Note 2: It will be assumed that multiple destination variables found will all recieve the same data
+        # MIMC TODO
+        pass
+
+    # This is suppose to assume that all outputs of all objects in the list are public output variables.
+    def add_output_interface_from_objects(self, object_list = None):
+        # The object list must be a list of objects contained within this object
+        # When object_list is none, Then it is assumed that all objects are used
+        # This is an automated interface generation scheme
+        # MIMC TODO
+        pass
+
+    # This is suppose to collect the interface from existing connections
+    def add_output_interface_from_connections(self, use_set_connections = True):
+        # When 'use_set_connections' is true, then existing connections are used
+        # When 'use_set_connections' is false, then empty connections are used
+        # This is an automated interface generation scheme
+        # MIMC TODO
+        pass
+
+    # This is suppose to add an output based on a fused var.
+    # Note, that this interface item takes precedent over all automated interface constructions
+    def set_output_variable(self, var_name, obj = None, local_output_name = None):
+        # var_name:               Can be a name for the variable
+        #                         Actual fused variable, Note the meta data from the object will be absorbed
+        # obj:                    The internal object where the output is from.
+        #                         If None, all objects searched for the variable.
+        #                         If duplicates are found an error is raised
+        # local_output_name:      The variable name in the object name-space
+        # MIMC TODO
         pass
 
     def dissolve_groups(self, object_list = None):
