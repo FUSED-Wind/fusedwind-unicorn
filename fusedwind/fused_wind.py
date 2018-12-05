@@ -976,8 +976,9 @@ class FUSED_Object(object):
 
     # This will synchronize the variables across MPI processes
     def sync_output(self, var_name = None):
+        # var_name indicates the variables that need to be synchronized
         # None indicates all variables
-        # '__upstream__' indicates all upstream
+        # '__downstream__' indicates all downstream involved in connections
         
         # If we tranfer all
         if var_name is None:
@@ -998,16 +999,17 @@ class FUSED_Object(object):
                 # return
                 return
 
-        # if we transfer only upstream
-        if var_name == '__upstream__':
-            var_name = []
-            for output_name in self.output_connections.keys():
-                if output_name in self.output_at_rank and self.output_at_rank[output_name]>=0:
-                    var_name.append(output_name)
-
         # if we transfer a single variable
         if isinstance(var_name, str):
             var_name = [var_name]
+
+        # if we transfer downstream
+        if '__downstream__' in var_name:
+            for output_name in self.output_connections.keys():
+                if output_name in self.output_at_rank and self.output_at_rank[output_name]>=0 and not output_name in var_name:
+                    var_name.append(output_name)
+            while '__downstream__' in var_name:
+                var_name.remove('__downstream__')
 
         # process a list of variables
         for name in var_name:
@@ -1019,7 +1021,7 @@ class FUSED_Object(object):
                 self.comm.bcast( output_values[name], at_rank)
                 del self.output_at_rank[name]
             else:
-                raise KeyError('Tried to sync a variable that does not exist')
+                raise KeyError('Tried to sync a variable that is not distributed')
 
     # The following is depricated
     ##############################
@@ -1596,8 +1598,66 @@ class FUSED_Group(FUSED_System_Base):
         for obj in self.system_objects:
             obj.update_output_data()
 
+    # This will retrieve a specific variable
+    def __getitem__(self, key):
+
+        local_object, local_name = self.get_object_and_local_from_global_output(key)
+        return local_object[local_name]
+
+    # This will label all variables as remotely calculated
+    def set_as_remotely_calculated(self, at_rank):
+
+        # loop through all objects
+        for obj in self.system_objects:
+            obj.set_as_remotely_calculated(at_rank)
+
+    # This will synchronize the variables across MPI processes
+    def sync_output(self, var_name = None):
+
+        # If it is NONE, then we just loop and sync everything
+        if var_name is None:
+            for obj in self.system_objects:
+                obj.sync_output()
+            return
+
+        # In the event that we are transfering a single variable name
+        if isinstance(var_name, str):
+            var_name = [var_name]
+
+        # This is the data structure that determines all the sync calls to objects
+        sync_dict = {}
+
+        # Check if we are suppose to transfer downstream variables
+        if '__downstream__' in var_name:
+            dest_conn = self.find_dest_connections()
+            for dest_obj, src_dict in dest_conn.items():
+                for src_obj, map_pair in src_dict.items():
+                    if not src_obj in sync_dict:
+                        sync_dict[src_obj] = list(map_pair[0].keys())
+                    else:
+                        for src_name in map_pair[0].keys():
+                            if not src_name in sync_dict[src_obj]:
+                                sync_dict[src_obj].append(src_name)
+            while '__downstream__' in var_name:
+                var_name.remove('__downstream__')
+
+        # Now collect the data from simple variable names
+        for name in var_name:
+            obj, local = self.get_object_and_local_from_global_output(name)
+            if obj in sync_dict:
+                if not local in sync_dict[obj]:
+                    sync_dict[obj].append(local)
+            else:
+                sync_dict[obj]=[local]
+
+        # Perform the sync
+        for obj, var_list in sync_dict.items():
+            obj.sync_output(var_list)
+
     # This will retrieve the output values for the group
     def get_output_value(self):
+
+        print('This method "get_output_value" is going to be deprecated')
 
         # this is the return value
         retval = {}
