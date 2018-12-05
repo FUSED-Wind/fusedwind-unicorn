@@ -1,6 +1,7 @@
 
 # FUSED wrapper
 from fusedwind.fused_wind import FUSED_Object, FUSED_Group, Independent_Variable, get_execution_order, print_interface
+from fusedwind.fused_mpi_cases import FUSED_MPI_ObjectCases
 
 import numpy as np
 
@@ -82,7 +83,7 @@ def get_work_flow(cnt=1, stage_cnt=1):
         group_objects = []
         last_obj = serial_add_one
         for j in range(0, stage_cnt):
-            k = 'parallel_add_one_track_%d_stage_%d'
+            k = 'parallel_add_one_track_%d_stage_%d'%(i, j)
             obj = FUSED_Dummy_Add_One(object_name_in=k)
             object_dict[k]=obj
             group_objects.append(obj)
@@ -93,4 +94,25 @@ def get_work_flow(cnt=1, stage_cnt=1):
 
     # Lets create the case runner
     case_runner = FUSED_MPI_ObjectCases(group_list)
+
+    # Now lets create a serial reduction
+    add_all = FUSED_Dummy_Add_All(cnt, object_name_in='add_all')
+    object_dict['add_all'] = add_all
+    for i, grp in enumerate(group_list):
+        import pdb; pdb.set_trace()
+        add_all.connect(grp, 'data%d'%(i), 'soln')
+
+    return object_dict
+
+if __name__ == '__main__':
+
+    print('MIMC Hello World!')
+
+    wf = get_work_flow(1, 1)
+
+    import pdb; pdb.set_trace()
+    soln = wf['add_all']['sum']
+    print('Answer should be 2')
+    print('soln:', soln)
+
 

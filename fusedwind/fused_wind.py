@@ -405,7 +405,7 @@ class FUSED_Object(object):
     _object_count = 0
     all_objects = []
 
-    def __init__(self, object_name_in='unnamed_object', state_version_in=None):
+    def __init__(self, object_name_in='unnamed_object', state_version_in=None, comm = None):
         object.__init__(self)
 
         # This is the name of the object. Useful for printing helpful messages
@@ -444,6 +444,11 @@ class FUSED_Object(object):
         self.output_values = {}
         self.output_at_rank = {}
         self.my_case_runner = None
+
+        # This is the MPI comm
+        self.comm = comm
+        if not MPI is None and self.comm==None:
+            self.comm=MPI.COMM_WORLD
 
         # Ensure these objects can be indexed
         self._hash_value = FUSED_Object._object_count
@@ -979,7 +984,12 @@ class FUSED_Object(object):
         # var_name indicates the variables that need to be synchronized
         # None indicates all variables
         # '__downstream__' indicates all downstream involved in connections
-        
+
+        # check if we are running in MPI
+        if self.comm is None:
+            return
+        my_rank = self.comm.rank()
+
         # If we tranfer all
         if var_name is None:
             cont = True
@@ -993,7 +1003,10 @@ class FUSED_Object(object):
                     var_name.append(k)
             if cont:
                 # broadcast everything
-                self.comm.bcast(self.output_values, at_rank)
+                if my_rank == at_rank:
+                    self.comm.bcast(self.output_values, at_rank)
+                else:
+                    self.output_values = self.comm.bcast(None, at_rank)
                 # reset the output at rank data structure
                 self.output_at_rank = {}
                 # return
@@ -1018,7 +1031,10 @@ class FUSED_Object(object):
                 at_rank = self.output_at_rank[name]
                 if not name in output_values:
                     output_values[name] = None
-                self.comm.bcast( output_values[name], at_rank)
+                if my_rank == at_rank:
+                    self.comm.bcast(output_values[name], at_rank)
+                else:
+                    output_values[name] = self.comm.bcast(None, at_rank)
                 del self.output_at_rank[name]
             else:
                 raise KeyError('Tried to sync a variable that is not distributed')
@@ -1174,10 +1190,24 @@ class FUSED_System_Base(object):
         # stores the independent variable components
         self.system_input_objects = set()
         # stores the input connections
+        # CURRENT: system_input_connections[indep_var_obj][indep_var_variable_name][dest_obj]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
+        # FUTURE: system_input_connections[global_input_name][internal_dest_object]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
         self.system_input_connections = {}
+        # For the case that we set independent variables, we need to know how the global input name maps to those input variables
+        # FUTURE: A data structure that is system_independent_input[global_input_name][independent_object]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
 
         # whether it has been configured or not
         self.system_has_been_configured = False
+
+    def get_output_interface_from_objects(self, object_list = None):
+        # MIMC TODO
+        # This is suppose to assume that all outputs of all objects in the list are public output variables. When none, all objects are used
+        pass
+
+    def get_input_interface_from_independent_variables(self, object_list = None):
+        # MIMC TODO
+        # This is suppose to use the independent variables to build an input interface
+        pass
 
     def dissolve_groups(self, object_list = None):
 
@@ -1245,7 +1275,7 @@ class FUSED_System_Base(object):
         self.system_ifc = create_interface()
 
         # This will be a map for the input and output variables
-        #     *put_map[obj][lcl_var]=sys_var
+        #     output_map[obj][lcl_var]=sys_var
         self.system_output_map = {}
 
         # now lets collect the output names

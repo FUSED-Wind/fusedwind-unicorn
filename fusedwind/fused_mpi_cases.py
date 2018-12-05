@@ -47,6 +47,7 @@ class FUSED_MPI_Cases(object):
         pass
 
     def post_run(self, job_list):
+        # Note job list stores the rank that completed a given job
         pass
 
     def execute_job(self, job_id):
@@ -142,40 +143,27 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
     def __init__(self, jobs=[], comm=None):
         super(FUSED_MPI_ObjectCases, self).__init__(jobs, comm)
 
+        self.sync_arg = '__downstream__'
         for job in self.jobs:
             job.set_case_runner(self)
 
+    # This will make sure that the upstream calculations are completed
     def pre_run(self):
 
         # we need to pull the input so that part of the script runs in serial
         for job in self.jobs:
             job.collect_input_data()
 
+    # This will execute the job
     def execute_job(self, job_id):
 
         self.jobs[job_id].update_output_data()
 
+    # This will ensure that all the data is synchronized
     def post_run(self, job_list):
 
-        comm=self.comm
-        size=comm.size
-        rank=comm.rank
-
-        # now perform broadcasts so all processes have the same data
-        for i, src in enumerate(job_list):
-            if rank==src:
-                my_output = self.jobs[i].get_output_value()
-                send_keys = list(my_output.keys())
-                # broadcast the keys
-                comm.bcast(send_keys, root=src)
-                # loop over the results
-                for k in send_keys:
-                    comm.bcast(my_output[k], root=src)
-            else:
-                # broadcast the keys
-                recv_keys = comm.bcast(None, root=src)
-                # loop over the results
-                for k in recv_keys:
-                    output_value = comm.bcast(None, root=src)
-                    self.jobs[i]._set_output_value(k, output_value)
+        # First indicate that all the data is distributed
+        for i, job in enumerate(self.jobs):
+            job.set_as_remotely_calculated(job_list[i])
+            job.sync_output(self.sync_arg)
 
