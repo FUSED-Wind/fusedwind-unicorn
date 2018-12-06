@@ -1201,35 +1201,212 @@ class FUSED_System_Base(object):
         # whether it has been configured or not
         self.system_has_been_configured = False
 
+        # FUTURE:
+        #   system_input_map[obj][lcl_name]                -> (global_input_name, is_set)   * Note: obj can be the input objects and the independent variable
+        #self.system_input_map = {}
+        #   system_input_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
+        #self.system_input_gbl_to_lcl_map = {}
+
     # This is suppose to use the independent variables to build an input interface
     def add_input_interface_from_independent_variables(self, object_list = None):
         # The objects in the object list must be objects within this object
         # When the object list is None, then all the objects in this object are considered
         # The method will search for independent variables from within the list
         # This is an automated interface generation scheme
-        # MIMC TODO
-        pass
+
+        # get the object list from the system objects
+        if object_list is None:
+            object_list = self.system_objects
+
+        # This stores the obj->[dest_name, ...] structure associated with indep-var
+        iv_dict = {}
+
+        # Now we loop and discover our independent variables
+        for iv_obj in object_list:
+            # is the object an indep ... then we must continue
+            if iv_obj.is_independent_variable():
+                # This is the var_name
+                var_name = iv_obj.name
+                # now we must loop over all the down-stream
+                for src_name, dest_dict in iv_obj.output_connections.items():
+                    # loop through the dest objects
+                    for obj, dest_list in dest_dict.items():
+                        # loop through the dest name
+                        for name in dest_list:
+                            # If this is a legitimate input, then lets add it as a candidate
+                            if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
+                                # Then populate the iv_dict
+                                if not obj in iv_dict:
+                                    iv_dict[iv_obj]=({}, iv_obj)
+                                if not obj in iv_dict[iv_obj][0]:
+                                    iv_dict[iv_obj][0][obj] = []
+                                iv_dict[iv_obj][0][obj].append(name)
+                                # register that a variable has been found
+                                if not obj in self._input_obj_var_is_found:
+                                    self._input_obj_var_is_found[obj]=[name]
+                                else:
+                                    self._input_obj_var_is_found[obj].append(name)
+        # Find the default names
+        if iv_obj, iv_result in iv_dict.items():
+            first_obj = sorted(iv_result[0].keys())[0]
+            var_name = iv_result[0][first_obj][0]
+            if var_name in self._input_var_to_obj_pair:
+                self._input_var_to_obj_pair[var_name].append(iv_result)
+            else:
+                self._input_var_to_obj_pair[var_name] = [iv_result]
+
+#
+# Some temporary variables:
+#
+#   self._input_obj_var_is_found[local_obj] = [ local_dest_name_1, local_dest_name_2 ...]
+#   self._input_var_to_obj_pair[global_name] = [ ({obj_1: [local_dest_name_1, local_dest_name_2 ...] }, indep_var) , ... ]
+#
+# Internal input connection data structure:
+#
+#   self.system_input_map[obj][lcl_name]                -> global_input_name   * Note: obj can be the input objects and the independent variable
+#
+# Internal gobal_input_name to object/local name
+#
+#   self.system_input_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
+#   
 
     # This is suppose to get an input interface from connections
-    def add_input_interface_from_connections(self, use_set_connections = True):
+    def add_input_interface_from_connections(self, object_list = None, use_set_connections = True):
         # This will build an input interface from the existing connections
         # In cases where a single input goes to two variables within this group, only one input variable is declared
         # Furthermore, in this case, the default name for this variable is based on the first associated object in the internal object list
         # When 'use_set_connections' is true, then existing connections are used
         # When 'use_set_connections' is false, then each empty connection is used
         # This is an automated interface generation scheme
-        # MIMC TODO
-        pass
+
+        # get the object list from the system objects
+        if object_list is None:
+            object_list = self.system_objects
+
+        # search for the external connections
+        if use_set_connections:
+            ext_conn_dict = {}
+            # loop through all the objects in consideration
+            for obj in object_list:
+                if not obj in self.system_objects:
+                    raise Exception('Trying to build interface based objects outside the group')
+                # loop through all the connections
+                for ext_obj, src_dst_map in obj.connections.items():
+                    # check if we have a candidate
+                    if not ext_obj in self.system_objects:
+                        # loop over source names
+                        for src_name, dest_list in src_dst_map.items():
+                            # loop over the destination names
+                            for name in dest_list:
+                                # Verify that we have a valid candidate
+                                if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
+                                    # add ext obj to the conn dict
+                                    if not ext_obj in ext_conn_dict:
+                                        ext_conn_dict[ext_obj]={}
+                                    # add src_name to the con dict
+                                    if not src_name in ext_conn_dict[ext_obj]:
+                                        ext_conn_dict[ext_obj][src_name]=({}, None)
+                                    # add the object if not already
+                                    if not obj in ext_conn_dict[ext_obj][src_name][0]:
+                                        ext_conn_dict[ext_obj][src_name][0][obj]=[]
+                                    ext_conn_dict[ext_obj][src_name][0][obj].append(name)
+                                    # Register that a variable has been found
+                                    self._input_obj_var_is_found[obj].append(name)
+
+            # now we have all our connection groups, figure out the default global name and list the group as a candidate
+            for ext_obj, src_dict in ext_conn_dict.items():
+                for src_name, dest_dict in src_dict.items():
+                    first_obj = sorted(dest_dict[0].keys())[0]
+                    name = dest_dict[0][first_obj][0]
+                    # Add it to a candidate name
+                    if name in var_to_obj_pair:
+                        self._input_var_to_obj_pair[name].append(dest_dict)
+                    else:
+                        self._input_var_to_obj_pair[name] = [dest_dict]
+
+        else:
+            # get the object list from the system objects
+            if object_list is None:
+                object_list = self.system_objects
+            # loop over the objects
+            for obj in object_list:
+                obj_ifc = obj.get_interface()['input']
+                for name in obj_ifc.keys():
+                    # Add the variable if not not connectd and not already added
+                    if name not in obj.conn_dict and ((not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj])):
+                        # Add it to a candidate name
+                        if name in var_to_obj_pair:
+                            self._input_var_to_obj_pair[name].append(({obj:[name]}, None))
+                        else:
+                            self._input_var_to_obj_pair[name] = [({obj:[name]}, None)]
+                        # register that a variable has been found
+                        if not obj in self._input_obj_var_is_found:
+                            self._input_obj_var_is_found[obj]=[name]
+                        else:
+                            self._input_obj_var_is_found[obj].append(name)
 
     # This is suppose to assume that all inputs of all objects in the list are public input variables.
     def add_input_interface_from_objects(self, object_list = None):
         # The object list must be a list of objects contained within this object
         # When object_list is none, Then it is assumed that all objects are used
         # This is an automated interface generation scheme
-        # MIMC TODO
-        pass
 
-    # This is suppose to add an input based on a fused var.
+        # get the object list from the system objects
+        if object_list is None:
+            object_list = self.system_objects
+        # loop over the objects
+        for obj in object_list:
+            obj_ifc = obj.get_interface()['input']
+            for name in obj_ifc.keys():
+                # Add the variable if not already
+                if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
+                    # Add it to a candidate name
+                    if name in var_to_obj_pair:
+                        self._input_var_to_obj_pair[name].append(({obj:[name]}, None))
+                    else:
+                        self._input_var_to_obj_pair[name] = [({obj:[name]}, None)]
+                    # register that a variable has been found
+                    if not obj in self._input_obj_var_is_found:
+                        self._input_obj_var_is_found[obj]=[name]
+                    else:
+                        self._input_obj_var_is_found[obj].append(name)
+
+    # This is suppose to set the input variable based on and internal independent variable
+    # Note, that this interface item takes precedent over all automated interface constructions
+    def set_input_interface_from_independent_variables(self, var_name, indep_var = None):
+        # var_name is the global name for the independent variable
+        # indep_var is an object in the group which is the independent variable for the input
+        # when indep_var is None, then the indep_var is searched for in the object list
+
+        # Test if we need to search
+        if indep_var is None:
+            for obj in self.system_objects:
+                if obj.is_independent_variable():
+                    if var_name == obj.name:
+                        if not indep_var is None:
+                            raise('Two independent variables with the same matching names has been found')
+                        indep_var = obj
+        if not indep_var is None:
+            if not indep_var in self.system_objects:
+                raise Exception('The independent variable is not included in the system object list')
+            local_name = indep_var.name
+            self.system_input_map[indep_var][local_name] = var_name
+            # Set the variable in the global -> local
+            if not var_name in self.system_input_gbl_to_lcl_map:
+                self.system_input_gbl_to_lcl_map[var_name] = ({},indep_var)
+            # Set the ouput objects and variables based on the output connections
+            for tmp_output_name, dest_dict in indep_var.output_connections.items():
+                for dest_obj, dest_list in dest_dict.items():
+                    if dest_obj in self.system_objects:
+                        for dest_name in dest_list:
+                            if not dest_obj in self.system_input_gbl_to_lcl_map[var_name][0]:
+                                self.system_input_gbl_to_lcl_map[var_name][0][dest_obj] = [dest_name]
+                            else:
+                                self.system_input_gbl_to_lcl_map[var_name][0][dest_obj].append(dest_name)
+        else:
+            raise Exception('Cannot find an independent variable')
+
+    # This is suppose to set an input based on a fused var or name.
     # Note, that this interface item takes precedent over all automated interface constructions
     def set_input_variable(self, var_name, obj_dict = None, dest_list = None):
         # var_name:               Can be a name for the variable, or
@@ -1238,11 +1415,64 @@ class FUSED_System_Base(object):
         #                         The entries of dictionary contain the input variables of that object that should be associated with this var_name
         #                         The entries of the dictionary can be None, in which case the input with the same name is assumed
         #                         When this is None, then all objects will be searched for input variables that could match the name
-        # dest_list:              
+        # dest_list:              All objects are searched for names in dest-list
         # Note 1: That when both obj_dict and dest_list are None, all objects are searched for candidates based on the var_name
         # Note 2: It will be assumed that multiple destination variables found will all recieve the same data
-        # MIMC TODO
-        pass
+
+        # If it is a variable then take the name
+        if isinstance(var_name, dict):
+            var_name = var_name['name']
+
+        # If no guidance, then use the name
+        if obj_dict is None and dest_list is None:
+            dest_list = [var_name]
+
+        # Use the object dictionary
+        if not obj_dict is None:
+            # loop over the objects
+            for obj, var_list in obj_dict.items():
+                if not obj in self.system_objects:
+                    raise Exception('The object is not contained with this variable')
+                if not obj in self.system_input_map:
+                    self.system_input_map[obj]={}
+                obj_ifc = obj.get_interface()['input']
+                if var_list is None:
+                    var_list = [var_name]
+                for name in var_list:
+                    if not name in obj_ifc.keys():
+                        raise KeyError('That variable does not exist in the object')
+                    # Set the variable in the local -> global
+                    self.system_input_map[obj][name] = var_name
+                    # Set the variable in the global -> local
+                    if not var_name in self.system_input_gbl_to_lcl_map:
+                        self.system_input_gbl_to_lcl_map[var_name] = ({},None)
+                    if not obj in self.system_input_gbl_to_lcl_map[var_name][0]:
+                        self.system_input_gbl_to_lcl_map[var_name][0][obj] = [name]
+                    else:
+                        self.system_input_gbl_to_lcl_map[var_name][0][obj].append(name)
+
+        # Now lets search via the dest_list
+        if not dest_list is None:
+            fnd_conn = False
+            for dest_name in dest_list:
+                fnd_local_conn = False
+                for obj in self.system_objects:
+                    obj_ifc = obj.get_interface()['input']
+                    if dest_name in obj_ifc:
+                        fnd_local_conn = True
+                        # Set the variable in the local -> global
+                        self.system_input_map[obj][dest_name] = var_name
+                        # Set the variable in the global -> local
+                        if not var_name in self.system_input_gbl_to_lcl_map:
+                            self.system_input_gbl_to_lcl_map[var_name] = ({},None)
+                        if not obj in self.system_input_gbl_to_lcl_map[var_name][0]:
+                            self.system_input_gbl_to_lcl_map[var_name][0][obj] = [dest_name]
+                        else:
+                            self.system_input_gbl_to_lcl_map[var_name][0][obj].append(dest_name)
+                if fnd_local_conn:
+                    print('Warning, could not find a connection for global variable %s with the local name %s'%(var_name, dest_name))
+            if fnd_conn:
+                print('Warning, could not find a connection for global variable %s'%(var_name))
 
     # This is suppose to assume that all outputs of all objects in the list are public output variables.
     def add_output_interface_from_objects(self, object_list = None):
@@ -1271,6 +1501,21 @@ class FUSED_System_Base(object):
         # local_output_name:      The variable name in the object name-space
         # MIMC TODO
         pass
+
+#
+# Some temporary variables:
+#
+#   self._output_obj_var_is_found[local_obj] = [ local_dest_name_1, local_dest_name_2 ...]
+#   self._output_var_to_obj_pair[global_name] = [ ({obj_1: [local_dest_name_1, local_dest_name_2 ...] }, indep_var) , ... ]
+#
+# Internal output connection data structure:
+#
+#   self.system_output_map[obj][lcl_name]                -> global_input_name   * Note: obj can be the input objects and the independent variable
+#
+# Internal gobal_output_name to object/local name
+#
+#   self.system_output_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
+#   
 
     def dissolve_groups(self, object_list = None):
 
