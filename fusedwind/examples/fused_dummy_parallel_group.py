@@ -101,7 +101,7 @@ def get_work_flow(cnt=1, stage_cnt=1):
     add_all = FUSED_Dummy_Add_All(cnt, object_name_in='add_all')
     object_dict['add_all'] = add_all
     for i, grp in enumerate(group_list):
-        import pdb; pdb.set_trace()
+        #MIMC import pdb; pdb.set_trace()
         add_all.connect(grp, 'data%d'%(i), 'soln')
 
     return object_dict
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     wf = get_work_flow(1, 1)
 
-    import pdb; pdb.set_trace()
+    #MIMC import pdb; pdb.set_trace()
     soln = wf['add_all']['sum']
     print('Answer should be 2')
     print('soln:', soln)
