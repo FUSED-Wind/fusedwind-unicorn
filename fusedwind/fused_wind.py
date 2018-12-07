@@ -922,10 +922,11 @@ class FUSED_Object(object):
         # Loop through all connections and collect the data
         self.input_values = copy.copy(self.default_input)
         for obj, src_dst_map in self.connections.items():
-            output = obj.get_output_value()
+            #output = obj.get_output_value()
             for src_name, dst_list in src_dst_map.items():
                 for dst_name in dst_list:
-                    self.input_values[dst_name]=output[src_name]
+                    self.input_values[dst_name]=obj[src_name]
+                    #self.input_values[dst_name]=output[src_name]
 
         # return the results
         return self.input_values
@@ -988,6 +989,9 @@ class FUSED_Object(object):
         # check if we are running in MPI
         if self.comm is None:
             return
+        if len(self.output_at_rank) == 0:
+            return
+
         my_rank = self.comm.rank()
 
         # If we tranfer all
@@ -995,12 +999,15 @@ class FUSED_Object(object):
             cont = True
             at_rank = -1
             var_name = []
-            for k, v in self.output_at_rank.items():
-                at_rank = v
-                if v<0:
+            for k in self.get_interface()['output'].keys():
+                if not k in self.output_at_rank:
                     cont = False
                 else:
-                    var_name.append(k)
+                    at_rank = self.output_at_rank[k]
+                    if at_rank<0:
+                        cont = False
+                    else:
+                        var_name.append(k)
             if cont:
                 # broadcast everything
                 if my_rank == at_rank:
@@ -1045,7 +1052,7 @@ class FUSED_Object(object):
     # This will retrieve the output dictionary
     def get_output_value(self):
 
-        print("WARNING: This 'get_output_value' method may be depricated")
+        self.sync_output()
         ans = self._update_needed()
         if ans:
             self.update_output_data()
@@ -1164,6 +1171,12 @@ class Independent_Variable(FUSED_Object):
     def get_output_value(self):
 
         return self.retval
+
+    def __getitem__(self, key):
+
+        if not key == self.name:
+            raise KeyError('That variable does not exist')
+        return self.data
 
 # This following is a workflow
 ##########################################################################
@@ -2030,9 +2043,10 @@ class FUSED_System_Base(object):
 
         # Now collect the output
         for obj, output_map in self.system_output_map.items():
-            output = obj.get_output_value()
+            #output = obj.get_output_value()
             for local_name, global_name in output_map.items():
-                output_values[global_name] = output[local_name]
+                output_values[global_name] = obj[local_name]
+                #output_values[global_name] = output[local_name]
 
     # This will find all the objects and the connection information that provides information to this group. 
     # This will find the connections from objects outside this group
@@ -2245,7 +2259,7 @@ class FUSED_Group(FUSED_System_Base):
     # This will retrieve the output values for the group
     def get_output_value(self):
 
-        print('This method "get_output_value" is going to be deprecated')
+        #print('This method "get_output_value" is going to be deprecated')
 
         # this is the return value
         retval = {}
@@ -2256,8 +2270,9 @@ class FUSED_Group(FUSED_System_Base):
         # loop over the outputs
         for out_name, out_meta in ifc['output'].items():
             local_object, local_name = self.get_object_and_local_from_global_output(out_name)
-            output_values = local_object.get_output_value()
-            retval[out_name]=output_values[local_name]
+            retval[out_name]=local_object[local_name]
+            #output_values = local_object.get_output_value()
+            #retval[out_name]=output_values[local_name]
 
         return retval
 
