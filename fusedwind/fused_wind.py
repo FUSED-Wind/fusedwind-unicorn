@@ -1045,7 +1045,7 @@ class FUSED_Object(object):
     # This will retrieve the output dictionary
     def get_output_value(self):
 
-        print('WARNING: This method may be depricated')
+        print("WARNING: This 'get_output_value' method may be depricated")
         ans = self._update_needed()
         if ans:
             self.update_output_data()
@@ -1291,9 +1291,8 @@ class FUSED_System_Base(object):
                                 else:
                                     self._input_obj_var_is_found[obj].append(name)
         # Find the default names
-        if iv_obj, iv_result in iv_dict.items():
-            first_obj = sorted(iv_result[0].keys())[0]
-            var_name = iv_result[0][first_obj][0]
+        for iv_obj, iv_result in iv_dict.items():
+            var_name = iv_result[1].name
             if var_name in self._input_var_to_obj_pair:
                 self._input_var_to_obj_pair[var_name].append(iv_result)
             else:
@@ -1344,7 +1343,10 @@ class FUSED_System_Base(object):
                                         ext_conn_dict[ext_obj][src_name][0][obj]=[]
                                     ext_conn_dict[ext_obj][src_name][0][obj].append(name)
                                     # Register that a variable has been found
-                                    self._input_obj_var_is_found[obj].append(name)
+                                    if not obj in self._input_obj_var_is_found:
+                                        self._input_obj_var_is_found[obj] = [name]
+                                    else:
+                                        self._input_obj_var_is_found[obj].append(name)
 
             # now we have all our connection groups, figure out the default global name and list the group as a candidate
             for ext_obj, src_dict in ext_conn_dict.items():
@@ -1352,7 +1354,7 @@ class FUSED_System_Base(object):
                     first_obj = sorted(dest_dict[0].keys())[0]
                     name = dest_dict[0][first_obj][0]
                     # Add it to a candidate name
-                    if name in var_to_obj_pair:
+                    if name in self._input_var_to_obj_pair:
                         self._input_var_to_obj_pair[name].append(dest_dict)
                     else:
                         self._input_var_to_obj_pair[name] = [dest_dict]
@@ -1368,7 +1370,7 @@ class FUSED_System_Base(object):
                     # Add the variable if not not connectd and not already added
                     if name not in obj.conn_dict and ((not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj])):
                         # Add it to a candidate name
-                        if name in var_to_obj_pair:
+                        if name in self._input_var_to_obj_pair:
                             self._input_var_to_obj_pair[name].append(({obj:[name]}, None))
                         else:
                             self._input_var_to_obj_pair[name] = [({obj:[name]}, None)]
@@ -1398,7 +1400,7 @@ class FUSED_System_Base(object):
                 # Add the variable if not already
                 if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
                     # Add it to a candidate name
-                    if name in var_to_obj_pair:
+                    if name in self._input_var_to_obj_pair:
                         self._input_var_to_obj_pair[name].append(({obj:[name]}, None))
                     else:
                         self._input_var_to_obj_pair[name] = [({obj:[name]}, None)]
@@ -1435,6 +1437,8 @@ class FUSED_System_Base(object):
             if not indep_var in self.system_objects:
                 raise Exception('The independent variable is not included in the system object list')
             local_name = indep_var.name
+            if not indep_var in self.system_input_map:
+                self.system_input_map[indep_var] = {}
             self.system_input_map[indep_var][local_name] = var_name
             # Set the variable in the global -> local
             if not var_name in self.system_input_gbl_to_lcl_map:
@@ -1445,6 +1449,8 @@ class FUSED_System_Base(object):
                     if dest_obj in self.system_objects:
                         for dest_name in dest_list:
                             # Add the variable to the input map
+                            if not dest_obj in self.system_input_map:
+                                self.system_input_map[dest_obj] = {}
                             self.system_input_map[dest_obj][dest_name] = var_name
                             # Add the variable to the gbl to lcl map
                             if not dest_obj in self.system_input_gbl_to_lcl_map[var_name][0]:
@@ -1517,6 +1523,8 @@ class FUSED_System_Base(object):
                     if dest_name in obj_ifc:
                         fnd_local_conn = True
                         # Set the variable in the local -> global
+                        if not obj in self.system_input_map:
+                            self.system_input_map[obj] = {}
                         self.system_input_map[obj][dest_name] = var_name
                         # Set the variable in the global -> local
                         if not var_name in self.system_input_gbl_to_lcl_map:
@@ -1525,9 +1533,11 @@ class FUSED_System_Base(object):
                             self.system_input_gbl_to_lcl_map[var_name][0][obj] = [dest_name]
                         else:
                             self.system_input_gbl_to_lcl_map[var_name][0][obj].append(dest_name)
-                if fnd_local_conn:
+                if not fnd_local_conn:
                     print('Warning, could not find a connection for global variable %s with the local name %s'%(var_name, dest_name))
-            if fnd_conn:
+                else:
+                    fnd_conn = True
+            if not fnd_conn:
                 print('Warning, could not find a connection for global variable %s'%(var_name))
 
     # This is suppose to assume that all outputs of all objects in the list are public output variables.
@@ -1585,7 +1595,7 @@ class FUSED_System_Base(object):
                 raise Exception('Cannot build an interface based on objects outside the group')
             for src_name in obj.get_interface()['output'].keys():
                 # Verify that it meets the connection criteria
-                if (use_set_connections and output_name in obj.output_connections.keys()) or (not use_set_connections and not output_name in obj.output_connections.keys()):
+                if (use_set_connections and src_name in obj.output_connections.keys()) or (not use_set_connections and not src_name in obj.output_connections.keys()):
                     # Verify that it meets whether it is already added criteria:
                     if (not obj in self.system_output_map or not src_name in self.system_output_map[obj]) and (not obj in self._output_obj_var_is_found or not src_name in self._output_obj_var_is_found[obj]):
                         # Add it to the output structure
@@ -1645,6 +1655,8 @@ class FUSED_System_Base(object):
             raise Exception('That object does not have the local variable requested')
 
         # Then lets set the result
+        if not obj in self.system_output_map:
+            self.system_output_map[obj] = {}
         self.system_output_map[obj][local_output_name] = var_name
         self.system_output_gbl_to_lcl_map[var_name] = ( obj, local_output_name )
 
@@ -1658,7 +1670,7 @@ class FUSED_System_Base(object):
         for var_name, conn_list in var_to_obj_pair.items():
             # If there is not interference, then just keep it as it is
             if len(conn_list)==1 and not var_name in exclusion_set:
-                tmp_var_to_obj_pair[var_name]=conn_list
+                tmp_var_to_obj_pair[var_name]=conn_list[0]
             else:
                 # Ok try to include the object name to differentiate
                 sub_dict = {}
@@ -1674,23 +1686,23 @@ class FUSED_System_Base(object):
                     sub_dict[new_name]=conn_data
                 if is_good:
                     tmp_var_to_obj_pair.update(sub_dict)
-                    continue
-                # Ok try to include the object hash and other counters to differentiate
-                sub_dict = {}
-                is_good = True
-                for conn_data in conn_list:
-                    first_obj = conn_data[0]
-                    if isinstance(first_obj, dict):
-                        first_obj = sorted(first_obj.keys())[0]
-                    new_name = '%s_%d__%s'%(first_obj.object_name, first_obj._hash_value, var_name)
-                    extra = 1
-                    while var_name in exclusion_set or var_name in sub_dict or var_name in tmp_var_to_obj_pair:
-                        new_name = '%s_%d_%d__%s'%(first_obj.object_name, first_obj._hash_value, extra, var_name)
-                        extra+=1
-                    sub_dict[new_name]=conn_data
-                # Now we have a unique set
-                tmp_var_to_obj_pair.update(sub_dict)
-
+                else:
+                    # Ok try to include the object hash and other counters to differentiate
+                    sub_dict = {}
+                    is_good = True
+                    for conn_data in conn_list:
+                        first_obj = conn_data[0]
+                        if isinstance(first_obj, dict):
+                            first_obj = sorted(first_obj.keys())[0]
+                        new_name = '%s_%d__%s'%(first_obj.object_name, first_obj._hash_value, var_name)
+                        extra = 1
+                        while var_name in exclusion_set or var_name in sub_dict or var_name in tmp_var_to_obj_pair:
+                            new_name = '%s_%d_%d__%s'%(first_obj.object_name, first_obj._hash_value, extra, var_name)
+                            extra+=1
+                        sub_dict[new_name]=conn_data
+                    # Now we have a unique set
+                    tmp_var_to_obj_pair.update(sub_dict)
+        
         # Return the unique candidates now
         return tmp_var_to_obj_pair
 
@@ -1702,25 +1714,28 @@ class FUSED_System_Base(object):
             return
 
         # First make sure the automatic variables are made unique
-        self._input_var_to_obj_pair = self.resolve_interface_names(self, self._input_var_to_obj_pair, set(self.system_input_gbl_to_lcl_map.keys()))
-        self._output_var_to_obj_pair = self.resolve_interface_names(self, self._output_var_to_obj_pair, set(self.system_output_gbl_to_lcl_map.keys()))
+        self._input_var_to_obj_pair = self.resolve_interface_names(self._input_var_to_obj_pair, set(self.system_input_gbl_to_lcl_map.keys()))
+        self._output_var_to_obj_pair = self.resolve_interface_names(self._output_var_to_obj_pair, set(self.system_output_gbl_to_lcl_map.keys()))
 
         # Now lets add the automatic input variables to the permanent record
         for global_name, input_data in self._input_var_to_obj_pair.items():
             if global_name in self.system_input_gbl_to_lcl_map:
                 raise Exception('The global name already exists in the interface')
-            new_data = ({}, None)
             # Add the indep var if it is not already added
             if not input_data[1] is None:
                 if not input_data[1] in self.system_input_map:
-                    new_data[1] = input_data[1]
+                    new_data = ({}, input_data[1])
                     self.system_input_map[input_data[1]] = {input_data[1].name:global_name}
+            else:
+                new_data = ({}, None)
             # Loop through the connect data
             new_dict = new_data[0]
             for obj, dest_list in input_data[0].items():
                 for dest_name in dest_list:
                     if not obj in self.system_input_map or not dest_name in self.system_input_map[obj]:
                         # mark the variable
+                        if not obj in self.system_input_map:
+                            self.system_input_map[obj] = {}
                         self.system_input_map[obj][dest_name] = global_name
                         # Add to the new local data object
                         if not obj in new_dict:
@@ -1739,7 +1754,9 @@ class FUSED_System_Base(object):
             obj = output_data[0]
             name = output_data[1]
             # Add only if not already set
-            if not obj in self.system_output_map and not name in self.system_output_map[obj]:
+            if not obj in self.system_output_map or not name in self.system_output_map[obj]:
+                if not obj in self.system_output_map:
+                    self.system_output_map[obj] = {}
                 self.system_output_map[obj][name] = global_name
                 self.system_output_gbl_to_lcl_map[global_name] = output_data
 
@@ -1749,18 +1766,18 @@ class FUSED_System_Base(object):
         # Add the input:
         for name, data in self.system_input_gbl_to_lcl_map.items():
             first_obj = sorted(data[0].keys())[0]
-            name = data[first_obj][0]
+            lcl_name = data[0][first_obj][0]
             obj_ifc = first_obj.get_interface()
-            meta = copy.copy(obj_ifc[name])
+            meta = copy.copy(obj_ifc['input'][lcl_name])
             meta['name'] = name
             set_input(self.system_ifc, meta)
 
         # Add the output:
         for name, data in self.system_output_gbl_to_lcl_map.items():
             first_obj = data[0]
-            name = data[1]
+            lcl_name = data[1]
             obj_ifc = first_obj.get_interface()
-            meta = copy.copy(obj_ifc[name])
+            meta = copy.copy(obj_ifc['output'][lcl_name])
             meta['name'] = name
             set_output(self.system_ifc, meta)
 
