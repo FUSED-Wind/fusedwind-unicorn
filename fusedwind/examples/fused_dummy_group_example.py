@@ -147,6 +147,7 @@ def get_non_grouped_work_flow_in_group():
 
     object_dict, object_list = get_non_grouped_work_flow_raw()
 
+    # MIMC TODO add the interface specification methods
     return FUSED_Group(object_list, [object_dict['A']])
 
 def get_group_1():
@@ -171,6 +172,7 @@ def get_group_1():
     E.connect(H_in_1, 'data1', 'H_in_1_data')
     E.connect(I_in_1, 'data2', 'I_in_1_data')
     # group 1 creation
+    # MIMC TODO add the interface specification methods
     group_1 = FUSED_Group([B,C,D_in_1,E,F_in_1,H_in_1,I_in_1],[B, C])
 
     return group_1
@@ -195,6 +197,7 @@ def get_group_2():
     H.connect(L_in_1, 'data1', 'L_in_2_data')
     H.connect(M_in_1, 'data2', 'M_in_2_data')
     # group 2 creation
+    # MIMC TODO add the interface specification methods
     group_2 = FUSED_Group([D,G,H,K_in_1,L_in_1,M_in_1],[D,H])
 
     return group_2
@@ -219,6 +222,7 @@ def get_group_3():
     J.connect(N_in_1, 'data1', 'N_in_3_data')
     J.connect(O_in_1, 'data2', 'O_in_3_data')
     # group 3 creation
+    # MIMC TODO add the interface specification methods
     group_3 = FUSED_Group([F,I,J,M_in_1,N_in_1,O_in_1],[F,I])
 
     return group_3
@@ -317,6 +321,7 @@ def get_grouped_work_flow_in_group():
 
     object_dict = get_grouped_work_flow_raw()
 
+    # MIMC TODO add the interface specification methods
     return FUSED_Group(object_dict.values(), [object_dict['A']])
 
 if __name__ == '__main__':

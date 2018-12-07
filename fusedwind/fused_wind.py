@@ -1180,20 +1180,18 @@ class Independent_Variable(FUSED_Object):
 
 class FUSED_System_Base(object):
 
-    def __init__(self, objects_in, output_objects_in):
+    _object_count = 0
+
+    def __init__(self, objects_in):
         super(FUSED_System_Base, self).__init__()
 
         # basically store the objects
         self.system_objects = objects_in
-        # stores the objects that provide an output
-        self.system_output_objects = output_objects_in
-        # stores the independent variable components
-        self.system_input_objects = set()
 
         # stores the input connection information
         # CURRENT: system_input_connections[indep_var_obj][indep_var_variable_name][dest_obj]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
         # FUTURE: system_input_connections[global_input_name][internal_dest_object]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
-        self.system_input_connections = {}
+        # OLD: self.system_input_connections = {}
 
         # For the case that we set independent variables, we need to know how the global input name maps to those input variables
         # FUTURE: A data structure that is system_independent_input[global_input_name][independent_object]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
@@ -1207,12 +1205,58 @@ class FUSED_System_Base(object):
         #   system_input_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
         #self.system_input_gbl_to_lcl_map = {}
 
+        # Ensure these objects can be indexed
+        self._hash_value = FUSED_System_Base._object_count
+        FUSED_System_Base._object_count += 1
+
+#
+# Some temporary variables:
+#
+#   self._input_obj_var_is_found[local_obj] = [ local_dest_name_1, local_dest_name_2 ...]
+        self._input_obj_var_is_found = {}
+#   self._input_var_to_obj_pair[global_name] = [ ({obj_1: [local_dest_name_1, local_dest_name_2 ...] }, indep_var) , ... ]
+        self._input_var_to_obj_pair = {}
+#
+# Internal input connection data structure:
+#
+#   self.system_input_map[obj][lcl_name]                -> global_input_name   * Note: obj can be the input objects and the independent variable
+        self.system_input_map = {}
+#
+# Internal gobal_input_name to object/local name
+#
+#   self.system_input_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
+        self.system_input_gbl_to_lcl_map = {}
+#   
+
+#
+# Some temporary variables:
+#
+#   self._output_obj_var_is_found[local_obj] = [ local_src_name_1, local_src_name_2, ...]
+        self._output_obj_var_is_found = {}
+#   self._output_var_to_obj_pair[global_name] = [ (obj_1, local_src_name_1), (obj_2, local_src_name_2) ]
+        self._output_var_to_obj_pair = {}
+#
+# Internal output connection data structure:
+#
+#   self.system_output_map[obj][lcl_name]                 -> global_output_name
+        self.system_output_map = {}
+#
+# Internal gobal_output_name to object/local name
+#
+#   self.system_output_gbl_to_lcl_map[global_output_name] -> ( obj, local_src_name )
+        self.system_output_gbl_to_lcl_map = {}
+#
+
     # This is suppose to use the independent variables to build an input interface
     def add_input_interface_from_independent_variables(self, object_list = None):
         # The objects in the object list must be objects within this object
         # When the object list is None, then all the objects in this object are considered
         # The method will search for independent variables from within the list
         # This is an automated interface generation scheme
+
+        # cannot add variables if the system is already configured
+        if self.system_has_been_configured:
+            raise Exception('The system has already been configured')
 
         # get the object list from the system objects
         if object_list is None:
@@ -1255,21 +1299,6 @@ class FUSED_System_Base(object):
             else:
                 self._input_var_to_obj_pair[var_name] = [iv_result]
 
-#
-# Some temporary variables:
-#
-#   self._input_obj_var_is_found[local_obj] = [ local_dest_name_1, local_dest_name_2 ...]
-#   self._input_var_to_obj_pair[global_name] = [ ({obj_1: [local_dest_name_1, local_dest_name_2 ...] }, indep_var) , ... ]
-#
-# Internal input connection data structure:
-#
-#   self.system_input_map[obj][lcl_name]                -> global_input_name   * Note: obj can be the input objects and the independent variable
-#
-# Internal gobal_input_name to object/local name
-#
-#   self.system_input_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
-#   
-
     # This is suppose to get an input interface from connections
     def add_input_interface_from_connections(self, object_list = None, use_set_connections = True):
         # This will build an input interface from the existing connections
@@ -1278,6 +1307,10 @@ class FUSED_System_Base(object):
         # When 'use_set_connections' is true, then existing connections are used
         # When 'use_set_connections' is false, then each empty connection is used
         # This is an automated interface generation scheme
+
+        # cannot add variables if the system is already configured
+        if self.system_has_been_configured:
+            raise Exception('The system has already been configured')
 
         # get the object list from the system objects
         if object_list is None:
@@ -1351,6 +1384,10 @@ class FUSED_System_Base(object):
         # When object_list is none, Then it is assumed that all objects are used
         # This is an automated interface generation scheme
 
+        # cannot add variables if the system is already configured
+        if self.system_has_been_configured:
+            raise Exception('The system has already been configured')
+
         # get the object list from the system objects
         if object_list is None:
             object_list = self.system_objects
@@ -1378,6 +1415,14 @@ class FUSED_System_Base(object):
         # indep_var is an object in the group which is the independent variable for the input
         # when indep_var is None, then the indep_var is searched for in the object list
 
+        # cannot add variables if the system is already configured
+        if self.system_has_been_configured:
+            raise Exception('The system has already been configured')
+
+        # Cannot add a variable that is already added
+        if var_name in self.system_input_gbl_to_lcl_map:
+            raise Exception('That input variable already exists in the group')
+
         # Test if we need to search
         if indep_var is None:
             for obj in self.system_objects:
@@ -1399,6 +1444,9 @@ class FUSED_System_Base(object):
                 for dest_obj, dest_list in dest_dict.items():
                     if dest_obj in self.system_objects:
                         for dest_name in dest_list:
+                            # Add the variable to the input map
+                            self.system_input_map[dest_obj][dest_name] = var_name
+                            # Add the variable to the gbl to lcl map
                             if not dest_obj in self.system_input_gbl_to_lcl_map[var_name][0]:
                                 self.system_input_gbl_to_lcl_map[var_name][0][dest_obj] = [dest_name]
                             else:
@@ -1418,6 +1466,14 @@ class FUSED_System_Base(object):
         # dest_list:              All objects are searched for names in dest-list
         # Note 1: That when both obj_dict and dest_list are None, all objects are searched for candidates based on the var_name
         # Note 2: It will be assumed that multiple destination variables found will all recieve the same data
+
+        # If the variable is already in the interface, then we need to exit
+        if var_name in self.system_input_gbl_to_lcl_map:
+            raise Exception('That variable already exists in the input interface')
+
+        # cannot add variables if the system is already configured
+        if self.system_has_been_configured:
+            raise Exception('The system has already been configured')
 
         # If it is a variable then take the name
         if isinstance(var_name, dict):
@@ -1479,16 +1535,69 @@ class FUSED_System_Base(object):
         # The object list must be a list of objects contained within this object
         # When object_list is none, Then it is assumed that all objects are used
         # This is an automated interface generation scheme
-        # MIMC TODO
-        pass
+
+        # cannot add variables if the system is already configured
+        if self.system_has_been_configured:
+            raise Exception('The system has already been configured')
+
+        # Get the object list
+        if object_list is None:
+            object_list = self.system_objects
+ 
+        # loop through all the connections
+        for obj in object_list:
+            # Verify this is a valid object
+            if not obj in self.system_objects:
+                raise Exception('Cannot build an interface based on objects outside the group')
+            # Loop through the output names
+            for src_name in obj.get_interface()['output'].keys():
+                # Verify that it meets whether it is already added criteria:
+                if (not obj in self.system_output_map or not src_name in self.system_output_map[obj]) and (not obj in self._output_obj_var_is_found or not src_name in self._output_obj_var_is_found[obj]):
+                    # Add it to the output structure
+                    if not src_name in self._output_var_to_obj_pair:
+                        self._output_var_to_obj_pair[src_name] = [(obj,src_name)]
+                    else:
+                        self._output_var_to_obj_pair[src_name].append( (obj,src_name) )
+                    # add to 'is-found'
+                    if not obj in self._output_obj_var_is_found:
+                        self._output_obj_var_is_found[obj] = [src_name]
+                    else:
+                        self._output_obj_var_is_found[obj].append(src_name)
 
     # This is suppose to collect the interface from existing connections
-    def add_output_interface_from_connections(self, use_set_connections = True):
+    def add_output_interface_from_connections(self, object_list = None, use_set_connections = True):
         # When 'use_set_connections' is true, then existing connections are used
         # When 'use_set_connections' is false, then empty connections are used
         # This is an automated interface generation scheme
-        # MIMC TODO
-        pass
+
+        # cannot add variables if the system is already configured
+        if self.system_has_been_configured:
+            raise Exception('The system has already been configured')
+
+        # Get the object list
+        if object_list is None:
+            object_list = self.system_objects
+ 
+        # loop through all the connections
+        for obj in object_list:
+            # Verify this is a valid object
+            if not obj in self.system_objects:
+                raise Exception('Cannot build an interface based on objects outside the group')
+            for src_name in obj.get_interface()['output'].keys():
+                # Verify that it meets the connection criteria
+                if (use_set_connections and output_name in obj.output_connections.keys()) or (not use_set_connections and not output_name in obj.output_connections.keys()):
+                    # Verify that it meets whether it is already added criteria:
+                    if (not obj in self.system_output_map or not src_name in self.system_output_map[obj]) and (not obj in self._output_obj_var_is_found or not src_name in self._output_obj_var_is_found[obj]):
+                        # Add it to the output structure
+                        if not src_name in self._output_var_to_obj_pair:
+                            self._output_var_to_obj_pair[src_name] = [(obj,src_name)]
+                        else:
+                            self._output_var_to_obj_pair[src_name].append( (obj,src_name) )
+                        # add to 'is-found'
+                        if not obj in self._output_obj_var_is_found:
+                            self._output_obj_var_is_found[obj] = [src_name]
+                        else:
+                            self._output_obj_var_is_found[obj].append(src_name)
 
     # This is suppose to add an output based on a fused var.
     # Note, that this interface item takes precedent over all automated interface constructions
@@ -1499,24 +1608,166 @@ class FUSED_System_Base(object):
         #                         If None, all objects searched for the variable.
         #                         If duplicates are found an error is raised
         # local_output_name:      The variable name in the object name-space
-        # MIMC TODO
-        pass
 
-#
-# Some temporary variables:
-#
-#   self._output_obj_var_is_found[local_obj] = [ local_dest_name_1, local_dest_name_2 ...]
-#   self._output_var_to_obj_pair[global_name] = [ ({obj_1: [local_dest_name_1, local_dest_name_2 ...] }, indep_var) , ... ]
-#
-# Internal output connection data structure:
-#
-#   self.system_output_map[obj][lcl_name]                -> global_input_name   * Note: obj can be the input objects and the independent variable
-#
-# Internal gobal_output_name to object/local name
-#
-#   self.system_output_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
-#   
+        # This will verify that no duplicates are in the interface
+        if var_name in self.system_output_gbl_to_lcl_map:
+            raise Exception('That variable already exists in the output interface')
 
+        # If the system is already configured then we cannot accept changes
+        if self.system_has_been_configured:
+            raise Exception('System has been configured')
+
+        # Use the var_name for the local if not specified
+        if local_output_name is None:
+            local_output_name = var_name
+
+        # If no object is given, then search for it
+        if obj is None:
+            # loop through all objects
+            for tmp_obj in self.system_objects:
+                obj_ifc = tmp_obj.get_interface()['output']
+                # test if we have a match
+                if local_output_name in obj_ifc:
+                    if not obj is None:
+                        raise Exception('Two objects with the same output discovered')
+                    obj = tmp_obj
+
+        # If no object is given, then faile
+        if obj is None:
+            raise Exception('Cannot find a matching object')
+
+        # Lets verify that the object is in there
+        if not obj in self.system_objects:
+            raise Exception('That object does not exist in the system')
+
+        # Lets verify that the variable is in the output
+        if not local_output_name in obj.get_interface()['output']:
+            raise Exception('That object does not have the local variable requested')
+
+        # Then lets set the result
+        self.system_output_map[obj][local_output_name] = var_name
+        self.system_output_gbl_to_lcl_map[var_name] = ( obj, local_output_name )
+
+    # This will resolve the output names
+    def resolve_interface_names(self, var_to_obj_pair, exclusion_set):
+
+        # The new dictionary
+        tmp_var_to_obj_pair = {}
+
+        # Now loop through the old one
+        for var_name, conn_list in var_to_obj_pair.items():
+            # If there is not interference, then just keep it as it is
+            if len(conn_list)==1 and not var_name in exclusion_set:
+                tmp_var_to_obj_pair[var_name]=conn_list
+            else:
+                # Ok try to include the object name to differentiate
+                sub_dict = {}
+                is_good = True
+                for conn_data in conn_list:
+                    first_obj = conn_data[0]
+                    if isinstance(first_obj, dict):
+                        first_obj = sorted(first_obj.keys())[0]
+                    new_name = '%s__%s'%(first_obj.object_name, var_name)
+                    if var_name in exclusion_set or var_name in sub_dict or var_name in tmp_var_to_obj_pair:
+                        is_good = False
+                        break
+                    sub_dict[new_name]=conn_data
+                if is_good:
+                    tmp_var_to_obj_pair.update(sub_dict)
+                    continue
+                # Ok try to include the object hash and other counters to differentiate
+                sub_dict = {}
+                is_good = True
+                for conn_data in conn_list:
+                    first_obj = conn_data[0]
+                    if isinstance(first_obj, dict):
+                        first_obj = sorted(first_obj.keys())[0]
+                    new_name = '%s_%d__%s'%(first_obj.object_name, first_obj._hash_value, var_name)
+                    extra = 1
+                    while var_name in exclusion_set or var_name in sub_dict or var_name in tmp_var_to_obj_pair:
+                        new_name = '%s_%d_%d__%s'%(first_obj.object_name, first_obj._hash_value, extra, var_name)
+                        extra+=1
+                    sub_dict[new_name]=conn_data
+                # Now we have a unique set
+                tmp_var_to_obj_pair.update(sub_dict)
+
+        # Return the unique candidates now
+        return tmp_var_to_obj_pair
+
+    # This is called to configure the system
+    def configure_system(self):
+
+        # if configured, then just exit
+        if self.system_has_been_configured:
+            return
+
+        # First make sure the automatic variables are made unique
+        self._input_var_to_obj_pair = self.resolve_interface_names(self, self._input_var_to_obj_pair, set(self.system_input_gbl_to_lcl_map.keys()))
+        self._output_var_to_obj_pair = self.resolve_interface_names(self, self._output_var_to_obj_pair, set(self.system_output_gbl_to_lcl_map.keys()))
+
+        # Now lets add the automatic input variables to the permanent record
+        for global_name, input_data in self._input_var_to_obj_pair.items():
+            if global_name in self.system_input_gbl_to_lcl_map:
+                raise Exception('The global name already exists in the interface')
+            new_data = ({}, None)
+            # Add the indep var if it is not already added
+            if not input_data[1] is None:
+                if not input_data[1] in self.system_input_map:
+                    new_data[1] = input_data[1]
+                    self.system_input_map[input_data[1]] = {input_data[1].name:global_name}
+            # Loop through the connect data
+            new_dict = new_data[0]
+            for obj, dest_list in input_data[0].items():
+                for dest_name in dest_list:
+                    if not obj in self.system_input_map or not dest_name in self.system_input_map[obj]:
+                        # mark the variable
+                        self.system_input_map[obj][dest_name] = global_name
+                        # Add to the new local data object
+                        if not obj in new_dict:
+                            new_dict[obj] = [dest_name]
+                        else:
+                            new_dict[obj].append(dest_name)
+            # Verify that we have something worth adding
+            if len(new_dict)>0:
+                # Add the local data object to the gbl -> lcl
+                self.system_input_gbl_to_lcl_map[global_name]=new_data
+
+        # Now lets add all the automatic output variables to the permanent record
+        for global_name, output_data in self._output_var_to_obj_pair.items():
+            if global_name in self.system_output_gbl_to_lcl_map:
+                raise Exception('The global name already exists in the interface')
+            obj = output_data[0]
+            name = output_data[1]
+            # Add only if not already set
+            if not obj in self.system_output_map and not name in self.system_output_map[obj]:
+                self.system_output_map[obj][name] = global_name
+                self.system_output_gbl_to_lcl_map[global_name] = output_data
+
+        # Now lets construct the interface
+        self.system_ifc = create_interface()
+
+        # Add the input:
+        for name, data in self.system_input_gbl_to_lcl_map.items():
+            first_obj = sorted(data[0].keys())[0]
+            name = data[first_obj][0]
+            obj_ifc = first_obj.get_interface()
+            meta = copy.copy(obj_ifc[name])
+            meta['name'] = name
+            set_input(self.system_ifc, meta)
+
+        # Add the output:
+        for name, data in self.system_output_gbl_to_lcl_map.items():
+            first_obj = data[0]
+            name = data[1]
+            obj_ifc = first_obj.get_interface()
+            meta = copy.copy(obj_ifc[name])
+            meta['name'] = name
+            set_output(self.system_ifc, meta)
+
+        # Flag as configured
+        self.system_has_been_configured = True
+
+    # This will reduce the object list to only the objects
     def dissolve_groups(self, object_list = None):
 
         # If no object list is given, use my own
@@ -1545,175 +1796,176 @@ class FUSED_System_Base(object):
 
         return object_list
 
-    def configure_system(self):
+    # OLD METHOD:# This is called to configure the system
+    # OLD METHOD:def configure_system(self):
 
-        # Lets dissolve my groups
-        self.dissolve_groups()
+    # OLD METHOD:    # Lets dissolve my groups
+    # OLD METHOD:    self.dissolve_groups()
 
-        # find all the input objects
-        for obj in self.system_objects:
-            if obj.is_independent_variable():
-                # Save the input object
-                self.system_input_objects.add(obj)
-                # Save the output connections
-                self.system_input_connections[obj]={}
-                oc0=self.system_input_connections[obj]
-                # Now create the data structure recursively
-                # loop over the output names
-                for output_name, dest_obj_dict in obj.output_connections.items():
-                    if not output_name in oc0:
-                        oc0[output_name]={}
-                    oc1=oc0[output_name]
-                    # loop over the destination objects
-                    for dest_obj, dest_list in dest_obj_dict.items():
-                        if not dest_obj in oc1:
-                            oc1[dest_obj]=[]
-                        oc2=oc1[dest_obj]
-                        # loop over the destination names
-                        for dest_name in dest_list:
-                            oc2.append(dest_name)
+    # OLD METHOD:    # find all the input objects
+    # OLD METHOD:    for obj in self.system_objects:
+    # OLD METHOD:        if obj.is_independent_variable():
+    # OLD METHOD:            # Save the input object
+    # OLD METHOD:            self.system_input_objects.add(obj)
+    # OLD METHOD:            # Save the output connections
+    # OLD METHOD:            self.system_input_connections[obj]={}
+    # OLD METHOD:            oc0=self.system_input_connections[obj]
+    # OLD METHOD:            # Now create the data structure recursively
+    # OLD METHOD:            # loop over the output names
+    # OLD METHOD:            for output_name, dest_obj_dict in obj.output_connections.items():
+    # OLD METHOD:                if not output_name in oc0:
+    # OLD METHOD:                    oc0[output_name]={}
+    # OLD METHOD:                oc1=oc0[output_name]
+    # OLD METHOD:                # loop over the destination objects
+    # OLD METHOD:                for dest_obj, dest_list in dest_obj_dict.items():
+    # OLD METHOD:                    if not dest_obj in oc1:
+    # OLD METHOD:                        oc1[dest_obj]=[]
+    # OLD METHOD:                    oc2=oc1[dest_obj]
+    # OLD METHOD:                    # loop over the destination names
+    # OLD METHOD:                    for dest_name in dest_list:
+    # OLD METHOD:                        oc2.append(dest_name)
 
-        # check if the lengths are acceptable
-        if len(self.system_objects)==0 or len(self.system_output_objects)==0 or len(self.system_input_objects)==0:
-            raise Exception('The object lists are empty')
-        if not set(self.system_output_objects)<=set(self.system_objects):
-            raise Exception('The output objects are not within the object set')
+    # OLD METHOD:    # check if the lengths are acceptable
+    # OLD METHOD:    if len(self.system_objects)==0 or len(self.system_output_objects)==0 or len(self.system_input_objects)==0:
+    # OLD METHOD:        raise Exception('The object lists are empty')
+    # OLD METHOD:    if not set(self.system_output_objects)<=set(self.system_objects):
+    # OLD METHOD:        raise Exception('The output objects are not within the object set')
 
-        # We will be building the interface
-        self.system_ifc = create_interface()
+    # OLD METHOD:    # We will be building the interface
+    # OLD METHOD:    self.system_ifc = create_interface()
 
-        # This will be a map for the input and output variables
-        #     output_map[obj][lcl_var]=sys_var
-        self.system_output_map = {}
+    # OLD METHOD:    # This will be a map for the input and output variables
+    # OLD METHOD:    #     output_map[obj][lcl_var]=sys_var
+    # OLD METHOD:    self.system_output_map = {}
 
-        # now lets collect the output names
-        #
-        # This basically creates a map from local_output_name to an object that has that output and it's meta
-        #    output_data[local_output_name][list_index]=(object, output_meta)
-        #
-        output_data = {}
-        for obj in self.system_output_objects:
-            output_ifc = obj.get_interface()['output']
-            for output_name, output_meta in output_ifc.items():
-                if output_name in output_data.keys():
-                    output_data[output_name].append((obj, output_meta))
-                else:
-                    output_data[output_name]=[(obj, output_meta)]
+    # OLD METHOD:    # now lets collect the output names
+    # OLD METHOD:    #
+    # OLD METHOD:    # This basically creates a map from local_output_name to an object that has that output and it's meta
+    # OLD METHOD:    #    output_data[local_output_name][list_index]=(object, output_meta)
+    # OLD METHOD:    #
+    # OLD METHOD:    output_data = {}
+    # OLD METHOD:    for obj in self.system_output_objects:
+    # OLD METHOD:        output_ifc = obj.get_interface()['output']
+    # OLD METHOD:        for output_name, output_meta in output_ifc.items():
+    # OLD METHOD:            if output_name in output_data.keys():
+    # OLD METHOD:                output_data[output_name].append((obj, output_meta))
+    # OLD METHOD:            else:
+    # OLD METHOD:                output_data[output_name]=[(obj, output_meta)]
 
-        # Loop through the output data and build the interface
-        #
-        # This basically creates a map from local_output_name to an object that has that output and it's meta
-        #    output_map[output_obj]=([], {})
-        #        # This form is used to get a list of all the outputs from a given object that are needed
-        #        output_map[output_obj][0][list_index]=local_output_name
-        #        # This form shows how the local output name maps to the global output name
-        #        output_map[output_obj][1][local_output_name]=global_output_name
-        #
-        self.system_output_map = {}
-        for output_name, output_list in output_data.items():
-            if len(output_list)==1:
-                output_pair = output_list[0]
-                output_obj = output_pair[0]
-                output_meta = output_pair[1]
-                output_meta['name'] = output_name
-                #print('MIMC adding %s to the output'%(output_name))
-                set_output(self.system_ifc, output_meta)
-                if output_obj in self.system_output_map:
-                    self.system_output_map[output_obj][0].append(output_name)
-                    self.system_output_map[output_obj][1][output_name]=output_name
-                else:
-                    self.system_output_map[output_obj] = ([output_name], {output_name:output_name})
-            else:
-                has_duplicate = False
-                name_dict = {}
-                for output_obj, output_meta in output_list:
-                    name = output_obj.object_name+'__'+output_name
-                    if name in name_dict.keys():
-                        has_duplicate = True
-                        break
-                    name_dict[name] = (output_obj, output_meta)
-                if has_duplicate:
-                    name_dict = {}
-                    for output_obj, output_meta in output_list:
-                        name = output_obj.object_name+'_'+str(output_obj._hash_value)+'__'+output_name
-                        name_dict[name] = (output_obj, output_meta)
-                for name, output_pair in name_dict.items():
-                    output_obj = output_pair[0]
-                    output_meta = output_pair[1]
-                    output_meta['name'] = name
-                    #print('MIMC adding %s to the output'%(name))
-                    set_output(self.system_ifc, output_meta)
-                    if output_obj in self.system_output_map:
-                        self.system_output_map[output_obj][0].append(output_name)
-                        self.system_output_map[output_obj][1][output_name]=name
-                    else:
-                        self.system_output_map[output_obj] = ([output_name], {output_name:name})
+    # OLD METHOD:    # Loop through the output data and build the interface
+    # OLD METHOD:    #
+    # OLD METHOD:    # This basically creates a map from local_output_name to an object that has that output and it's meta
+    # OLD METHOD:    #    output_map[output_obj]=([], {})
+    # OLD METHOD:    #        # This form is used to get a list of all the outputs from a given object that are needed
+    # OLD METHOD:    #        output_map[output_obj][0][list_index]=local_output_name
+    # OLD METHOD:    #        # This form shows how the local output name maps to the global output name
+    # OLD METHOD:    #        output_map[output_obj][1][local_output_name]=global_output_name
+    # OLD METHOD:    #
+    # OLD METHOD:    self.system_output_map = {}
+    # OLD METHOD:    for output_name, output_list in output_data.items():
+    # OLD METHOD:        if len(output_list)==1:
+    # OLD METHOD:            output_pair = output_list[0]
+    # OLD METHOD:            output_obj = output_pair[0]
+    # OLD METHOD:            output_meta = output_pair[1]
+    # OLD METHOD:            output_meta['name'] = output_name
+    # OLD METHOD:            #print('MIMC adding %s to the output'%(output_name))
+    # OLD METHOD:            set_output(self.system_ifc, output_meta)
+    # OLD METHOD:            if output_obj in self.system_output_map:
+    # OLD METHOD:                self.system_output_map[output_obj][0].append(output_name)
+    # OLD METHOD:                self.system_output_map[output_obj][1][output_name]=output_name
+    # OLD METHOD:            else:
+    # OLD METHOD:                self.system_output_map[output_obj] = ([output_name], {output_name:output_name})
+    # OLD METHOD:        else:
+    # OLD METHOD:            has_duplicate = False
+    # OLD METHOD:            name_dict = {}
+    # OLD METHOD:            for output_obj, output_meta in output_list:
+    # OLD METHOD:                name = output_obj.object_name+'__'+output_name
+    # OLD METHOD:                if name in name_dict.keys():
+    # OLD METHOD:                    has_duplicate = True
+    # OLD METHOD:                    break
+    # OLD METHOD:                name_dict[name] = (output_obj, output_meta)
+    # OLD METHOD:            if has_duplicate:
+    # OLD METHOD:                name_dict = {}
+    # OLD METHOD:                for output_obj, output_meta in output_list:
+    # OLD METHOD:                    name = output_obj.object_name+'_'+str(output_obj._hash_value)+'__'+output_name
+    # OLD METHOD:                    name_dict[name] = (output_obj, output_meta)
+    # OLD METHOD:            for name, output_pair in name_dict.items():
+    # OLD METHOD:                output_obj = output_pair[0]
+    # OLD METHOD:                output_meta = output_pair[1]
+    # OLD METHOD:                output_meta['name'] = name
+    # OLD METHOD:                #print('MIMC adding %s to the output'%(name))
+    # OLD METHOD:                set_output(self.system_ifc, output_meta)
+    # OLD METHOD:                if output_obj in self.system_output_map:
+    # OLD METHOD:                    self.system_output_map[output_obj][0].append(output_name)
+    # OLD METHOD:                    self.system_output_map[output_obj][1][output_name]=name
+    # OLD METHOD:                else:
+    # OLD METHOD:                    self.system_output_map[output_obj] = ([output_name], {output_name:name})
 
-        # Now lets configure the input interface
-        input_data = {}
-        for obj in self.system_input_objects:
-            input_ifc = obj.get_interface()['output']
-            for input_name, input_meta in input_ifc.items():
-                if input_name in input_data.keys():
-                    input_data[input_name].append((obj, input_meta))
-                else:
-                    input_data[input_name]=[(obj, input_meta)]
+    # OLD METHOD:    # Now lets configure the input interface
+    # OLD METHOD:    input_data = {}
+    # OLD METHOD:    for obj in self.system_input_objects:
+    # OLD METHOD:        input_ifc = obj.get_interface()['output']
+    # OLD METHOD:        for input_name, input_meta in input_ifc.items():
+    # OLD METHOD:            if input_name in input_data.keys():
+    # OLD METHOD:                input_data[input_name].append((obj, input_meta))
+    # OLD METHOD:            else:
+    # OLD METHOD:                input_data[input_name]=[(obj, input_meta)]
 
-        # Loop through the input data and build the interface
-        self.system_input_map = {}
-        for input_name, input_list in input_data.items():
-            if len(input_list)==1:
-                input_pair = input_list[0]
-                input_obj = input_pair[0]
-                input_meta = input_pair[1]
-                input_meta['name'] = input_name
-                #print('MIMC adding %s to the input'%(input_name))
-                set_input(self.system_ifc, input_meta)
-                if input_obj in self.system_input_map:
-                    self.system_input_map[input_obj][input_name]=input_name
-                else:
-                    self.system_input_map[input_obj] = {input_name:input_name}
-            else:
-                has_duplicate = False
-                name_dict = {}
-                for input_obj, input_meta in input_list:
-                    name = input_obj.object_name+'__'+input_name
-                    if name in name_dict.keys():
-                        has_duplicate = True
-                        break
-                    name_dict[name] = (input_obj, input_meta)
-                if has_duplicate:
-                    name_dict = {}
-                    for input_obj, input_meta in input_list:
-                        name = input_obj.object_name+'_'+str(input_obj._hash_value)+'__'+input_name
-                        name_dict[name] = (input_obj, input_meta)
-                for name, input_pair in name_dict.items():
-                    input_obj = input_pair[0]
-                    input_meta = input_pair[1]
-                    input_meta['name'] = name
-                    #print('MIMC adding %s to the input'%(name))
-                    set_input(self.system_ifc, input_meta)
-                    if input_obj in self.system_input_map:
-                        self.system_input_map[input_obj][input_name]=name
-                    else:
-                        self.system_input_map[input_obj] = {input_name:name}
+    # OLD METHOD:    # Loop through the input data and build the interface
+    # OLD METHOD:    self.system_input_map = {}
+    # OLD METHOD:    for input_name, input_list in input_data.items():
+    # OLD METHOD:        if len(input_list)==1:
+    # OLD METHOD:            input_pair = input_list[0]
+    # OLD METHOD:            input_obj = input_pair[0]
+    # OLD METHOD:            input_meta = input_pair[1]
+    # OLD METHOD:            input_meta['name'] = input_name
+    # OLD METHOD:            #print('MIMC adding %s to the input'%(input_name))
+    # OLD METHOD:            set_input(self.system_ifc, input_meta)
+    # OLD METHOD:            if input_obj in self.system_input_map:
+    # OLD METHOD:                self.system_input_map[input_obj][input_name]=input_name
+    # OLD METHOD:            else:
+    # OLD METHOD:                self.system_input_map[input_obj] = {input_name:input_name}
+    # OLD METHOD:        else:
+    # OLD METHOD:            has_duplicate = False
+    # OLD METHOD:            name_dict = {}
+    # OLD METHOD:            for input_obj, input_meta in input_list:
+    # OLD METHOD:                name = input_obj.object_name+'__'+input_name
+    # OLD METHOD:                if name in name_dict.keys():
+    # OLD METHOD:                    has_duplicate = True
+    # OLD METHOD:                    break
+    # OLD METHOD:                name_dict[name] = (input_obj, input_meta)
+    # OLD METHOD:            if has_duplicate:
+    # OLD METHOD:                name_dict = {}
+    # OLD METHOD:                for input_obj, input_meta in input_list:
+    # OLD METHOD:                    name = input_obj.object_name+'_'+str(input_obj._hash_value)+'__'+input_name
+    # OLD METHOD:                    name_dict[name] = (input_obj, input_meta)
+    # OLD METHOD:            for name, input_pair in name_dict.items():
+    # OLD METHOD:                input_obj = input_pair[0]
+    # OLD METHOD:                input_meta = input_pair[1]
+    # OLD METHOD:                input_meta['name'] = name
+    # OLD METHOD:                #print('MIMC adding %s to the input'%(name))
+    # OLD METHOD:                set_input(self.system_ifc, input_meta)
+    # OLD METHOD:                if input_obj in self.system_input_map:
+    # OLD METHOD:                    self.system_input_map[input_obj][input_name]=name
+    # OLD METHOD:                else:
+    # OLD METHOD:                    self.system_input_map[input_obj] = {input_name:name}
 
-        # Generate the gbl to lcl map for inputs
-        self.system_input_gbl_to_lcl_map={}
-        for obj, name_map in self.system_input_map.items():
-            for lcl_name, gbl_name in name_map.items():
-                self.system_input_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
+    # OLD METHOD:    # Generate the gbl to lcl map for inputs
+    # OLD METHOD:    self.system_input_gbl_to_lcl_map={}
+    # OLD METHOD:    for obj, name_map in self.system_input_map.items():
+    # OLD METHOD:        for lcl_name, gbl_name in name_map.items():
+    # OLD METHOD:            self.system_input_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
 
-        # Generate the gbl to lcl map for outputs
-        self.system_output_gbl_to_lcl_map={}
-        for obj, output_pair in self.system_output_map.items():
-            name_map = output_pair[1]
-            for lcl_name, gbl_name in name_map.items():
-                self.system_output_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
+    # OLD METHOD:    # Generate the gbl to lcl map for outputs
+    # OLD METHOD:    self.system_output_gbl_to_lcl_map={}
+    # OLD METHOD:    for obj, output_pair in self.system_output_map.items():
+    # OLD METHOD:        name_map = output_pair[1]
+    # OLD METHOD:        for lcl_name, gbl_name in name_map.items():
+    # OLD METHOD:            self.system_output_gbl_to_lcl_map[gbl_name]=(obj, lcl_name)
 
-        self.system_has_been_configured = True
+    # OLD METHOD:    self.system_has_been_configured = True
 
-        #print('MIMC after configuration, the interface looks like this:', self.system_ifc)
+    # OLD METHOD:    #print('MIMC after configuration, the interface looks like this:', self.system_ifc)
 
     def system_set_state_version(self, state_version_in=None):
 
@@ -1728,7 +1980,11 @@ class FUSED_System_Base(object):
 
     def get_object_and_local_from_global_input(self, gbl_name):
 
-        return self.system_input_gbl_to_lcl_map[gbl_name]
+        return self.system_input_gbl_to_lcl_map[gbl_name][0]
+
+    def get_indep_var_from_global_input(self, gbl_name):
+
+        return self.system_input_gbl_to_lcl_map[gbl_name][1]
 
     def get_object_and_local_from_global_output(self, gbl_name):
 
@@ -1740,7 +1996,7 @@ class FUSED_System_Base(object):
 
     def get_global_from_object_and_local_output(self, obj, lcl_name):
 
-        return self.system_output_map[obj][1][lcl_name]
+        return self.system_output_map[obj][lcl_name]
 
     def get_system_interface(self):
 
@@ -1750,16 +2006,14 @@ class FUSED_System_Base(object):
     def system_compute(self, input_values, output_values):
 
         # First set the inputs on the input objects
-        for obj, name_map in self.system_input_map.items():
-            if len(name_map)!=1:
-                raise Exception('Currently, the expectation is that independent variable objects only contain 1 variable')
-            for local_name, global_name in name_map.items():
-                obj.set_data(input_values[global_name])
+        for global_name, input_pair in self.system_input_gbl_to_lcl_map.items():
+            if input_pair[1] is None:
+                raise Exception('It seems the independent variable was not set')
+            input_pair[1].set_data(input_values[global_name])
 
         # Now collect the output
-        for obj, name_pair in self.system_output_map.items():
+        for obj, output_map in self.system_output_map.items():
             output = obj.get_output_value()
-            output_map = name_pair[1]
             for local_name, global_name in output_map.items():
                 output_values[global_name] = output[local_name]
 
@@ -1841,10 +2095,11 @@ class FUSED_System_Base(object):
 
 # This is a group based on system base, here the object does not have a seperate StateVersion
 class FUSED_Group(FUSED_System_Base):
+    # MIMC TODO this name is already reserved
 
     # This is the constructor
-    def __init__(self, objects_in=[], output_objects_in=[]):
-        super(FUSED_Group, self).__init__(objects_in=objects_in, output_objects_in=output_objects_in)
+    def __init__(self, objects_in=[]):
+        super(FUSED_Group, self).__init__(objects_in=objects_in)
 
     # Identifies whether it is an independent variable
     def is_independent_variable(self):
@@ -1886,34 +2141,13 @@ class FUSED_Group(FUSED_System_Base):
         # 2) for every destination create a dest map
         for dest_name, source_name in dst_src_map.items():
             #   2a) collect the true dest object
-            obj, local_dest_name = self.get_object_and_local_from_global_input(dest_name)
-            # test if out object is an independent variable
-            if obj.is_independent_variable():
-                # Now that the obj has been over-riden ensure that it is no longer in my object list
-                if obj in self.system_objects:
-                    self.system_objects.remove(obj)
-                # Now we loop through the output connection of indep variable
-                output_connections = self.system_input_connections[obj]
-                # Loop through output connections
-                for iv_source_name, iv_output_dict in output_connections.items():
-                    # Loop through the output dict
-                    for iv_dst_obj, iv_dest_list in iv_output_dict.items():
-                        # Loop through the destination names
-                        for iv_dest_name in iv_dest_list:
-                            if iv_dst_obj in dest_conn_struct:
-                                if iv_dest_name in dest_conn_struct[iv_dst_obj]:
-                                    raise NameError('A variable is being connected to twice')
-                                dest_conn_struct[iv_dst_obj][iv_dest_name] = source_name
-                            else:
-                                dest_conn_struct[iv_dst_obj]={iv_dest_name:source_name}
-            else:
-                print('It is assumed that no non-independent variables are inputs so this branch should not be executed')
-                if obj in dest_conn_struct:
-                    if local_dest_name in dest_conn_struct[obj]:
-                        raise NameError('A variable is being connected to twice')
-                    dest_conn_struct[obj][local_dest_name] = source_name
-                else:
-                    dest_conn_struct[obj]={local_dest_name:source_name}
+            obj_dict = self.get_object_and_local_from_global_input(dest_name)
+            # loop through the objects
+            for dest_obj, local_dest_list in obj_dict.items():
+                if not dest_obj in dest_conn_struct:
+                    dest_conn_struct[dest_obj]={}
+                for local_dest_name in local_dest_list:
+                    dest_conn_struct[dest_obj][local_dest_name] = source_name
 
         # 3) for every dest object, run connect on that object
         for obj, conn_dict in dest_conn_struct.items():
@@ -2022,7 +2256,7 @@ class FUSED_Group(FUSED_System_Base):
 class FUSED_System(FUSED_Object, FUSED_System_Base):
 
     # This is the constructor
-    def __init__(self, objects_in=[], output_objects_in=[], object_name_in='unnamed_system_object', state_version_in=None):
+    def __init__(self, objects_in=[], object_name_in='unnamed_system_object', state_version_in=None):
         FUSED_Object.__init__(self, object_name_in=object_name_in, state_version_in=state_version_in)
         FUSED_System_Base.__init__(self, objects_in=objects_in, output_objects_in=output_objects_in)
 
@@ -2294,6 +2528,7 @@ def split_worflow(split_points):
         # build a system
         else:
             sub_system_models[sub_system_hash_value] = FUSED_System(object_set, sub_system_output_objects[sub_system_hash_value], object_name_in=id_obj_map[sub_system_hash_value].object_name)
+            # MIMC TODO run the appropriate interface configuration
             #print('MIMC adding pdb directive here. Looking at configure syste for system object %s'%(id_obj_map[sub_system_hash_value].object_name))
             #import pdb; pdb.set_trace()
             sub_system_models[sub_system_hash_value].configure_system()

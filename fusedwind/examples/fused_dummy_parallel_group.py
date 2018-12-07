@@ -89,6 +89,7 @@ def get_work_flow(cnt=1, stage_cnt=1):
             group_objects.append(obj)
             obj.connect(last_obj, 'data', 'soln')
             last_obj = obj
+        # MIMC TODO add the interface specification methods
         grp = FUSED_Group(group_objects, [last_obj])
         group_list.append(grp)
 
