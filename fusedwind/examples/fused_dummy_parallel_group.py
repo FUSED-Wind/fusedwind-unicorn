@@ -89,8 +89,9 @@ def get_work_flow(cnt=1, stage_cnt=1):
             group_objects.append(obj)
             obj.connect(last_obj, 'data', 'soln')
             last_obj = obj
-        # MIMC TODO add the interface specification methods
-        grp = FUSED_Group(group_objects, [last_obj])
+        grp = FUSED_Group(group_objects)
+        grp.add_input_interface_from_connections()
+        grp.add_output_interface_from_objects([last_obj])
         group_list.append(grp)
 
     # Lets create the case runner

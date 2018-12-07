@@ -222,7 +222,7 @@ def process_io(component, interface, add_method):
 
 # Return FUSED Group based on version of OpenMDAO 1.x or 2.x
 ############################################################
-def FUSED_Group(*args, **kwargs):
+def FUSED_OM_Group(*args, **kwargs):
 
     if int(op.__version__[0]) > 1:
         from openmdao.api import Group

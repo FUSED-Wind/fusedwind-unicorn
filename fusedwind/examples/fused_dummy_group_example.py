@@ -147,8 +147,10 @@ def get_non_grouped_work_flow_in_group():
 
     object_dict, object_list = get_non_grouped_work_flow_raw()
 
-    # MIMC TODO add the interface specification methods
-    return FUSED_Group(object_list, [object_dict['A']])
+    retval = FUSED_Group(object_list)
+    retval.add_input_interface_from_independent_variables()
+    retval.add_output_interface_from_objects([object_dict['A']])
+    return retval
 
 def get_group_1():
 
@@ -172,9 +174,9 @@ def get_group_1():
     E.connect(H_in_1, 'data1', 'H_in_1_data')
     E.connect(I_in_1, 'data2', 'I_in_1_data')
     # group 1 creation
-    # MIMC TODO add the interface specification methods
-    group_1 = FUSED_Group([B,C,D_in_1,E,F_in_1,H_in_1,I_in_1],[B, C])
-
+    group_1 = FUSED_Group([B,C,D_in_1,E,F_in_1,H_in_1,I_in_1])
+    group_1.add_input_interface_from_independent_variables()
+    group_1.add_output_interface_from_objects([B, C])
     return group_1
 
 def get_group_2():
@@ -186,20 +188,20 @@ def get_group_2():
     G = FUSED_Dummy_Simulation(object_name_in='G') #  10,  18
     H = FUSED_Dummy_Simulation(object_name_in='H') #  18,  26
     # -------------------------------------------------------
-    K_in_1 = Independent_Variable(np.array([ 3, 7]),'K_in_2_data', object_name_in='K_in_2')
-    L_in_1 = Independent_Variable(np.array([ 7,11]),'L_in_2_data', object_name_in='L_in_2')
-    M_in_1 = Independent_Variable(np.array([11,15]),'M_in_2_data', object_name_in='M_in_2')
+    K_in_2 = Independent_Variable(np.array([ 3, 7]),'K_in_2_data', object_name_in='K_in_2')
+    L_in_2 = Independent_Variable(np.array([ 7,11]),'L_in_2_data', object_name_in='L_in_2')
+    M_in_2 = Independent_Variable(np.array([11,15]),'M_in_2_data', object_name_in='M_in_2')
     # group 2 connections
     D.connect(G, 'data1', 'sum')
     D.connect(H, 'data2', 'sum')
-    G.connect(K_in_1, 'data1', 'K_in_2_data')
-    G.connect(L_in_1, 'data2', 'L_in_2_data')
-    H.connect(L_in_1, 'data1', 'L_in_2_data')
-    H.connect(M_in_1, 'data2', 'M_in_2_data')
+    G.connect(K_in_2, 'data1', 'K_in_2_data')
+    G.connect(L_in_2, 'data2', 'L_in_2_data')
+    H.connect(L_in_2, 'data1', 'L_in_2_data')
+    H.connect(M_in_2, 'data2', 'M_in_2_data')
     # group 2 creation
-    # MIMC TODO add the interface specification methods
-    group_2 = FUSED_Group([D,G,H,K_in_1,L_in_1,M_in_1],[D,H])
-
+    group_2 = FUSED_Group([D,G,H,K_in_2,L_in_2,M_in_2])
+    group_2.add_input_interface_from_independent_variables()
+    group_2.add_output_interface_from_objects([D,H])
     return group_2
 
 def get_group_3():
@@ -211,20 +213,20 @@ def get_group_3():
     I = FUSED_Dummy_Simulation(object_name_in='I') #  26,  34
     J = FUSED_Dummy_Simulation(object_name_in='J') #  34,  42
     # -------------------------------------------------------
-    M_in_1 = Independent_Variable(np.array([11,15]),'M_in_3_data', object_name_in='M_in_3')
-    N_in_1 = Independent_Variable(np.array([15,19]),'N_in_3_data', object_name_in='N_in_3')
-    O_in_1 = Independent_Variable(np.array([19,23]),'O_in_3_data', object_name_in='O_in_3')
+    M_in_3 = Independent_Variable(np.array([11,15]),'M_in_3_data', object_name_in='M_in_3')
+    N_in_3 = Independent_Variable(np.array([15,19]),'N_in_3_data', object_name_in='N_in_3')
+    O_in_3 = Independent_Variable(np.array([19,23]),'O_in_3_data', object_name_in='O_in_3')
     # group 2 connections
     F.connect(I, 'data1', 'sum')
     F.connect(J, 'data2', 'sum')
-    I.connect(M_in_1, 'data1', 'M_in_3_data')
-    I.connect(N_in_1, 'data2', 'N_in_3_data')
-    J.connect(N_in_1, 'data1', 'N_in_3_data')
-    J.connect(O_in_1, 'data2', 'O_in_3_data')
+    I.connect(M_in_3, 'data1', 'M_in_3_data')
+    I.connect(N_in_3, 'data2', 'N_in_3_data')
+    J.connect(N_in_3, 'data1', 'N_in_3_data')
+    J.connect(O_in_3, 'data2', 'O_in_3_data')
     # group 3 creation
-    # MIMC TODO add the interface specification methods
-    group_3 = FUSED_Group([F,I,J,M_in_1,N_in_1,O_in_1],[F,I])
-
+    group_3 = FUSED_Group([F,I,J,M_in_3,N_in_3,O_in_3])
+    group_3.add_input_interface_from_independent_variables()
+    group_3.add_output_interface_from_objects([F, I])
     return group_3
 
 def get_grouped_work_flow_raw():
@@ -321,8 +323,10 @@ def get_grouped_work_flow_in_group():
 
     object_dict = get_grouped_work_flow_raw()
 
-    # MIMC TODO add the interface specification methods
-    return FUSED_Group(object_dict.values(), [object_dict['A']])
+    retval = FUSED_Group(list(object_dict.values()))
+    retval.add_input_interface_from_independent_variables()
+    retval.add_output_interface_from_objects([object_dict['A']])
+    return retval
 
 if __name__ == '__main__':
 

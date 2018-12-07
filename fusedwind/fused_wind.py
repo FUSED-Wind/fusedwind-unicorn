@@ -2095,7 +2095,6 @@ class FUSED_System_Base(object):
 
 # This is a group based on system base, here the object does not have a seperate StateVersion
 class FUSED_Group(FUSED_System_Base):
-    # MIMC TODO this name is already reserved
 
     # This is the constructor
     def __init__(self, objects_in=[]):
@@ -2527,8 +2526,9 @@ def split_worflow(split_points):
             sub_system_models_is_system[sub_system_hash_value] = False
         # build a system
         else:
-            sub_system_models[sub_system_hash_value] = FUSED_System(object_set, sub_system_output_objects[sub_system_hash_value], object_name_in=id_obj_map[sub_system_hash_value].object_name)
-            # MIMC TODO run the appropriate interface configuration
+            sub_system_models[sub_system_hash_value] = FUSED_System(object_set, object_name_in=id_obj_map[sub_system_hash_value].object_name)
+            sub_system_models[sub_system_hash_value].add_input_interface_from_independent_variables()
+            sub_system_models[sub_system_hash_value].add_output_interface_from_objects(sub_system_output_objects[sub_system_hash_value])
             #print('MIMC adding pdb directive here. Looking at configure syste for system object %s'%(id_obj_map[sub_system_hash_value].object_name))
             #import pdb; pdb.set_trace()
             sub_system_models[sub_system_hash_value].configure_system()
