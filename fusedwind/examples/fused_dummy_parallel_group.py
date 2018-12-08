@@ -2,8 +2,18 @@
 # FUSED wrapper
 from fusedwind.fused_wind import FUSED_Object, FUSED_Group, Independent_Variable, get_execution_order, print_interface
 from fusedwind.fused_mpi_cases import FUSED_MPI_ObjectCases
+from time import sleep
 
 import numpy as np
+
+add_one_cnt = 0
+
+try:
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+except:
+    rank = 0
 
 class Dummy_Add_One(object):
 
@@ -11,7 +21,11 @@ class Dummy_Add_One(object):
         super(Dummy_Add_One, self).__init__()
 
     def calculate_stuff(self, data):
-        return data+1
+        global add_one_cnt
+        add_one_cnt+=1
+        retval = data+1
+        sleep(0.2)
+        return retval
 
 class FUSED_Dummy_Add_One(FUSED_Object):
 
@@ -63,7 +77,7 @@ class FUSED_Dummy_Add_All(FUSED_Object):
             args.append(val)
         outputs['sum']=self.model.calculate_stuff(*args)
 
-def get_work_flow(cnt=1, stage_cnt=1):
+def get_work_flow(cnt=1, stage_cnt=1, use_case_runner=True):
 
     # This is the object dictionary
     object_dict = {}
@@ -94,8 +108,9 @@ def get_work_flow(cnt=1, stage_cnt=1):
         grp.add_output_interface_from_objects([last_obj])
         group_list.append(grp)
 
-    # Lets create the case runner
-    case_runner = FUSED_MPI_ObjectCases(group_list)
+    if use_case_runner:
+        # Lets create the case runner
+        case_runner = FUSED_MPI_ObjectCases(group_list)
 
     # Now lets create a serial reduction
     add_all = FUSED_Dummy_Add_All(cnt, object_name_in='add_all')
@@ -108,13 +123,168 @@ def get_work_flow(cnt=1, stage_cnt=1):
 
 if __name__ == '__main__':
 
+
     print('MIMC Hello World!')
+    comm.Barrier()
 
-    wf = get_work_flow(1, 1)
-
-    #MIMC import pdb; pdb.set_trace()
+    if rank == 0:
+        print('\nRunnint 1x1 with case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(1, 1, True)
     soln = wf['add_all']['sum']
-    print('Answer should be 2')
-    print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 2')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 1x1 without case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(1, 1, False)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 2')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 2x2 with case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(2, 2, True)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 6')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 2x2 without case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(2, 2, False)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 6')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 3x3 with case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(3, 3, True)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 12')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 3x3 without case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(3, 3, False)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 12')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 4x4 with case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(4, 4, True)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 20')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 4x4 without case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(4, 4, False)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 20')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 5x5 with case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(5, 5, True)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 30')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
+
+    if rank == 0:
+        print('\nRunnint 5x5 without case runner\n-------------------------------')
+    add_one_cnt = 0
+    wf = get_work_flow(5, 5, False)
+    soln = wf['add_all']['sum']
+    comm.Barrier()
+    sleep(0.1)
+    if rank == 0:
+        print('Answer should be 30')
+        print('soln:', soln)
+    comm.Barrier()
+    sleep(0.1)
+    print('the add-one-cnt is:', add_one_cnt, 'on rank:', rank)
+    comm.Barrier()
+    sleep(0.1)
 
 

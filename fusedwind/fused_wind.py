@@ -949,6 +949,8 @@ class FUSED_Object(object):
 
     # This instructs this class to update it's data through calculation
     def update_output_data(self):
+        if not self._update_needed():
+            return
         if self.my_case_runner is None or self.my_case_runner.i_am_executing:
             self._build_input_vector()
             self.compute(self.input_values, self.output_values)
@@ -964,8 +966,7 @@ class FUSED_Object(object):
         if not key in ifc['output'].keys():
             raise KeyError('That data is not in the interface')
         # Verify that the data is calculated based on the latest state
-        if self._update_needed():
-            self.update_output_data()
+        self.update_output_data()
         # Verify that the data is synchronized properly
         if key in self.output_at_rank and self.output_at_rank[key]>=0:
             self.sync_output(key)
@@ -992,7 +993,7 @@ class FUSED_Object(object):
         if len(self.output_at_rank) == 0:
             return
 
-        my_rank = self.comm.rank()
+        my_rank = self.comm.rank
 
         # If we tranfer all
         if var_name is None:
@@ -1036,12 +1037,12 @@ class FUSED_Object(object):
             # Only if the list contains a valid variable
             if name in self.output_at_rank and self.output_at_rank[name]>=0:
                 at_rank = self.output_at_rank[name]
-                if not name in output_values:
-                    output_values[name] = None
+                if not name in self.output_values:
+                    self.output_values[name] = None
                 if my_rank == at_rank:
-                    self.comm.bcast(output_values[name], at_rank)
+                    self.comm.bcast(self.output_values[name], at_rank)
                 else:
-                    output_values[name] = self.comm.bcast(None, at_rank)
+                    self.output_values[name] = self.comm.bcast(None, at_rank)
                 del self.output_at_rank[name]
             else:
                 raise KeyError('Tried to sync a variable that is not distributed')
@@ -2074,9 +2075,9 @@ class FUSED_System_Base(object):
                         for dest_name in dst_list:
                             # Add it to the system_dst_src_map
                             if src_name in system_src_dst_map:
-                                system_src_dst_map[src_name].append(dst_name)
+                                system_src_dst_map[src_name].append(dest_name)
                             else:
-                                system_src_dst_map[src_name]=[dst_name]
+                                system_src_dst_map[src_name]=[dest_name]
                             # Add it to the system_dst_src_map
                             if dest_name in system_dst_src_map:
                                 raise Exception('It seems the connection configuration has been corrupted')
@@ -2104,22 +2105,22 @@ class FUSED_System_Base(object):
                         # Build the entries for the retval
                         if not dest_obj in retval:
                             retval[dest_obj]={obj:({},{})}
-                        if not obj in retval[src_obj]:
+                        if not obj in retval[dest_obj]:
                             retval[dest_obj][obj]=({},{})
                         # Retrieve the maps that we must update
-                        system_src_dst_map, system_dst_src_map = retval[src_obj][obj]
+                        system_src_dst_map, system_dst_src_map = retval[dest_obj][obj]
                         # loop through all the dest variables
-                        for dest_name in dst_list:
+                        for dest_name in dest_list:
                             # Add it to the system_dst_src_map
                             if src_name in system_src_dst_map:
-                                system_src_dst_map[src_name].append(dst_name)
+                                system_src_dst_map[src_name].append(dest_name)
                             else:
-                                system_src_dst_map[src_name]=[dst_name]
+                                system_src_dst_map[src_name]=[dest_name]
                             # Add it to the system_dst_src_map
                             if dest_name in system_dst_src_map:
                                 raise Exception('It seems the connection configuration has been corrupted')
                             system_dst_src_map[dest_name]=src_name
-                        retval[src_obj][obj]=(system_src_dst_map, system_dst_src_map)
+                        retval[dest_obj][obj]=(system_src_dst_map, system_dst_src_map)
 
         # Return the result
         return retval
