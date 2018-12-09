@@ -18,9 +18,12 @@
 
 import numpy as np
 import copy
+import time
 
 try:
     from mpi4py import MPI
+    #print('MIMC debug stuff is here')
+    #bcast_cnt = 0
 except:
     print('It seems that we are not able to import MPI')
     MPI = None
@@ -987,8 +990,10 @@ class FUSED_Object(object):
         # None indicates all variables
         # '__downstream__' indicates all downstream involved in connections
 
+        #global bcast_cnt
+
         # check if we are running in MPI
-        if self.comm is None:
+        if self.comm is None or self.comm.size <= 1:
             return
         if len(self.output_at_rank) == 0:
             return
@@ -1033,16 +1038,23 @@ class FUSED_Object(object):
                 var_name.remove('__downstream__')
 
         # process a list of variables
-        for name in var_name:
+        for name in sorted(var_name):
             # Only if the list contains a valid variable
             if name in self.output_at_rank and self.output_at_rank[name]>=0:
                 at_rank = self.output_at_rank[name]
                 if not name in self.output_values:
                     self.output_values[name] = None
                 if my_rank == at_rank:
+                    #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
                     self.comm.bcast(self.output_values[name], at_rank)
                 else:
                     self.output_values[name] = self.comm.bcast(None, at_rank)
+                    #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
+                #bcast_cnt+=1
+                # MIMC #############
+                # self.comm.Barrier()
+                # time.sleep(0.2)
+                ####################
                 del self.output_at_rank[name]
             else:
                 raise KeyError('Tried to sync a variable that is not distributed')
@@ -2254,7 +2266,8 @@ class FUSED_Group(FUSED_System_Base):
                 sync_dict[obj]=[local]
 
         # Perform the sync
-        for obj, var_list in sync_dict.items():
+        for obj in sorted(sync_dict.keys()):
+            var_list = sync_dict[obj]
             obj.sync_output(var_list)
 
     # This will retrieve the output values for the group
