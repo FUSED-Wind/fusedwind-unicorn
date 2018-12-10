@@ -4,58 +4,77 @@ from sklearn import linear_model
 from sklearn.externals import joblib
 from fusedwind.fused_wind import FUSED_Object, Independent_Variable, get_execution_order
 import numpy as np
+# CMOS Thoughts on the surrogate capabilities:
+#   The surrogate object should when finished be able to connect to independent variables and outputs. The "Model" part is what the power user defines. This should take a numpy array(matrix) and spit out predictions(vector) in a function .get_prediction(np_input) further more it should include a field(list) calles .input_names which allows the surrogate object to know where to connect which inputs. Notice that the order of this list is essential!
+# The model might have an output name. Otherwise this is simply 'prediction'
+# Example of very simple surrogate:
+
+#class simple_surrogate(object):
+#    def __init__(self):
+#        self.input_names = ['x','y']
+#        self.output_name = ['prediction']
+#
+#    def get_prediction(np_input):
+#        return [sum(np_input,axis=1)]
+
 
 class FUSED_Surrogate(FUSED_Object):
-    def __init__(self, DOE_object_in=None, ifc={}, input_key_map={}, output_key_map={}, object_name_in='unnamed_surrogate_object',state_version_in=None):
+    def __init__(self, object_name_in='unnamed_surrogate_object',state_version_in=None,model_in=None):
         super(FUSED_Surrogate, self).__init__(object_name_in, state_version_in)
-        self.DOE_object = DOE_object_in
-        self.input_ifc = ifc
-        self.input_key_map = input_key_map
-        self.output_key_map = output_key_map
+
         self.model = None
+        self.model_input_names = None
+        self.model_output_names = ['prediction']
+        self.output_name = None
+
+        if not model_in is None:
+            self.set_model(model_in)
 
     def _build_interface(self):
-        self.add_output('prediction')
-
-    def set_model(self,model_obj,input_names=None):
-        self.model = model_obj
-        if (input_names is None) and (not hasattr(self.model, 'indep_list')):
-            print('No input objects were found in the model or given in set_model. This is needed for the model to act as a FUSED_model. Add them with .add_input(name,shape)')
-        elif not input_names is None:
-            for name in input_names:
-                self.add_input(name)
-            self.model.indep_list = input_names
+        if self.model is None:
+            print('No model connected yet. The interface is still empty')
         else:
-            for name in self.model.indep_list:
-                self.add_input(name)
+            for var in self.model_output_names:
+                self.add_output(var)
+            for var in self.model_input_names:
+                self.add_input(var)
     
+    #Class to set the model. The model_obj is described above.
+    def set_model(self,model_obj):
+        self.model = model_obj
+        if not hasattr(self.model,'input_names'):
+            raise Exception('The model has no attribute .input_names. Add this to the model object to couple it to fused_wind')
+        self.model_input_names = self.model.input_names
+        if hasattr(self.model,'output_names'):
+            self.model_output_names = self.model.output_names
+        else:
+            print('The model has no outputname. The output name of the fused-object is by default \'prediction\'')
+
     #Fused wind way of getting output:
     def compute(self,inputs,outputs):
-        import pdb; pdb.set_trace()
-        print(inputs)
-        np_array = np.empty(len(inputs))
-        for n, var_obj in enumerate(inputs):
-            np_array[n] = var_obj
-            print(var_obj)
-        outputs['prediction'] = self.get_prediction(np_array)
-
-    def get_prediction(self,np_input):
-        #If the model is external is should just be an object with the function get_prediction which takes in a numpy array.
         if self.model is None:
-            print('No Model')
-        else:
-            return(self.model.get_prediction(np_input))
+            raise Exception('No model has been connected')
 
+        np_array = np.empty((1,len(inputs)))
+        for n, var in enumerate(self.model_input_names):
+            if not var in inputs:
+                raise Exception('The name {} was not found in the input variables. Syncronize the connected independent variables and the model.input_names to ensure that the model is connect correctly')
+            np_array[0,n] = inputs[var]
+        prediction = self.model.get_prediction(np_array)
+        for n, var in enumerate(self.model_output_names):
+            outputs[var] = prediction[n]
 
-class apply_to_numpy_inp(FUSED_Object):
-    def __init__(self, indep_list, object_name_in='unnamed_dummy_object'):
-        super(apply_to_numpy_inp, self).__init__(object_name_in)
-        self.indep_list = indep_list
+## ----------- The rest of the classes are CMOS customized surrogates. They can be used as default, but are a bit complicated to modify and NOT seen as an integrated part of fused wind.
 
-class Multi_Fidelity_Surrogate(FUSED_Surrogate):
+class Multi_Fidelity_Surrogate(object):
     
-    def __init__(self, data_set_object_cheap=None, data_set_object_exp=None, data_intersections=None, ifc={}, input_key_map={}, output_key_map={}, object_name_in='unnamed_surrogate_object',state_version_in=None):
-        super(Multi_Fidelity_Surrogate, self).__init__(data_set_object_cheap, ifc, input_key_map, output_key_map, object_name_in, state_version_in)
+    def __init__(self, data_set_object_cheap=None, data_set_object_exp=None, data_intersections=None):
+
+        if not data_set_object_cheap.data['inputs'].keys() == data_set_object_cheap.data['inputs'].keys():
+            raise Exception('The input and output keys should be the same and in the same order.. Other cases are not implemented yet!!')
+        else:
+            self.input_names = data_set_object_cheap.data['inputs'].keys()
+        self.output_names = ['prediction','sigma']
 
         self.data_set_object_cheap = data_set_object_cheap
         self.data_set_object_exp = data_set_object_exp
@@ -65,7 +84,7 @@ class Multi_Fidelity_Surrogate(FUSED_Surrogate):
 
         #The intersection array should be an array with 0 or 1 of the length of the cheap data.
         self.data_intersections = data_intersections
-        
+
         built = 'False'
 
     def build_model(self):
@@ -100,9 +119,16 @@ class Multi_Fidelity_Surrogate(FUSED_Surrogate):
         built = 'True'
  
     #Fast way of getting a prediction on a np-array data set: 
-    def get_prediction(self,input):
+    def get_prediction_matrix(self,input):
         prediction = self.cheap_linear_model.get_prediction(input)+self.cheap_GP_model.get_prediction(input)+self.exp_correction_linear_model.get_prediction(input)+self.exp_correction_GP_model.get_prediction(input)
         return prediction
+
+    #Single prediction for the fused wind coupling:
+    def get_prediction(self,input):
+        prediction = self.cheap_linear_model.get_prediction(input)+self.cheap_GP_model.get_prediction(input)+self.exp_correction_linear_model.get_prediction(input)+self.exp_correction_GP_model.get_prediction(input)
+        sigma = self.cheap_GP_model.get_sigma(input)**2+self.exp_correction_GP_model.get_sigma(input)**2
+        sigma = sigma**0.5
+        return [prediction,sigma]
  
 class Linear_Model(linear_model.LinearRegression):
  
@@ -196,3 +222,7 @@ class Kriging_Model(GaussianProcessRegressor):
 
     def get_prediction(self,input):
         return self.predict(input)
+
+    def get_sigma(self,input):
+        prediction, sigma = self.predict(input,return_std=True)
+        return sigma

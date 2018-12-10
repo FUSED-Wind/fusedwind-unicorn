@@ -26,6 +26,7 @@ class FUSED_Dummy_Simulation(FUSED_Object):
         self.add_output('sum', shape=2)
 
     def compute(self, inputs, outputs):
+        import pdb;pdb.set_trace()
 
         outputs['sum']=self.model.calculate_stuff(inputs['data1'],inputs['data2'])
 
@@ -47,7 +48,7 @@ G = Independent_Variable(np.array([1,2]),'G_data', object_name_in='G')
 H = Independent_Variable(np.array([3,4]),'H_data', object_name_in='H')
 I = Independent_Variable(np.array([5,6]),'I_data', object_name_in='I')
 J = Independent_Variable(np.array([7,8]),'J_data', object_name_in='J')
-
+import pdb; pdb.set_trace()
 A.connect(B, 'data1', 'sum')
 A.connect(C, 'data2', 'sum')
 B.connect(D, 'data1', 'sum')
@@ -67,4 +68,6 @@ if __name__ == '__main__':
 
     print('Answer should be 28 and 44')
     print(A.get_output_value())
+
+
 

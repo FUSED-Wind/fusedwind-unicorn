@@ -17,8 +17,9 @@ class FUSED_Data_Set(object):
         self.input_collumns = 0
         self.output_collumns = 0
         self.data = dict()
-        self.data['inputs'] = dict()
-        self.data['outputs'] = dict()
+#        self.data['inputs'] = dict()
+#        self.data['outputs'] = dict()
+        self.collumn_list = []
         self.data_types = dict()
         self.input_indep_var_list = []
         self.output_list = []
@@ -41,20 +42,14 @@ class FUSED_Data_Set(object):
                 old_number +=1
         print('Saving DOE as {}'.format(hdf5_file))        
         f = h5py.File(hdf5_file)
-
-        for key in self.data['inputs'].keys():
-            f['data/inputs/'+key] = self.data['inputs'][key]
-            f['data_types/'+key] = self.data_types[key]
-
-        for key in self.data['outputs'].keys():
-            f['data/outputs/'+key] = self.data['outputs'][key]
-            f['data_types/'+key] = self.data_types[key]
+        for key in self.data.keys():
+            f['data/'+key+'/values'] = self.data[key]['values']
+            f['data/'+key+'/status'] = self.data[key]['status']
 
         stringSet = f.create_dataset('stringSet', (100,), dtype=h5py.special_dtype(vlen=str))
         stringSet.attrs["name"] = self.name
 
         f['job_count'] = self.job_count
-        f['result_up2date'] = self.result_up2date
         f.close()
 
     def save_pickle(self,destination=None):
@@ -70,26 +65,11 @@ class FUSED_Data_Set(object):
 
         self.name = stringSet.attrs['name']
         self.job_count = int(np.array(f['job_count']))
-        self.result_up2date = np.array(f['result_up2date'])
-        self.data_types=dict(f['data_types'])
-
-        for key in f['data/outputs'].keys():
+        for key in f['data'].keys():
             #converting from hdf5 format:
-            self.data_types[key] = np.array(self.data_types[key])
-            #Testing file format (1 is numpy array, 2 is list...)
-            if int(self.data_types[key][0]) is 1:
-                self.data['outputs'][key] = np.array(f['data/outputs/'+key])
-            else:
-                raise Exception('Only numpy array data type is supported at the moment')
-
-        for key in f['data/inputs'].keys():
-            #converting from hdf5 format:
-            self.data_types[key] = np.array(self.data_types[key])
-            #Testing file format (1 is numpy array, 2 is list...)
-            if int(self.data_types[key][0]) is 1:
-                self.data['inputs'][key] = np.array(f['data/inputs/'+key])
-            else:
-                raise Exception('Only numpy array data type is supported at the moment')
+            self.data[key] = {}
+            self.data[key]['values'] = np.array(f['data/'+key+'/values'])
+            self.data[key]['status'] = np.array(f['data/'+key+'/status'])
 
     # MIMC
     # Maybe a low-level I/O
@@ -112,45 +92,70 @@ class FUSED_Data_Set(object):
     #    maybe a better approach is to have something where colum and row selection is an argument and none assumes that all (or something like that)
     #
 
-    def add_input(self, inp, name=None):
-        if inp is None:
-            raise Exception('The input is not defined')
-
-        if self.job_count is 0:
-            self.job_count = len(inp)
-
-        elif not len(inp) is self.job_count:
-            raise Exception('The input is not the correct size ({}). The input size is measured to {}'.format(self.job_count,len(inp)))
-        
+    def set_data(self, data, name=None):
+        #Data set object 2.0 need the data name to avoid any default connections in the data_set.
         if name is None:
-            name = 'input_{}'.format(self.input_collumns)
-        elif name in self.data['inputs'].keys():
-            print('The data name already exists. To avoid deletion of data the name is changed.')
-            name = '{}_{}'.format(name,self.input_collumns)
+            raise Exception('No name of the data provided')
+        
+        #If the data_set_object is empty it is initiated:
+        if len(self.data.keys()) is 0:
+            self.job_count = len(data)
+            print('Data set initiated with length {}'.format(self.job_count))
+        
+        #Does the data already exists? This is not nescesarily a problem:
+        if name in self.data.keys():
+            print('Data name {} already exists in data set and will be overwritten'.format(name))
+        
+        #Is the data the correct length?
+        if not len(data) is self.job_count:
+            raise Exception('Data length {} is not corresponding to the existing job_count {}. Create a new data set object for two lengths of data'.format(len(data),self.job_count))
 
-        self.data['inputs'][name] = inp
-        self.data_types[name] = self.type(inp)
-        self.input_collumns += 1
-        self.result_up2date = np.zeros(self.job_count)
+        #Setting the data and meta data:
+        self.data[name] = {}
+        self.data[name]['values'] =  data
+        #The data point status is default 0, 1 if the data is set and up to date and 2 if it is failed More can be added in a costumized version of the object.
+        self.data[name]['status'] = np.ones(len(data),dtype=int)
+        self.collumn_list.append(name)
+        
+    #In 2.0 there is no distinction between input and data. Thus it is possible to add empty data set for output concerns.
+    def add_empty_data(self, name=None):
+        if name is None:
+            raise Exception('No name provided')
 
+        if name in self.data.keys():
+            raise Exception('Data already exists with the name {}. Remove the data before initiating empty data row'.format(name))
+
+        if self.job_count is None:
+            raise Exception('The data_set has no length yet. This should be set manually or by providing an input before an empty set can be initiated')
+
+        #2.0 still only handles floats as model outputs:
+        self.data[name] = {}
+        self.data[name]['values'] = np.empty(self.job_count)
+        self.data[name]['status'] = np.zeros(self.job_count,dtype=int)
+        self.collumn_list.append(name)
+        
     def get_output(self,job_id):
         output = dict()
         for output_tag, output_obj, output_name in self.output_list:
-            output[output_name] = self.data['outputs'][output_name][job_id]
-
+            if self.data[output_name]['status'][job_id] == 1:
+                output[output_name] = self.data[output_name]['values'][job_id]
+            else:
+                output[output_name] = []
         return output
 
     def set_output(self,job_id,output):
-        if int(self.result_up2date[job_id]) is 1:
-            print('!!!!!! Warning: Overwriting updated result!!!!!!')
         for output_name in output:
-            self.data['outputs'][output_name][job_id] = output[output_name]
-            if not output_name in self.data_types:
-                self.data_types[output_name] = self.type(output[output_name])
-        self.result_up2date[job_id] = 1
+            if self.data[output_name]['status'][job_id] == 1:
+                print('!!! WARNING !!! updating result with status 1 name: {}, job_id: {}'.format(output_name,job_id))
+            self.data[output_name]['values'][job_id] = output[output_name]
+            self.data[output_name]['status'][job_id] = 1
     
     #If the DOE should be able to push and pull results directly from a workflow the communication is like in other fusedwind cases using independent variables. And object_tags combined with fused_objects.
-    def add_indep_var(self,indep_var):
+    def add_indep_var(self,indep_var, data_set_var_name=None):
+        if data_set_var_name is None:
+            data_set_var_name = indep_var.name
+
+        self.input_indep_var_list.append((indep_var,data_set_var_name))
         # MIMC
         #
         # Short-term solution is to have the user give the name of the data set variable to assign the iv
@@ -163,7 +168,6 @@ class FUSED_Data_Set(object):
         # Long-term solution ...
         #    The input/output interface is standardized across all objects, so one can use the connect function
         #
-        self.input_indep_var_list.append(indep_var)
 
     def add_output(self, output_tag, output_obj, output_name):
         # MIMC
@@ -172,8 +176,11 @@ class FUSED_Data_Set(object):
         #    The input/output interface is standardized across all objects, so one can use the connect function
         #
         self.output_list.append([output_tag, output_obj, output_name])
-        self.data['outputs'][output_name] = np.zeros(self.job_count)
-        self.result_up2date = np.zeros(self.job_count)
+        if output_name not in self.data.keys():
+            self.add_empty_data(output_name)
+            print('Empty data collumn {} initiated'.format(output_name))
+        else:
+            print('Data collumn of name {} already exists. Check that this is not an error'.format(output_name))
 
     #This method returns a list of job-objects which can be executed in mpi. jobrange is an array of two numbers.Start and finish job.
     def get_job_list(self,job_range=[]):
@@ -189,8 +196,9 @@ class FUSED_Data_Set(object):
             raise Exception('The jobrange is beyond the current available DOE')
 
         for n in range(job_range[0],job_range[1]):
-            if int(self.result_up2date[n]) is 0:
-                job_list.append(data_set_job(self,n))
+            for name in self.data.keys():
+                if not self.data[name]['status'][n] == 1:
+                    job_list.append(data_set_job(self,n))
 
         return job_list
 
@@ -198,7 +206,6 @@ class FUSED_Data_Set(object):
     def write_output(self,job_id):
         self.push_input(job_id)
         self.pull_output(job_id)
-        self.result_up2date[job_id] = 1
         
     #Method to determine the type of input. Should be expanded as new types are tested in the object.
     def type(self,inp):
@@ -214,13 +221,15 @@ class FUSED_Data_Set(object):
         print('The type of data is not yet included')
     
     #Returning a dictionary of three numpy arrays. input,output and result_up2date. It only returns variables and outputs that are already in numpy array format. If other data is needed the .data dictionary of the object should be consulted directly.
-    def get_numpy_array(self):
+    def get_numpy_array(self,collumn_list):
+        np_array = []
+        for name in collumn_list:
+            if not name in self.data:
+                raise Exception('Name {} is not found in data set'.format(name))
 
-        #
-        # MIMC in the version where input/output is not embedded in the data structure, you would simple give a list of colums and get 1 arrays, 2 calls would then give you the input/output assuming you gave 2 different sets of colum names ...
-        #
-
-        outpt = np.array([])
+            if np_array = []:
+                np_array = self.data[name]['values']
+            
         for key in self.data['outputs'].keys():
             if 'numpy' in str(type(self.data['outputs'][key])):
                 if outpt.size is 0:
@@ -242,24 +251,23 @@ class FUSED_Data_Set(object):
     def push_input(self,job_id):
         #If the inputs are not named the standard inputs are used. Notice that this might connect the inputs wrongly and thus it is recommended to name the inputs.
         default_input_used = 0
-        for indep in self.input_indep_var_list:
-            if indep.name in self.data['inputs']:
-                indep.set_data(self.data['inputs'][indep.name][job_id])
-            elif 'input_{}'.format(default_input_used) in self.data['inputs']:
-                indep.set_data(self.data['inputs']['input_{}'.format(default_input_used)][job_id])
-                default_input_used += 1
-                print('!!WARNING!! Default input name input_{} is used instead of {}. This is not recommended!!'.format(default_input_used,indep.name))
-                time.sleep(0.5)
+        for indep, name in self.input_indep_var_list:
+            if name in self.data.keys():
+                if not self.data[name]['status'][job_id] == 1:
+                    raise Exception('Data flag is not 1 for name: {}, job_id: {}'.format(name,job_id))
+                indep.set_data(self.data[name]['values'][job_id])
             else:
-                raise Exception('Input can not be written! {} is not found in input data names and all {} default named inputs are used'.format(indep.name,default_input_used))
+                raise Exception('Independent variable {} could not be populated from the data. If the data shouldn\'t be changed it shouldn\'t be provided to the dataset.'.format(indep.name))
 
     def pull_output(self,job_id=None):
         for output_tag, output_obj, output_name in self.output_list:
-            self.data['outputs'][output_name][job_id] = output_obj.get_output_value()[output_tag]
-            if not output_name in self.data_types:
-                self.data_types[output_name] = self.type(self.data['outputs'][output_name][job_id])
-                
-        self.result_up2date[job_id] = 1
+            if not self.data[output_name]['status'][job_id] == 1:
+                try:
+                    self.data[output_name]['values'][job_id] = output_obj.get_output_value()[output_tag]
+                    self.data[output_name]['status'][job_id] = 1
+                except:
+                    print('!!!!! Could not write result for {}, job_id: {}  !!!!!!!!'.format(output_name,job_id))
+                    self.data[output_name]['status'][job_id] = 2
 
 class data_set_job(object):
     def __init__(self,data_set,job_id):
