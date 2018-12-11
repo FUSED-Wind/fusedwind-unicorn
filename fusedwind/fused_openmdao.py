@@ -35,15 +35,20 @@ class FUSED_OpenMDAOBase(object):
     @staticmethod
     def setup_splits(group=None):
 
+        #print('MIMC calling FUSED_OpenMDAOBase.setup_splits(group)')
+
         # first solve the splits
         if not FUSED_OpenMDAOBase.has_been_split:
-            (FUSED_OpenMDAOBase.staged_models,input_output_map) = split_worflow(FUSED_OpenMDAOBase.staged_objects)
+            (FUSED_OpenMDAOBase.staged_models, input_output_map) = split_worflow(FUSED_OpenMDAOBase.staged_objects)
             FUSED_OpenMDAOBase.has_been_split = True
 
+        # Generate the connections in the group
         if not group is None:
             id_to_obj_map = {}
+            # generate a map from ids to the object
             for obj in FUSED_OpenMDAOBase.staged_objects:
                 id_to_obj_map[obj._hash_value]=obj
+            # process the input_output_map to create all the connections
             for source_sub_system, dest_sub_system_map in input_output_map.items():
                 source_object_name = id_to_obj_map[source_sub_system].object_name
                 for dest_sub_system, source_name_map in dest_sub_system_map.items():
@@ -57,6 +62,7 @@ class FUSED_OpenMDAOBase(object):
         for obj in FUSED_OpenMDAOBase.staged_wraps:
             obj.model = FUSED_OpenMDAOBase.staged_models[obj.my_hash]
 
+        # Call the set-up method for the wraps
         if int(op.__version__[0]) <= 1:
             for wrap in FUSED_OpenMDAOBase.staged_wraps:
                 wrap.setup()
@@ -69,11 +75,14 @@ class FUSED_OpenMDAOBase(object):
         FUSED_OpenMDAOBase.staged_wraps = set()
         FUSED_OpenMDAOBase.staged_models = {}
 
+        #print('MIMC leaving FUSED_OpenMDAOBase.setup_splits(group)')
+
 # Return FUSED Component based on version of OpenMDAO 1.x or 2.x
 ################################################################
 def FUSED_Component(*args, **kwargs):
 
     model = args[0]
+    #print('MIMC wrapping model %s'%(model.object_name))
     if model.is_independent_variable():
 
         # Collect the independent variable data
@@ -136,6 +145,9 @@ def FUSED_Component(*args, **kwargs):
                 if not FUSED_OpenMDAOBase.has_been_split:
                     FUSED_OpenMDAOBase.setup_splits()
 
+                #print('MIMC from model %s adding the IO'%(self.model.object_name))
+                #print('MIMC there is a pdb directive')
+                #import pdb; pdb.set_trace()
                 ifc = self.model.get_interface()
                 process_io(self, ifc['input'], 'add_input')
                 process_io(self, ifc['output'], 'add_output')
@@ -158,6 +170,9 @@ def FUSED_Component(*args, **kwargs):
                 if not FUSED_OpenMDAOBase.has_been_split:
                     FUSED_OpenMDAOBase.setup_splits()
 
+                #print('MIMC from model %s adding the IO'%(self.model.object_name))
+                #print('MIMC there is a pdb directive just before we retrieve the interface')
+                #import pdb; pdb.set_trace()
                 ifc = self.model.get_interface()
                 process_io(self, ifc['input'], 'add_input')
                 process_io(self, ifc['output'], 'add_output')
@@ -172,6 +187,12 @@ def FUSED_Component(*args, **kwargs):
 def process_io(component, interface, add_method):
 
     for k, v in interface.items():
+
+        # print the names of things
+        #if add_method == 'add_input':
+        #    print('MIMC adding input %s'%(k))
+        #else:
+        #    print('MIMC adding output %s'%(k))
         
         # Apply the sizes of arrays
         if 'shape' in v.keys():
@@ -201,7 +222,7 @@ def process_io(component, interface, add_method):
 
 # Return FUSED Group based on version of OpenMDAO 1.x or 2.x
 ############################################################
-def FUSED_Group(*args, **kwargs):
+def FUSED_OM_Group(*args, **kwargs):
 
     if int(op.__version__[0]) > 1:
         from openmdao.api import Group
@@ -213,6 +234,7 @@ def FUSED_Group(*args, **kwargs):
 # Add component or subsystem to group based on version of OpenMDAO 1.x or 2.x
 def FUSED_add(group, component_name, component, promoters=None):
   
+    #print('MIMC adding to group:', component_name)
     if int(op.__version__[0]) > 1:
         return group.add_subsystem(component_name, component, promotes=promoters)
     else:

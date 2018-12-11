@@ -3,7 +3,7 @@ FUSED LCOE assmbly example.
 """
 
 # FUSED wrapper
-from fusedwind.fused_openmdao import FUSED_Component, FUSED_Group, FUSED_add, FUSED_print, \
+from fusedwind.fused_openmdao import FUSED_Component, FUSED_OM_Group, FUSED_add, FUSED_print, \
                                      FUSED_Problem, FUSED_setup, FUSED_run, FUSED_VarComp, FUSED_OpenMDAOBase
 
 # NREL cost and scaling model sub-assemblies
@@ -16,7 +16,7 @@ import numpy as np
 
 def example_aep():
 
-    root = FUSED_Group()
+    root = FUSED_OM_Group()
     FUSED_add(root, 'aep_test', FUSED_Component(aep_csm_fused()), ['*'])
 
     prob = FUSED_Problem(root)
@@ -51,7 +51,7 @@ def example_aep():
 def example_turbine():
 
     # openmdao example of execution
-    root = FUSED_Group()
+    root = FUSED_OM_Group()
     FUSED_add(root, 'tcc_csm_test', FUSED_Component(tcc_csm_fused()), ['*'])
     prob = FUSED_Problem(root)
     FUSED_OpenMDAOBase.setup_splits()
@@ -86,7 +86,7 @@ def example_turbine():
 def example_bos():
 
     # openmdao example of execution
-    root = FUSED_Group()
+    root = FUSED_OM_Group()
     FUSED_add(root, 'bos_csm_test', FUSED_Component(bos_csm_fused()), ['*'])
     prob = FUSED_Problem(root)
     FUSED_OpenMDAOBase.setup_splits()
@@ -118,7 +118,7 @@ def example_opex():
 
     # simple test of module
 
-    root = FUSED_Group()
+    root = FUSED_OM_Group()
     FUSED_add(root, 'bos_opex_test', FUSED_Component(opex_csm_fused()), ['*'])
 
     prob = FUSED_Problem(root)
@@ -146,7 +146,7 @@ def example_finance():
     # simple test of module
 
     # openmdao example of execution
-    root = FUSED_Group()
+    root = FUSED_OM_Group()
     FUSED_add(root, 'fin_csm_test', FUSED_Component(fin_csm_fused(fixed_charge_rate = 0.12, construction_finance_rate=0.0, tax_rate = 0.4, discount_rate = 0.07, \
                       construction_time = 1.0, project_lifetime = 20.0, sea_depth = 20.0)), ['*'])
     prob = FUSED_Problem(root)
@@ -174,7 +174,7 @@ def example_finance():
 def example_lcoe():
 
     # openmdao example of execution
-    root = FUSED_Group()
+    root = FUSED_OM_Group()
     FUSED_add(root, 'desvars',FUSED_VarComp([('machine_rating',5000.0),
                                                                      ('rotor_diameter', 126.0),
                                                                      ('hub_height', 90.0),

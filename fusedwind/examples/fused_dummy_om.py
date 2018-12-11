@@ -1,6 +1,6 @@
 
 # FUSED wrapper
-from fusedwind.fused_openmdao import FUSED_Component, FUSED_Group, FUSED_add, FUSED_print, \
+from fusedwind.fused_openmdao import FUSED_Component, FUSED_OM_Group, FUSED_add, FUSED_print, \
                                      FUSED_Problem, FUSED_setup, FUSED_run, FUSED_OpenMDAOBase
 
 from fusedwind.examples.fused_dummy_example import A, B, C, dummy_work_flow_objects
@@ -19,7 +19,7 @@ def run_total_openMDAO():
 
     output_name_list = [ 'G.G_data', 'H.H_data', 'I.I_data', 'J.J_data', 'D.sum', 'E.sum', 'F.sum', 'B.sum', 'C.sum', 'A.sum' ]
 
-    root = FUSED_Group()
+    root = FUSED_OM_Group()
     for obj in dummy_work_flow_objects:
         FUSED_add(root, obj.object_name, FUSED_Component(obj))
 
@@ -43,7 +43,7 @@ def run_partial_openMDAO():
 
     output_name_list = [ 'G.G_data', 'H.H_data', 'I.I_data', 'J.J_data', 'B.E__sum', 'B.B__sum', 'C.sum', 'A.sum' ]
 
-    root = FUSED_Group()
+    root = FUSED_OM_Group()
     split_obj = [A, B, C]
     for obj in dummy_work_flow_objects:
         if obj in split_obj or obj.is_independent_variable():
