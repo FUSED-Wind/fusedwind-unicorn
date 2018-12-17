@@ -184,9 +184,6 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
             job.set_as_remotely_calculated(job_list[i])
             job.sync_output(self.sync_arg)
 
-            if rank==0:
-                import pdb;pdb.set_trace()
-
 class FUSED_MPI_DataSetCases(FUSED_MPI_Cases):
 
     def __init__(self, data_set_object, jobs=[], comm=None):

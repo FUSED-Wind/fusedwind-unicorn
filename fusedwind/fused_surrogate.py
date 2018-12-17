@@ -68,31 +68,26 @@ class FUSED_Surrogate(FUSED_Object):
 
 class Multi_Fidelity_Surrogate(object):
     
-    def __init__(self, data_set_object_cheap=None, data_set_object_exp=None, data_intersections=None):
-
-        if not data_set_object_cheap.data['inputs'].keys() == data_set_object_cheap.data['inputs'].keys():
+    def __init__(self, cheap=None, exp=None, intersections=None):
+        if not cheap[1]  == exp[1] and cheap[2] == exp[2]:
             raise Exception('The input and output keys should be the same and in the same order.. Other cases are not implemented yet!!')
         else:
-            self.input_names = data_set_object_cheap.data['inputs'].keys()
+            self.input_names = cheap[1]
+            self.output_name = cheap[2]
+
         self.output_names = ['prediction','sigma']
 
-        self.data_set_object_cheap = data_set_object_cheap
-        self.data_set_object_exp = data_set_object_exp
-
-        #List of index for the intersections:
-        self.data_set_object_intersections = data_intersections
-
-        #The intersection array should be an array with 0 or 1 of the length of the cheap data.
-        self.data_intersections = data_intersections
+        self.data_set_object_cheap = cheap[0]
+        self.data_set_object_exp = exp[0]
 
         built = 'False'
 
     def build_model(self):
-        self.cheap_input = self.data_set_object_cheap.get_numpy_array()['inputs']
-        self.cheap_output = self.data_set_object_cheap.get_numpy_array()['outputs']
+        self.cheap_input = self.data_set_object_cheap.get_numpy_array(self.input_names)
+        self.cheap_output = self.data_set_object_cheap.get_numpy_array(self.output_name)
 
-        self.exp_input = self.data_set_object_exp.get_numpy_array()['inputs']
-        self.exp_output = self.data_set_object_cheap.get_numpy_array()['outputs']
+        self.exp_input = self.data_set_object_exp.get_numpy_array(self.input_names)
+        self.exp_output = self.data_set_object_cheap.get_numpy_array(self.output_name)
 
         ###########
         self.exp_correction = self.exp_output

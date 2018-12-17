@@ -221,31 +221,35 @@ class FUSED_Data_Set(object):
         print('The type of data is not yet included')
     
     #Returning a dictionary of three numpy arrays. input,output and result_up2date. It only returns variables and outputs that are already in numpy array format. If other data is needed the .data dictionary of the object should be consulted directly.
-    def get_numpy_array(self,collumn_list):
+    def get_numpy_array(self,collumn_list,return_status='False'):
         np_array = []
-        for name in collumn_list:
+        status_array = []
+        if isinstance(collumn_list,list):
+            for name in collumn_list:
+                if not name in self.data:
+                    raise Exception('Name {} is not found in data set'.format(name))
+                if np_array == []:
+                    np_array = [self.data[name]['values']]
+                    status_array = [self.data[name]['status']]
+                else:
+                    np_array = np.concatenate((np_array,[self.data[name]['values']]),axis=0)
+                    status_array = np.concatenate((np_array,[self.data[name]['status']]),axis=0)
+
+        elif isinstance(collumn_list,str):
+            name = collumn_list
             if not name in self.data:
                 raise Exception('Name {} is not found in data set'.format(name))
 
-            if np_array = []:
-                np_array = self.data[name]['values']
-            
-        for key in self.data['outputs'].keys():
-            if 'numpy' in str(type(self.data['outputs'][key])):
-                if outpt.size is 0:
-                    outpt = np.vstack(self.data['outputs'][key])
-                else:
-                    outpt = np.concatenate([outpt,np.vstack(self.data['outputs'][key])],axis=1)
+            np_array = self.data[name]['values']
+            status_array = self.data[name]['status']
+        
+        else:
+            raise Exception('{} is not a supportet type in get_numpy_array'.format(type(collumn_list)))
 
-        inpt = np.array([])
-        for key in self.data['inputs'].keys():
-            if 'numpy' in str(type(self.data['inputs'][key])):
-                if inpt.size is 0:
-                    inpt = np.vstack(self.data['inputs'][key])
-                else:
-                    inpt = np.concatenate([inpt,np.vstack(self.data['inputs'][key])],axis=1)
-
-        return {'inputs': inpt, 'outputs':outpt, 'result_up2date':self.result_up2date}
+        if not return_status is 'False':
+            return np_array, status_array
+        else:
+            return np_array
 
     #Pushing input to the independent variables:
     def push_input(self,job_id):
