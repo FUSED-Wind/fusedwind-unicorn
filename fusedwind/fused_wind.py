@@ -952,14 +952,21 @@ class FUSED_Object(object):
 
     # This instructs this class to update it's data through calculation
     def update_output_data(self):
+        #print('CMOS 1.0',flush=True)
         if not self._update_needed():
             return
         if self.my_case_runner is None or self.my_case_runner.i_am_executing:
+            #print('CMOS 1.1',flush=True)
             self._build_input_vector()
+            #print('CMOS 1.2',flush=True)
             self.compute(self.input_values, self.output_values)
+            #print('CMOS 1.3',flush=True)
             self._updating_data()
+            #print('CMOS 1.4',flush=True)
         else:
+            #print('CMOS 1.5',flush=True)
             self.my_case_runner.execute()
+            #print('CMOS 1.6',flush=True)
 
     # This will retrieve a specific variable
     def __getitem__(self, key):

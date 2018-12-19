@@ -32,7 +32,7 @@ class FUSED_MPI_Cases(object):
         self.i_am_executing = False
 
     def add_job(self, job):
-
+        
         self.jobs.append(job)
 
     def get_job_count(self):
@@ -70,6 +70,7 @@ class FUSED_MPI_Cases(object):
             comm=self.comm
             size=comm.size
             rank=comm.rank
+            
             job_list=[]
 
             # If we have enough processors then just execute all jobs at once according to rank

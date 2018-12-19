@@ -4,6 +4,10 @@ import os
 from fusedwind.fused_wind import FUSED_Object, Independent_Variable, get_execution_order
 import time
 
+#CMOS: Mpi import for debugging:
+from mpi4py import MPI
+
+
 #Class to contain DOEs
 #On disc it is represented by a hdf5 file. In RAM it is represented by this object containing numpy arrays and lists in a dictionary called data
 
@@ -196,9 +200,12 @@ class FUSED_Data_Set(object):
             raise Exception('The jobrange is beyond the current available DOE')
 
         for n in range(job_range[0],job_range[1]):
+            already_run = 'True'
             for name in self.data.keys():
                 if not self.data[name]['status'][n] == 1:
-                    job_list.append(data_set_job(self,n))
+                    already_run = 'False'
+            if not already_run is 'True':
+                job_list.append(data_set_job(self,n))
 
         return job_list
 
@@ -266,12 +273,10 @@ class FUSED_Data_Set(object):
     def pull_output(self,job_id=None):
         for output_tag, output_obj, output_name in self.output_list:
             if not self.data[output_name]['status'][job_id] == 1:
-                try:
-                    self.data[output_name]['values'][job_id] = output_obj.get_output_value()[output_tag]
-                    self.data[output_name]['status'][job_id] = 1
-                except:
-                    print('!!!!! Could not write result for {}, job_id: {}  !!!!!!!!'.format(output_name,job_id))
-                    self.data[output_name]['status'][job_id] = 2
+                comm = MPI.COMM_WORLD
+                rank = comm.Get_rank()
+                self.data[output_name]['values'][job_id] = output_obj[output_tag]
+                self.data[output_name]['status'][job_id] = 1
 
 class data_set_job(object):
     def __init__(self,data_set,job_id):
