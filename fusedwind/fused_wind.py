@@ -22,8 +22,8 @@ import time
 
 try:
     from mpi4py import MPI
-    #print('MIMC debug stuff is here')
-    #bcast_cnt = 0
+    print('MIMC debug stuff is here')
+    bcast_cnt = 0
 except:
     print('It seems that we are not able to import MPI')
     MPI = None
@@ -958,6 +958,8 @@ class FUSED_Object(object):
             self._build_input_vector()
             self.compute(self.input_values, self.output_values)
             self._updating_data()
+            # labeling the object as not distributed
+            self.output_at_rank = {}
         else:
             self.my_case_runner.execute()
 
@@ -990,7 +992,7 @@ class FUSED_Object(object):
         # None indicates all variables
         # '__downstream__' indicates all downstream involved in connections
 
-        #global bcast_cnt
+        global bcast_cnt
 
         # check if we are running in MPI
         if self.comm is None or self.comm.size <= 1:
@@ -1017,9 +1019,17 @@ class FUSED_Object(object):
             if cont:
                 # broadcast everything
                 if my_rank == at_rank:
+                    #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, dictionary in whole -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value))
                     self.comm.bcast(self.output_values, at_rank)
                 else:
                     self.output_values = self.comm.bcast(None, at_rank)
+                    #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, dictionary in whole <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value))
+                bcast_cnt+=1
+                # MIMC #############
+                # print('MIMC a barrier is set here after the transfer')
+                # self.comm.Barrier()
+                # time.sleep(0.2)
+                ####################
                 # reset the output at rank data structure
                 self.output_at_rank = {}
                 # return
@@ -1045,13 +1055,20 @@ class FUSED_Object(object):
                 if not name in self.output_values:
                     self.output_values[name] = None
                 if my_rank == at_rank:
-                    #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
+                    #if isinstance(self.output_values[name], np.ndarray):
+                    #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
+                    #else:
+                    #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
                     self.comm.bcast(self.output_values[name], at_rank)
                 else:
                     self.output_values[name] = self.comm.bcast(None, at_rank)
-                    #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
-                #bcast_cnt+=1
+                    #if isinstance(self.output_values[name], np.ndarray):
+                    #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
+                    #else:
+                    #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
+                bcast_cnt+=1
                 # MIMC #############
+                # print('MIMC a barrier is set here after the transfer')
                 # self.comm.Barrier()
                 # time.sleep(0.2)
                 ####################
@@ -1065,10 +1082,10 @@ class FUSED_Object(object):
     # This will retrieve the output dictionary
     def get_output_value(self):
 
-        self.sync_output()
         ans = self._update_needed()
         if ans:
             self.update_output_data()
+        self.sync_output()
         return self.output_values
 
     # This method is used by case generators to set the output values from other objects
