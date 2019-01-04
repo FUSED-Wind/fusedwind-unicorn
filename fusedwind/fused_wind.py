@@ -22,8 +22,8 @@ import time
 
 try:
     from mpi4py import MPI
-    print('MIMC debug stuff is here')
-    bcast_cnt = 0
+    #print('MIMC debug stuff is here')
+    #bcast_cnt = 0
 except:
     print('It seems that we are not able to import MPI')
     MPI = None
@@ -992,7 +992,7 @@ class FUSED_Object(object):
         # None indicates all variables
         # '__downstream__' indicates all downstream involved in connections
 
-        global bcast_cnt
+        #global bcast_cnt
 
         # check if we are running in MPI
         if self.comm is None or self.comm.size <= 1:
@@ -1024,7 +1024,7 @@ class FUSED_Object(object):
                 else:
                     self.output_values = self.comm.bcast(None, at_rank)
                     #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, dictionary in whole <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value))
-                bcast_cnt+=1
+                #bcast_cnt+=1
                 # MIMC #############
                 # print('MIMC a barrier is set here after the transfer')
                 # self.comm.Barrier()
@@ -1066,7 +1066,7 @@ class FUSED_Object(object):
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
                     #else:
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
-                bcast_cnt+=1
+                #bcast_cnt+=1
                 # MIMC #############
                 # print('MIMC a barrier is set here after the transfer')
                 # self.comm.Barrier()
