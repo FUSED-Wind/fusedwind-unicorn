@@ -60,9 +60,7 @@ def extend_interface(base, extension):
 def create_variable(name, val=None, desc='', shape=None):
 
     retval = {'name' : name, 'desc' : ''}
-    if val is None and not shape is None:
-        val = np.zeros(shape)
-    else:
+    if not val is None:
         if isinstance(val, np.ndarray):
             shape = val.shape
         else:
