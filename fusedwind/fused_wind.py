@@ -60,9 +60,7 @@ def extend_interface(base, extension):
 def create_variable(name, val=None, desc='', shape=None):
 
     retval = {'name' : name, 'desc' : ''}
-    if val is None and not shape is None:
-        val = np.zeros(shape)
-    else:
+    if not val is None:
         if isinstance(val, np.ndarray):
             shape = val.shape
         else:
@@ -962,7 +960,6 @@ class FUSED_Object(object):
             self.compute(self.input_values, self.output_values)
             #print('CMOS 1.3',flush=True)
             self._updating_data()
-            #print('CMOS 1.4',flush=True)
             # labeling the object as not distributed
             self.output_at_rank = {}
         else:
@@ -1031,7 +1028,7 @@ class FUSED_Object(object):
                 else:
                     self.output_values = self.comm.bcast(None, at_rank)
                     #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, dictionary in whole <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value))
-                bcast_cnt+=1
+                #bcast_cnt+=1
                 # MIMC #############
                 # print('MIMC a barrier is set here after the transfer')
                 # self.comm.Barrier()
@@ -1073,7 +1070,6 @@ class FUSED_Object(object):
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
                     #else:
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
-                bcast_cnt+=1
                 # MIMC #############
                 # print('MIMC a barrier is set here after the transfer')
                 # self.comm.Barrier()
