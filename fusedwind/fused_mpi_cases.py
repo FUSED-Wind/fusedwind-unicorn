@@ -32,7 +32,7 @@ class FUSED_MPI_Cases(object):
         self.i_am_executing = False
 
     def add_job(self, job):
-        
+
         self.jobs.append(job)
 
     def get_job_count(self):
@@ -47,8 +47,7 @@ class FUSED_MPI_Cases(object):
         pass
 
     def post_run(self, job_list):
-
-        # Note job list stores the rank that completed a given job
+       # Note job list stores the rank that completed a given job
         pass
 
     def execute_job(self, job_id):
@@ -71,7 +70,6 @@ class FUSED_MPI_Cases(object):
             comm=self.comm
             size=comm.size
             rank=comm.rank
-            
             job_list=[]
 
             # If we have enough processors then just execute all jobs at once according to rank
@@ -162,9 +160,7 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
     # This will execute the job
     def execute_job(self, job_id):
         self.preExec(self,job_id)
-
         self.jobs[job_id].update_output_data()
-        
         self.postExec(self, job_id)
 
     # This will ensure that all the data is synchronized
