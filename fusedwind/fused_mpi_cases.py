@@ -47,7 +47,7 @@ class FUSED_MPI_Cases(object):
         pass
 
     def post_run(self, job_list):
-       # Note job list stores the rank that completed a given job
+        # Note job list stores the rank that completed a given job
         pass
 
     def execute_job(self, job_id):
