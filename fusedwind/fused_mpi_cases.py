@@ -140,12 +140,15 @@ class FUSED_MPI_Cases(object):
 # this is the case runner for actually running Fused-Objects
 class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
-    def __init__(self, jobs=[], comm=None):
+    def __init__(self, jobs=[], comm=None, preExec=None, postExec=None):
         super(FUSED_MPI_ObjectCases, self).__init__(jobs, comm)
 
         self.sync_arg = '__downstream__'
         for job in self.jobs:
             job.set_case_runner(self)
+
+        self.preExec = preExec
+        self.postExec = postExec
 
     # This will make sure that the upstream calculations are completed
     def pre_run(self):
@@ -156,8 +159,9 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
     # This will execute the job
     def execute_job(self, job_id):
-
+        self.preExec(self,job_id)
         self.jobs[job_id].update_output_data()
+        self.postExec(self, job_id)
 
     # This will ensure that all the data is synchronized
     def post_run(self, job_list):
