@@ -22,8 +22,8 @@ import time
 
 try:
     from mpi4py import MPI
-    print('MIMC debug stuff is here')
-    bcast_cnt = 0
+    #print('MIMC debug stuff is here')
+    #bcast_cnt = 0
 except:
     print('It seems that we are not able to import MPI')
     MPI = None
@@ -950,22 +950,16 @@ class FUSED_Object(object):
 
     # This instructs this class to update it's data through calculation
     def update_output_data(self):
-        #print('CMOS 1.0',flush=True)
         if not self._update_needed():
             return
         if self.my_case_runner is None or self.my_case_runner.i_am_executing:
-            #print('CMOS 1.1',flush=True)
             self._build_input_vector()
-            #print('CMOS 1.2',flush=True)
             self.compute(self.input_values, self.output_values)
-            #print('CMOS 1.3',flush=True)
             self._updating_data()
             # labeling the object as not distributed
             self.output_at_rank = {}
         else:
-            #print('CMOS 1.5',flush=True)
             self.my_case_runner.execute()
-            #print('CMOS 1.6',flush=True)
 
     # This will retrieve a specific variable
     def __getitem__(self, key):
@@ -996,7 +990,7 @@ class FUSED_Object(object):
         # None indicates all variables
         # '__downstream__' indicates all downstream involved in connections
 
-        global bcast_cnt
+        #global bcast_cnt
 
         # check if we are running in MPI
         if self.comm is None or self.comm.size <= 1:
@@ -1070,6 +1064,7 @@ class FUSED_Object(object):
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
                     #else:
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
+                #bcast_cnt+=1
                 # MIMC #############
                 # print('MIMC a barrier is set here after the transfer')
                 # self.comm.Barrier()
