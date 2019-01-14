@@ -230,19 +230,6 @@ class FUSED_Data_Set(object):
         self.push_input(job_id)
         self.pull_output(job_id)
         
-    #Method to determine the type of input. Should be expanded as new types are tested in the object.
-    def type(self,inp):
-        #
-        # MIMC Maybe this is a helpful internal method? If so preceed with _type in the name
-        #
-        typestr = str(type(inp))
-        if "class 'numpy." in typestr:
-            return np.array([1])
-        if "class 'list" in typestr:
-            return np.array([2])
-
-        print('The type of data is not yet included')
-    
     #Returning a dictionary of three numpy arrays. input,output and result_up2date. It only returns variables and outputs that are already in numpy array format. If other data is needed the .data dictionary of the object should be consulted directly.
     def get_numpy_array(self,collumn_list,return_status='False'):
         np_array = []
