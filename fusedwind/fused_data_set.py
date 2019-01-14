@@ -113,9 +113,7 @@ class FUSED_Data_Set(object):
         self.collumn_list.append(name)
         
     #In 2.0 there is no distinction between input and data. Thus it is possible to add empty data set for output concerns.
-    def add_empty_data(self, name=None):
-        if name is None:
-            raise Exception('No name provided')
+    def add_empty_data(self, name):
 
         if name in self.data.keys():
             raise Exception('Data already exists with the name {}. Remove the data before initiating empty data row'.format(name))
@@ -261,7 +259,7 @@ class FUSED_Data_Set(object):
             else:
                 raise Exception('Independent variable {} could not be populated from the data. If the data shouldn\'t be changed it shouldn\'t be provided to the dataset.'.format(indep.name))
 
-    def pull_output(self,job_id=None):
+    def pull_output(self,job_id):
         for output_tag, output_obj, output_name in self.output_list:
             if not self.data[output_name]['status'][job_id] == 1:
                 comm = MPI.COMM_WORLD
