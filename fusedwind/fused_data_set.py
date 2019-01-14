@@ -29,9 +29,6 @@ class FUSED_Data_Set(object):
         self.output_list = []
         self.result_up2date = []
 
-    def save(self,*args):
-        print('Saving requires the user to choose between .save_hdf5 which saves the input and output data only and .save_pickle which saves the object. Use the corresponding loading. Notice that the only thing lost in hdf5 process is other objects like independent variables and outputs')
-    
     def save_hdf5(self, hdf5_file=None):
         if hdf5_file is None:
             hdf5_file=self.name+'.hdf5'
@@ -55,9 +52,6 @@ class FUSED_Data_Set(object):
 
         f['job_count'] = self.job_count
         f.close()
-
-    def save_pickle(self,destination=None):
-        pass
 
     #Load hdf5
     def load_hdf5(self, hdf5_file):
@@ -96,10 +90,7 @@ class FUSED_Data_Set(object):
     #    maybe a better approach is to have something where colum and row selection is an argument and none assumes that all (or something like that)
     #
 
-    def set_data(self, data, name=None):
-        #Data set object 2.0 need the data name to avoid any default connections in the data_set.
-        if name is None:
-            raise Exception('No name of the data provided')
+    def set_data(self, data, name):
         
         #If the data_set_object is empty it is initiated:
         if len(self.data.keys()) is 0:
@@ -182,7 +173,7 @@ class FUSED_Data_Set(object):
         self.output_list.append([output_tag, output_obj, output_name])
         if output_name not in self.data.keys():
             self.add_empty_data(output_name)
-            print('Empty data collumn {} initiated'.format(output_name))
+            #print('Empty data collumn {} initiated'.format(output_name))
         else:
             print('Data collumn of name {} already exists. Check that this is not an error'.format(output_name))
 
