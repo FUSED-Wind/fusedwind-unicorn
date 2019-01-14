@@ -1,34 +1,22 @@
 import h5py
 import numpy as np
 import os
-from fusedwind.fused_wind import FUSED_Object, Independent_Variable, get_execution_order
+from fusedwind.fused_wind import FUSED_Objec
 import time
-
-#CMOS: Mpi import for debugging:
-from mpi4py import MPI
-
 
 #Class to contain DOEs
 #On disc it is represented by a hdf5 file. In RAM it is represented by this object containing numpy arrays and lists in a dictionary called data
 
-# MIMC
-# Move away from an input output classification at a low-level
-
 class FUSED_Data_Set(object):
-    def __init__(self, object_name_in = 'Unnamed_DOE_object'):
+    def __init__(self, object_name_in = 'Unnamed_Data_Set_object'):
         self.name = object_name_in
         self.job_count = 0
-        self.input_collumns = 0
-        self.output_collumns = 0
         self.data = dict()
-#        self.data['inputs'] = dict()
-#        self.data['outputs'] = dict()
         self.collumn_list = []
-        self.data_types = dict()
         self.input_indep_var_list = []
         self.output_list = []
-        self.result_up2date = []
-
+    
+    #save_hdf5:
     def save_hdf5(self, hdf5_file=None):
         if hdf5_file is None:
             hdf5_file=self.name+'.hdf5'
@@ -53,7 +41,7 @@ class FUSED_Data_Set(object):
         f['job_count'] = self.job_count
         f.close()
 
-    #Load hdf5
+    #load_hdf5
     def load_hdf5(self, hdf5_file):
         if not os.path.isfile(hdf5_file):
             raise Exception('The file does not exist')
@@ -69,26 +57,9 @@ class FUSED_Data_Set(object):
             self.data[key]['values'] = np.array(f['data/'+key+'/values'])
             self.data[key]['status'] = np.array(f['data/'+key+'/status'])
 
-    # MIMC
-    # Maybe a low-level I/O
-    #
-    #    set_data(name , data):
-    #          # It will create a new field if needed, otherwise over-write the data
-    #    get_data(name)
-    #          if not name in data:
-    #              raise error
-    #    has_data(name)
-    #          if not name in data:
-    #              raise error
-    #          returns a vector of bools on whether the data is real
-    #   
     # Another data flag is FAILED
     # Another meta field is data size
-    #          
-    # So in the last three functions there is some inconsistency in the granularity,
-    #    add_input takes a full colum where the others want all the columns at a given row
-    #    maybe a better approach is to have something where colum and row selection is an argument and none assumes that all (or something like that)
-    #
+    
     def get_data(self, name=None, job_id=None):
         #Check if the data is requested for several names:
         if type(name) is str:
@@ -117,9 +88,7 @@ class FUSED_Data_Set(object):
                 for i in job_id:
                     if not self.data[output_name]['status'][i] == 1:
                         print('!!! WARNING results not set with flag 1 and might be ilegitimit')
-
-                    output[output_name].append(self.data[i])
-                    
+                    output[output_name].append(self.data[i])                
         return output
          
 #set_data data and adds it to the data set. Finally a job_id can be given if only parts of a data collumn should be altered.
@@ -163,7 +132,6 @@ class FUSED_Data_Set(object):
         if self.job_count is None:
             raise Exception('The data_set has no length yet. This should be set manually or by providing an input before an empty set can be initiated')
 
-        #2.0 still only handles floats as model outputs:
         self.data[name] = {}
         self.data[name]['values'] = np.empty(self.job_count)
         self.data[name]['status'] = np.zeros(self.job_count,dtype=int)
@@ -176,25 +144,8 @@ class FUSED_Data_Set(object):
             data_set_var_name = indep_var.name
 
         self.input_indep_var_list.append((indep_var,data_set_var_name))
-        # MIMC
-        #
-        # Short-term solution is to have the user give the name of the data set variable to assign the iv
-        #    def add_indep_var(self, indep_var, data_set_var_name = None):
-        #         if data_set_var_name is None:
-        #              data_set_var_name = indep_var.name
-        #         if data_set_var_name not in data:
-        #              raise error
-        #
-        # Long-term solution ...
-        #    The input/output interface is standardized across all objects, so one can use the connect function
-        #
 
     def add_output(self, output_tag, output_obj, output_name):
-        # MIMC
-        #
-        # Long-term solution ...
-        #    The input/output interface is standardized across all objects, so one can use the connect function
-        #
         self.output_list.append((output_tag, output_obj, output_name))
         if output_name not in self.data.keys():
             self.declare_variable(output_name)
@@ -204,11 +155,6 @@ class FUSED_Data_Set(object):
 
     #This method returns a list of job-objects which can be executed in mpi. jobrange is an array of two numbers.Start and finish job.
     def get_job_list(self,job_range=[]):
-
-        # MIMC
-        #    As we move away from a input/output classification, we need to track each column seperately to see if it has been set. Then the job list is generated on a per column or a combination of columns.
-        #
-
         job_list = []
         if len(job_range) is 0:
             job_range = [0,self.job_count]
@@ -264,7 +210,6 @@ class FUSED_Data_Set(object):
     #Pushing input to the independent variables:
     def push_input(self,job_id):
         #If the inputs are not named the standard inputs are used. Notice that this might connect the inputs wrongly and thus it is recommended to name the inputs.
-        default_input_used = 0
         for indep, name in self.input_indep_var_list:
             if name in self.data.keys():
                 if not self.data[name]['status'][job_id] == 1:
@@ -276,8 +221,6 @@ class FUSED_Data_Set(object):
     def pull_output(self,job_id):
         for output_tag, output_obj, output_name in self.output_list:
             if not self.data[output_name]['status'][job_id] == 1:
-                comm = MPI.COMM_WORLD
-                rank = comm.Get_rank()
                 self.data[output_name]['values'][job_id] = output_obj[output_tag]
                 self.data[output_name]['status'][job_id] = 1
 
@@ -305,7 +248,6 @@ class data_set_job(object):
 #
 #    def save(self,*args):
 #    def save_hdf5(self, hdf5_file=None):
-#    def save_pickle(self,destination=None):
 #    def load_hdf5(self, hdf5_file):
 #
 #    # Low-level IO
