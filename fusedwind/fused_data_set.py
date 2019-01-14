@@ -113,7 +113,7 @@ class FUSED_Data_Set(object):
         self.collumn_list.append(name)
         
     #In 2.0 there is no distinction between input and data. Thus it is possible to add empty data set for output concerns.
-    def add_empty_data(self, name):
+    def declare_variable(self, name):
 
         if name in self.data.keys():
             raise Exception('Data already exists with the name {}. Remove the data before initiating empty data row'.format(name))
@@ -170,7 +170,7 @@ class FUSED_Data_Set(object):
         #
         self.output_list.append([output_tag, output_obj, output_name])
         if output_name not in self.data.keys():
-            self.add_empty_data(output_name)
+            self.declare_variable(output_name)
             #print('Empty data collumn {} initiated'.format(output_name))
         else:
             print('Data collumn of name {} already exists. Check that this is not an error'.format(output_name))
