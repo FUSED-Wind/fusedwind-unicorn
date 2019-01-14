@@ -195,7 +195,7 @@ class FUSED_Data_Set(object):
         # Long-term solution ...
         #    The input/output interface is standardized across all objects, so one can use the connect function
         #
-        self.output_list.append([output_tag, output_obj, output_name])
+        self.output_list.append((output_tag, output_obj, output_name))
         if output_name not in self.data.keys():
             self.declare_variable(output_name)
             #print('Empty data collumn {} initiated'.format(output_name))
