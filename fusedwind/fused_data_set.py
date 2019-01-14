@@ -84,35 +84,77 @@ class FUSED_Data_Set(object):
     #   
     # Another data flag is FAILED
     # Another meta field is data size
-    #
+    #          
     # So in the last three functions there is some inconsistency in the granularity,
     #    add_input takes a full colum where the others want all the columns at a given row
     #    maybe a better approach is to have something where colum and row selection is an argument and none assumes that all (or something like that)
     #
+    def get_data(self, name=None, job_id=None):
+        #Check if the data is requested for several names:
+        if type(name) is str:
+            name = [name]
+        elif name is None:
+            name = self.collumn_list
+            print('Returning entire dataset')
+        elif not type(name) is list:
+            raise Exception('The data set get_data method expects string or list but got {}'.format(type(name)))
+        #Do the same with job_id:
+        if not type(job_id) is list:
+            try:
+                list = [int(job_id)]
+            except:
+                raise Exception('The job is should be integer or list of integers')
 
-    def set_data(self, data, name):
-        
+        #Creating a dictionary of results in the case where the entire collumns or only a few values are requested.
+        output = dict()
+        for output_name in name:
+            if job_id is None:
+                if min(self.data[output_name]['status']) == 0 or not max(self.data[output_name]['status']) == 1:
+                    print('WARNING!!! not all results in {} have flag 1!!')
+                output[output_name] = self.data[output_name]['values']
+            else:
+                output[output_name] = []
+                for i in job_id:
+                    if not self.data[output_name]['status'][i] == 1:
+                        print('!!! WARNING results not set with flag 1 and might be ilegitimit')
+
+                    output[output_name].append(self.data[i])
+                    
+        return output
+         
+#set_data data and adds it to the data set. Finally a job_id can be given if only parts of a data collumn should be altered.
+    def set_data(self, data, name, job_id=None):
+
         #If the data_set_object is empty it is initiated:
         if len(self.data.keys()) is 0:
             self.job_count = len(data)
             print('Data set initiated with length {}'.format(self.job_count))
-        
-        #Does the data already exists? This is not nescesarily a problem:
-        if name in self.data.keys():
-            print('Data name {} already exists in data set and will be overwritten'.format(name))
-        
-        #Is the data the correct length?
-        if not len(data) is self.job_count:
-            raise Exception('Data length {} is not corresponding to the existing job_count {}. Create a new data set object for two lengths of data'.format(len(data),self.job_count))
+        #If the job_id is None the entire collumn should be set:
+        if not job_id is None:
+            #Does the data already exists? This is not nescesarily a problem:
+            if name in self.data.keys():
+                print('Data name {} already exists in data set and will be overwritten'.format(name))
+            
+            #Is the data the correct length?
+            if not len(data) is self.job_count:
+                raise Exception('Data length {} is not corresponding to the existing job_count {}. Create a new data set object for two lengths of data'.format(len(data),self.job_count))
 
-        #Setting the data and meta data:
-        self.data[name] = {}
-        self.data[name]['values'] =  data
-        #The data point status is default 0, 1 if the data is set and up to date and 2 if it is failed More can be added in a costumized version of the object.
-        self.data[name]['status'] = np.ones(len(data),dtype=int)
-        self.collumn_list.append(name)
+            #Setting the data and meta data:
+            self.data[name] = {}
+            self.data[name]['values'] =  data
+            #The data point status is default 0, 1 if the data is set and up to date and 2 if it is failed More can be added in a costumized version of the object.
+            self.data[name]['status'] = np.ones(len(data),dtype=int)
+            self.collumn_list.append(name)
+
+        #if the job_id is given the name should already be defined:
+        elif name in self.data.keys():
+            self.data[name]['values'][job_id] = data
+            self.data[name]['status'][job_id] = 1
+        else:
+            raise Exception('The data name is not in the data set and thus specific job_id\'s cannot be set')
+
         
-    #In 2.0 there is no distinction between input and data. Thus it is possible to add empty data set for output concerns.
+    #There is no distinction between input and data. Thus it is possible to add empty data set for output concerns.
     def declare_variable(self, name):
 
         if name in self.data.keys():
@@ -127,21 +169,6 @@ class FUSED_Data_Set(object):
         self.data[name]['status'] = np.zeros(self.job_count,dtype=int)
         self.collumn_list.append(name)
         
-    def get_output(self,job_id):
-        output = dict()
-        for output_tag, output_obj, output_name in self.output_list:
-            if self.data[output_name]['status'][job_id] == 1:
-                output[output_name] = self.data[output_name]['values'][job_id]
-            else:
-                output[output_name] = []
-        return output
-
-    def set_output(self,job_id,output):
-        for output_name in output:
-            if self.data[output_name]['status'][job_id] == 1:
-                print('!!! WARNING !!! updating result with status 1 name: {}, job_id: {}'.format(output_name,job_id))
-            self.data[output_name]['values'][job_id] = output[output_name]
-            self.data[output_name]['status'][job_id] = 1
     
     #If the DOE should be able to push and pull results directly from a workflow the communication is like in other fusedwind cases using independent variables. And object_tags combined with fused_objects.
     def add_indep_var(self,indep_var, data_set_var_name=None):
