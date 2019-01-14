@@ -226,7 +226,7 @@ class FUSED_Data_Set(object):
         return job_list
 
     #Method to push data to the independent variables and pull outputs.
-    def write_output(self,job_id):
+    def execute_job(self,job_id):
         self.push_input(job_id)
         self.pull_output(job_id)
         
@@ -300,7 +300,7 @@ class data_set_job(object):
         self.job_id = job_id
 
     def execute(self):
-        return self.data_set.write_output(self.job_id)
+        return self.data_set.execute_job(self.job_id)
 
     def get_output(self):
         return self.data_set.get_output(self.job_id)
