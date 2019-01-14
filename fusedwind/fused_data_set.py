@@ -59,7 +59,7 @@ class FUSED_Data_Set(object):
 
     # Another data flag is FAILED
     # Another meta field is data size
-    
+
     def get_data(self, name=None, job_id=None):
         #Check if the data is requested for several names:
         if type(name) is str:
