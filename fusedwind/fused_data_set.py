@@ -1,7 +1,7 @@
 import h5py
 import numpy as np
 import os
-from fusedwind.fused_wind import FUSED_Objec
+from fusedwind.fused_wind import FUSED_Object
 import time
 
 #Class to contain DOEs
@@ -90,8 +90,8 @@ class FUSED_Data_Set(object):
                         print('!!! WARNING results not set with flag 1 and might be ilegitimit')
                     output[output_name].append(self.data[i])                
         return output
-         
-#set_data data and adds it to the data set. Finally a job_id can be given if only parts of a data collumn should be altered.
+
+    #set_data data and adds it to the data set. Finally a job_id can be given if only parts of a data collumn should be altered.
     def set_data(self, data, name, job_id=None):
 
         #If the data_set_object is empty it is initiated:
@@ -99,11 +99,11 @@ class FUSED_Data_Set(object):
             self.job_count = len(data)
             print('Data set initiated with length {}'.format(self.job_count))
         #If the job_id is None the entire collumn should be set:
-        if not job_id is None:
+        if job_id is None:
             #Does the data already exists? This is not nescesarily a problem:
             if name in self.data.keys():
                 print('Data name {} already exists in data set and will be overwritten'.format(name))
-            
+
             #Is the data the correct length?
             if not len(data) is self.job_count:
                 raise Exception('Data length {} is not corresponding to the existing job_count {}. Create a new data set object for two lengths of data'.format(len(data),self.job_count))
@@ -122,6 +122,27 @@ class FUSED_Data_Set(object):
         else:
             raise Exception('The data name is not in the data set and thus specific job_id\'s cannot be set')
 
+    def set_status(self,name,status,job_id=None):
+        status = int(status)
+        if job_id is None:
+            for id in self.data[name]['status']:
+                id=status
+        else:
+            self.data[name]['status'] = status
+
+    def has_updated_data(self,name,job_id=None):
+        out = True
+        if name not in self.data.keys():
+            raise Exception('Name not in dataset.')
+
+        if job_id is None:
+            for id in self.data[name]['status']:
+                if not id == 1:
+                    out = True
+        else:
+            if not self.data[name]['status'] == 1:
+                out = False
+        return out
         
     #There is no distinction between input and data. Thus it is possible to add empty data set for output concerns.
     def declare_variable(self, name):
@@ -136,8 +157,7 @@ class FUSED_Data_Set(object):
         self.data[name]['values'] = np.empty(self.job_count)
         self.data[name]['status'] = np.zeros(self.job_count,dtype=int)
         self.collumn_list.append(name)
-        
-    
+      
     #If the DOE should be able to push and pull results directly from a workflow the communication is like in other fusedwind cases using independent variables. And object_tags combined with fused_objects.
     def add_indep_var(self,indep_var, data_set_var_name=None):
         if data_set_var_name is None:
@@ -153,21 +173,39 @@ class FUSED_Data_Set(object):
         else:
             print('Data collumn of name {} already exists. Check that this is not an error'.format(output_name))
 
-    #This method returns a list of job-objects which can be executed in mpi. jobrange is an array of two numbers.Start and finish job.
-    def get_job_list(self,job_range=[]):
+    #This method returns a list of job-objects which can be executed in mpi.
+    #job_range is an array of two numbers.Start and finish job.
+    #names is a list of the names in the data_set to consider.
+    #status is the status flag to return. eks. 2. If status is None it returns all jobs that are not flagged 1.
+    def get_job_list(self,job_range=[],names=None,status=None):
         job_list = []
         if len(job_range) is 0:
-            job_range = [0,self.job_count]
-        elif job_range[1]>job_count or job_range[0]<0:
-            raise Exception('The jobrange is beyond the current available DOE')
+            job_range = range(0,self.job_count)
+        elif len(job_range) == 2:
+            if job_range[1]>job_count or job_range[0]<0:
+                raise Exception('The jobrange is beyond the current available DOE')
+            print('Returning relevant jobs between id {} and {}'.format(job_range[0],job_range[1]))
+            job_range = range(job_range[0],job_range[1])
 
-        for n in range(job_range[0],job_range[1]):
-            already_run = 'True'
-            for name in self.data.keys():
-                if not self.data[name]['status'][n] == 1:
-                    already_run = 'False'
-            if not already_run is 'True':
-                job_list.append(data_set_job(self,n))
+        if names is None:
+            names = self.data.keys()
+
+        if status is None:
+            for n in job_range:
+                already_run = True
+                for name in names:
+                    if not self.data[name]['status'][n] == 1:
+                        already_run = False
+                if not already_run is True:
+                    job_list.append(data_set_job(self,n))
+        else:
+            for n in job_range:
+                return_job = False
+                for name in names:
+                    if self.data[name]['status'][n] == status:
+                        return_job = True
+                if return_job is True:
+                    job_list.append(data_set_job(self,n))
 
         return job_list
 
@@ -175,7 +213,7 @@ class FUSED_Data_Set(object):
     def execute_job(self,job_id):
         self.push_input(job_id)
         self.pull_output(job_id)
-        
+
     #Returning a dictionary of three numpy arrays. input,output and result_up2date. It only returns variables and outputs that are already in numpy array format. If other data is needed the .data dictionary of the object should be consulted directly.
     def get_numpy_array(self,collumn_list,return_status='False'):
         np_array = []
@@ -198,7 +236,7 @@ class FUSED_Data_Set(object):
 
             np_array = self.data[name]['values']
             status_array = self.data[name]['status']
-        
+
         else:
             raise Exception('{} is not a supportet type in get_numpy_array'.format(type(collumn_list)))
 
