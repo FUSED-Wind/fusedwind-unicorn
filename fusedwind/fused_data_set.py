@@ -33,7 +33,7 @@ class FUSED_Data_Set(object):
         f = h5py.File(hdf5_file)
         for key in self.data.keys():
             f['data/'+key+'/values'] = self.data[key]['values']
-            f['data/'+key+'/status'] = self.data[key]['status']
+            f['data/'+key+'/status'] = self.data[key]['is_set']
 
         stringSet = f.create_dataset('stringSet', (100,), dtype=h5py.special_dtype(vlen=str))
         stringSet.attrs["name"] = self.name
@@ -55,107 +55,125 @@ class FUSED_Data_Set(object):
             #converting from hdf5 format:
             self.data[key] = {}
             self.data[key]['values'] = np.array(f['data/'+key+'/values'])
-            self.data[key]['status'] = np.array(f['data/'+key+'/status'])
+            self.data[key]['is_set'] = np.array(f['data/'+key+'/status'])
 
-    # Another data flag is FAILED
-    # Another meta field is data size
-
-    def get_data(self, name=None, job_id=None):
+    def get_data(self, name=None, job_id=None, return_status=False):
         #Check if the data is requested for several names:
+        single_name = 0
         if type(name) is str:
             name = [name]
+            single_name = True
         elif name is None:
             name = self.collumn_list
-            print('Returning entire dataset')
+            print('Returning data for all names')
         elif not type(name) is list:
             raise Exception('The data set get_data method expects string or list but got {}'.format(type(name)))
+
         #Do the same with job_id:
-        if not type(job_id) is list:
+        if job_id is None:
+            job_id = range(self.job_count)
+        elif not type(job_id) is list:
             try:
-                list = [int(job_id)]
+                job_id = [int(job_id)]
             except:
-                raise Exception('The job is should be integer or list of integers')
+                raise Exception('The job_ids should be integer or list of integers')
+            
+        #Now gathering the requested data:            
+        values_out = []
+        status_out = []
+        for n in name:
+            values_out.append([self.data[n]['values'][id] for id in job_id])
+            if return_status is True:
+               status_out.append([self.data[n]['is_set'][id] for id in job_id])
 
-        #Creating a dictionary of results in the case where the entire collumns or only a few values are requested.
-        output = dict()
-        for output_name in name:
-            if job_id is None:
-                if min(self.data[output_name]['status']) == 0 or not max(self.data[output_name]['status']) == 1:
-                    print('WARNING!!! not all results in {} have flag 1!!')
-                output[output_name] = self.data[output_name]['values']
-            else:
-                output[output_name] = []
-                for i in job_id:
-                    if not self.data[output_name]['status'][i] == 1:
-                        print('!!! WARNING results not set with flag 1 and might be ilegitimit')
-                    output[output_name].append(self.data[i])                
-        return output
+        #If only one collumn is requested the data is compiled to a single list:
+        if single_name:
+            values_out = values_out[0]
+            if return_status is True:
+                status_out = status_out[0]
+        
+        #Returning the data:
+        if return_status is True:
+            return(values_out,status_out)
+        else:
+            return(values_out)
 
-    #set_data data and adds it to the data set. Finally a job_id can be given if only parts of a data collumn should be altered.
-    def set_data(self, data, name, job_id=None):
+
+    #set_data data and adds it to the data set. A job_id can be given if only parts of a data collumn should be altered.
+    def set_data(self, data, name, job_id=None, dtype=None):
+        #Determining the numpy datatype:
+        if dtype is None:
+            try:
+                dtype = data.dtype
+            except:
+                raise Exception('The data type could not be defined from the data alone. Provide a dtype or give data as numpy array with defined dtype')
 
         #If the data_set_object is empty it is initiated:
         if len(self.data.keys()) is 0:
             self.job_count = len(data)
             print('Data set initiated with length {}'.format(self.job_count))
+
+        #Does the data already exist? This is not nescesarily a problem:
+        if name in self.collumn_list:
+            print('Writing to existing data name {}.'.format(name))
+        else:
+            self.declare_variable(name,dtype)
+
         #If the job_id is None the entire collumn should be set:
         if job_id is None:
-            #Does the data already exists? This is not nescesarily a problem:
-            if name in self.data.keys():
-                print('Data name {} already exists in data set and will be overwritten'.format(name))
+            job_id = range(self.job_count)
+        elif not type(job_id) == list:
+            job_id = [job_id]
 
-            #Is the data the correct length?
-            if not len(data) is self.job_count:
-                raise Exception('Data length {} is not corresponding to the existing job_count {}. Create a new data set object for two lengths of data'.format(len(data),self.job_count))
-
-            #Setting the data and meta data:
-            self.data[name] = {}
-            self.data[name]['values'] =  data
+        #Is the data the correct length?
+        if not len(data) == len(job_id):
+            raise Exception('Data length {} is not corresponding to job_id count {}.'.format(len(data)),format(len(job_id)))
+        
+        #Setting the data and meta data:
+        for i,id in enumerate(job_id):
+            self.data[name]['values'][id] =  data[i]
             #The data point status is default 0, 1 if the data is set and up to date and 2 if it is failed More can be added in a costumized version of the object.
-            self.data[name]['status'] = np.ones(len(data),dtype=int)
-            self.collumn_list.append(name)
+            self.data[name]['is_set'][id] =  True
 
-        #if the job_id is given the name should already be defined:
-        elif name in self.data.keys():
-            self.data[name]['values'][job_id] = data
-            self.data[name]['status'][job_id] = 1
-        else:
-            raise Exception('The data name is not in the data set and thus specific job_id\'s cannot be set')
-
+    #Sets the status flag.
     def set_status(self,name,status,job_id=None):
+        """Set status flag for data. Automatically if output is pulled the flag is set to 1."""
         status = int(status)
         if job_id is None:
-            for id in self.data[name]['status']:
+            for id in self.data[name]['is_set']:
                 id=status
         else:
-            self.data[name]['status'] = status
+            self.data[name]['is_set'][job_id] = status
 
-    def has_updated_data(self,name,job_id=None):
+    #Checks whether the entire collumn or a single job_id has updated data.
+    def has_updated_data(self,name,job_id=None,status_flag=1):
+
         out = True
         if name not in self.data.keys():
             raise Exception('Name not in dataset.')
 
         if job_id is None:
-            for id in self.data[name]['status']:
-                if not id == 1:
+            for id in self.data[name]['is_set']:
+                if not id == status_flag:
                     out = True
         else:
-            if not self.data[name]['status'] == 1:
+            if not self.data[name]['is_set'][job_id] == status_flag:
                 out = False
         return out
-        
-    #There is no distinction between input and data. Thus it is possible to add empty data set for output concerns.
-    def declare_variable(self, name):
-
+    
+    #Iniate a variable collumn in the data set with name:
+    def declare_variable(self, name, dtype=None):
         if name in self.data.keys():
             raise Exception('Data already exists with the name {}. Remove the data before initiating empty data row'.format(name))
 
         if self.job_count is None:
             raise Exception('The data_set has no length yet. This should be set manually or by providing an input before an empty set can be initiated')
-
+        
+        #Setting the data:
         self.data[name] = {}
-        self.data[name]['values'] = np.empty(self.job_count)
-        self.data[name]['status'] = np.zeros(self.job_count,dtype=int)
+        self.data[name]['values'] = np.empty(self.job_count,dtype=dtype)
+        self.data[name]['is_set'] = np.zeros(self.job_count,dtype=bool)
+
         self.collumn_list.append(name)
       
     #If the DOE should be able to push and pull results directly from a workflow the communication is like in other fusedwind cases using independent variables. And object_tags combined with fused_objects.
@@ -165,13 +183,14 @@ class FUSED_Data_Set(object):
 
         self.input_indep_var_list.append((indep_var,data_set_var_name))
 
+    #Function to add a fusedwind output to the dataset. It connects the output to the corresponding data collumn
     def add_output(self, output_tag, output_obj, output_name):
         self.output_list.append((output_tag, output_obj, output_name))
         if output_name not in self.data.keys():
             self.declare_variable(output_name)
             #print('Empty data collumn {} initiated'.format(output_name))
         else:
-            print('Data collumn of name {} already exists. Check that this is not an error'.format(output_name))
+            print('WARNING:! Data collumn of name {} already exists.'.format(output_name))
 
     #This method returns a list of job-objects which can be executed in mpi.
     #job_range is an array of two numbers.Start and finish job.
@@ -194,7 +213,7 @@ class FUSED_Data_Set(object):
             for n in job_range:
                 already_run = True
                 for name in names:
-                    if not self.data[name]['status'][n] == 1:
+                    if not self.data[name]['is_set'][n] == True:
                         already_run = False
                 if not already_run is True:
                     job_list.append(data_set_job(self,n))
@@ -202,7 +221,7 @@ class FUSED_Data_Set(object):
             for n in job_range:
                 return_job = False
                 for name in names:
-                    if self.data[name]['status'][n] == status:
+                    if self.data[name]['is_set'][n] == status:
                         return_job = True
                 if return_job is True:
                     job_list.append(data_set_job(self,n))
@@ -224,10 +243,10 @@ class FUSED_Data_Set(object):
                     raise Exception('Name {} is not found in data set'.format(name))
                 if np_array == []:
                     np_array = [self.data[name]['values']]
-                    status_array = [self.data[name]['status']]
+                    status_array = [self.data[name]['is_set']]
                 else:
                     np_array = np.concatenate((np_array,[self.data[name]['values']]),axis=0)
-                    status_array = np.concatenate((np_array,[self.data[name]['status']]),axis=0)
+                    status_array = np.concatenate((np_array,[self.data[name]['is_set']]),axis=0)
 
         elif isinstance(collumn_list,str):
             name = collumn_list
@@ -235,7 +254,7 @@ class FUSED_Data_Set(object):
                 raise Exception('Name {} is not found in data set'.format(name))
 
             np_array = self.data[name]['values']
-            status_array = self.data[name]['status']
+            status_array = self.data[name]['is_set']
 
         else:
             raise Exception('{} is not a supportet type in get_numpy_array'.format(type(collumn_list)))
@@ -250,7 +269,7 @@ class FUSED_Data_Set(object):
         #If the inputs are not named the standard inputs are used. Notice that this might connect the inputs wrongly and thus it is recommended to name the inputs.
         for indep, name in self.input_indep_var_list:
             if name in self.data.keys():
-                if not self.data[name]['status'][job_id] == 1:
+                if not self.data[name]['is_set'][job_id] == True:
                     raise Exception('Data flag is not 1 for name: {}, job_id: {}'.format(name,job_id))
                 indep.set_data(self.data[name]['values'][job_id])
             else:
@@ -258,9 +277,9 @@ class FUSED_Data_Set(object):
 
     def pull_output(self,job_id):
         for output_tag, output_obj, output_name in self.output_list:
-            if not self.data[output_name]['status'][job_id] == 1:
+            if not self.data[output_name]['is_set'][job_id] == True:
                 self.data[output_name]['values'][job_id] = output_obj[output_tag]
-                self.data[output_name]['status'][job_id] = 1
+                self.data[output_name]['is_set'][job_id] = True
 
 class data_set_job(object):
     def __init__(self,data_set,job_id):
