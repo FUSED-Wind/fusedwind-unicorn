@@ -7,7 +7,55 @@ import time
 #Class to contain DOEs
 #On disc it is represented by a hdf5 file. In RAM it is represented by this object containing numpy arrays and lists in a dictionary called data
 
+
 class FUSED_Data_Set(object):
+    '''
+    The Fused data set contains data in a dictionary. It is facilitating connections in the fused-wind environment to a DOE. It consists of the capabilities:
+
+    MIMC
+
+    class FUSED_Data_Set(object):
+        def __init__(self, object_name_in = 'Unnamed_DOE_object'):
+
+        # FILE IO
+    #################
+
+        def save_hdf5(self, hdf5_file=None):
+        def load_hdf5(self, hdf5_file):
+
+        # Low-level IO
+    #################
+
+        def declare_variable(self, name, dtype=None):
+        def get_data(self, name=None, job_id=None, return_status=False):
+        def set_data(self, data, name, job_id=None, dtype=None):
+        def set_status(self,name,status,job_id=None):
+        def has_updated_data(self,name,job_id=None,status_flag=1):
+
+        # Connecting to a work flow
+    ##################################
+
+        def connect_indep_var(self,indep_var,data_set_var_name=None):
+        def connect_output_obj(self, output_tag, output_obj, output_name):
+        def get_job_list(self,job_range=[],names=None,status=None):
+        def execute_push_pull(self,job_id):
+        def push_input(self,job_id):
+        def pull_output(self,job_id):
+
+        # Converting to formats useful for external packages
+    ###################################################
+
+        def get_numpy_array(self,collumn_list,return_status='False'):
+    
+    # For now a list of jobs can be given and executed in mpi. This feature might be removed in near future updates.
+    class data_set_job(object):
+        def __init__(self,data_set,job_id):
+        def execute(self):
+        def get_output(self):
+        def set_output(self,output):
+
+
+    '''
     def __init__(self, object_name_in = 'Unnamed_Data_Set_object'):
         self.name = object_name_in
         self.job_count = 0
@@ -177,14 +225,14 @@ class FUSED_Data_Set(object):
         self.collumn_list.append(name)
       
     #If the DOE should be able to push and pull results directly from a workflow the communication is like in other fusedwind cases using independent variables. And object_tags combined with fused_objects.
-    def add_indep_var(self,indep_var, data_set_var_name=None):
+    def connect_indep_var(self,indep_var, data_set_var_name=None):
         if data_set_var_name is None:
             data_set_var_name = indep_var.name
 
         self.input_indep_var_list.append((indep_var,data_set_var_name))
 
     #Function to add a fusedwind output to the dataset. It connects the output to the corresponding data collumn
-    def add_output(self, output_tag, output_obj, output_name):
+    def connect_output_obj(self, output_tag, output_obj, output_name):
         self.output_list.append((output_tag, output_obj, output_name))
         if output_name not in self.data.keys():
             self.declare_variable(output_name)
@@ -229,37 +277,48 @@ class FUSED_Data_Set(object):
         return job_list
 
     #Method to push data to the independent variables and pull outputs.
-    def execute_job(self,job_id):
+    def execute_push_pull(self,job_id):
         self.push_input(job_id)
         self.pull_output(job_id)
 
     #Returning a dictionary of three numpy arrays. input,output and result_up2date. It only returns variables and outputs that are already in numpy array format. If other data is needed the .data dictionary of the object should be consulted directly.
-    def get_numpy_array(self,collumn_list,return_status='False'):
+    def get_numpy_array(self,collumn_list=None,return_status=False,job_id=None):
         np_array = []
         status_array = []
+        if collumn_list is None:
+            collumn_list = self.collumn_list
+
+        if job_id is None:
+            job_id = np.array(range(self.job_count))
+
+        if not type(job_id) == list:
+            job_id = [job_id]
+
         if isinstance(collumn_list,list):
             for name in collumn_list:
                 if not name in self.data:
                     raise Exception('Name {} is not found in data set'.format(name))
+                current_values = [self.data[name]['values'][id] for id in job_id]
+                current_status = [self.data[name]['is_set'][id] for id in job_id]
                 if np_array == []:
-                    np_array = [self.data[name]['values']]
-                    status_array = [self.data[name]['is_set']]
+                    np_array = current_values
+                    status_array = current_status
                 else:
-                    np_array = np.concatenate((np_array,[self.data[name]['values']]),axis=0)
-                    status_array = np.concatenate((np_array,[self.data[name]['is_set']]),axis=0)
+                    np_array = np.concatenate((np_array,current_values),axis=0)
+                    status_array = np.concatenate((status_array,current_status),axis=0)
 
         elif isinstance(collumn_list,str):
             name = collumn_list
             if not name in self.data:
                 raise Exception('Name {} is not found in data set'.format(name))
 
-            np_array = self.data[name]['values']
-            status_array = self.data[name]['is_set']
+            np_array = [self.data[name]['values'][id] for id in job_id]
+            status_array = [self.data[name]['is_set'][id] for id in job_id]
 
         else:
             raise Exception('{} is not a supportet type in get_numpy_array'.format(type(collumn_list)))
 
-        if not return_status is 'False':
+        if not return_status is False:
             return np_array, status_array
         else:
             return np_array
@@ -295,50 +354,3 @@ class data_set_job(object):
     def set_output(self,output):
         self.data_set.set_output(self.job_id,output)
 
-# MIMC
-#
-#class FUSED_Data_Set(object):
-#    def __init__(self, object_name_in = 'Unnamed_DOE_object'):
-#
-#    # FILE IO
-##################
-#
-#    def save(self,*args):
-#    def save_hdf5(self, hdf5_file=None):
-#    def load_hdf5(self, hdf5_file):
-#
-#    # Low-level IO
-##################
-#
-#    def add_input(self, inp, name=None):                          -> set_input
-#    def get_output(self,job_id):
-#    def set_output(self,job_id,output):
-#
-#    # Connecting to a work flow
-###################################
-#
-#    def add_indep_var(self,indep_var):                            -> connect_indep_var
-#    def add_output(self, output_tag, output_obj, output_name):    -> connect_output_obj
-#    def get_job_list(self,job_range=[]):
-#    def write_output(self,job_id):                                -> execute_push_pull
-#    def push_input(self,job_id):
-#    def pull_output(self,job_id=None):
-#
-#    # Converting to formats useful for surrogates
-####################################################
-#
-#    def get_numpy_array(self):
-#
-#    # Internal methods for this class
-####################################################
-#
-#    def type(self,inp):
-#        if "class 'numpy." in typestr:
-#        if "class 'list" in typestr:
-#
-#
-#class data_set_job(object):
-#    def __init__(self,data_set,job_id):
-#    def execute(self):
-#    def get_output(self):
-#    def set_output(self,output):

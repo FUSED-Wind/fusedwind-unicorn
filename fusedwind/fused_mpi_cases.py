@@ -20,7 +20,7 @@ tags = enum('READY', 'DONE', 'EXIT', 'START')
 # This is a generic case runner
 class FUSED_MPI_Cases(object):
 
-    def __init__(self, jobs=[], comm=None):
+    def __init__(self, jobs=[], comm=None, preExec=None, postExec=None):
 
         super(FUSED_MPI_Cases, self).__init__()
 
@@ -112,7 +112,9 @@ class FUSED_MPI_Cases(object):
                         tag = status.Get_tag()
                         if tag == tags.START:
                             # Do the work here
+                            self.preExec(self,job_id)
                             self.execute_job(task)
+                            self.postExec(self,job_id)
                             result=0
                             comm.send(result, dest=0, tag=tags.DONE)
                         elif tag == tags.EXIT:
@@ -128,7 +130,9 @@ class FUSED_MPI_Cases(object):
         else:
 
             for job_id in range(0, len(self.jobs)):
+                self.preExec(self,job_id)
                 self.execute_job(job_id)
+                self.postExec(self,job_id)
 
         self.i_am_executing = False
 
@@ -141,7 +145,7 @@ class FUSED_MPI_Cases(object):
 class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
     def __init__(self, jobs=[], comm=None, preExec=None, postExec=None):
-        super(FUSED_MPI_ObjectCases, self).__init__(jobs, comm)
+        super(FUSED_MPI_ObjectCases, self).__init__(jobs, comm, preExec, postExec)
 
         self.sync_arg = '__downstream__'
         for job in self.jobs:
@@ -159,9 +163,7 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
     # This will execute the job
     def execute_job(self, job_id):
-        self.preExec(self,job_id)
         self.jobs[job_id].update_output_data()
-        self.postExec(self, job_id)
 
     # This will ensure that all the data is synchronized
     def post_run(self, job_list):
