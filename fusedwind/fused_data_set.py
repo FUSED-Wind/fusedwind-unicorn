@@ -53,9 +53,8 @@ class FUSED_Data_Set(object):
         def execute(self):
         def get_output(self):
         def set_output(self,output):
-
-
     '''
+
     def __init__(self, object_name_in = 'Unnamed_Data_Set_object'):
         self.name = object_name_in
         self.job_count = 0
@@ -281,7 +280,8 @@ class FUSED_Data_Set(object):
         self.push_input(job_id)
         self.pull_output(job_id)
 
-    #Returning a dictionary of three numpy arrays. input,output and result_up2date. It only returns variables and outputs that are already in numpy array format. If other data is needed the .data dictionary of the object should be consulted directly.
+    #Returning numpy arrays. collumn_list and job_id are lists of the data to be returned. The return_status flag returns another numpy array i.e. the "is-set" variables at the data-points.
+    #If data requested is different dtypes the function breaks.
     def get_numpy_array(self,collumn_list=None,return_status=False,job_id=None):
         np_array = []
         status_array = []
