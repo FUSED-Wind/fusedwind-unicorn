@@ -72,16 +72,22 @@ def create_variable(name, val=None, desc='', shape=None):
 
     return retval
 
-def print_interface(fifc):
+def print_interface(fifc, print_meta=False):
 
     out_ifc = fifc['output']
     in_ifc = fifc['input']
     print("Input:")
     for name, meta in in_ifc.items():
-        print('\t%s: %s'%(name, str(meta)))
+        if print_meta:
+            print('\t%s: %s'%(name, str(meta)))
+        else:
+            print('\t%s'%(name))
     print("Output:")
     for name, meta in out_ifc.items():
-        print('\t%s: %s'%(name, str(meta)))
+        if print_meta:
+            print('\t%s: %s'%(name, str(meta)))
+        else:
+            print('\t%s'%(name))
 
 # This is a class that tracks where a value is located within an MPI environment
 # ##############################################################################
@@ -387,10 +393,54 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
 
     return src_dst_map, dst_src_map
 
+# Unique fused object
+#########################################################################
+
+class FUSED_Unique(object):
+
+    _object_count = 0
+
+    def __init__(self):
+        object.__init__(self)
+
+        self._hash_value = FUSED_Unique._object_count
+        FUSED_Unique._object_count += 1
+
+    # The following are used for generating hash keys
+    #################################################
+
+    def __cmp__(self, other):
+        if self._hash_value == other._hash_value:
+            return 0
+        if self._hash_value < other._hash_value:
+            return -1
+        return 1
+
+    def __eq__(self, other):
+        return bool(self.__cmp__(other)==0)
+
+    def __ne__(self, other):
+        return bool(self.__cmp__(other)!=0)
+
+    def __lt__(self, other):
+        return bool(self.__cmp__(other)==-1)
+
+    def __le__(self, other):
+        return bool(self.__cmp__(other)!=1)
+
+    def __gt__(self, other):
+        return bool(self.__cmp__(other)==1)
+
+    def __ge__(self, other):
+        return bool(self.__cmp__(other)!=-1)
+
+    def __hash__(self):
+        return self._hash_value
+
 # The following is the FUSED Object
 #########################################################################
 
-class FUSED_Object(object):
+class FUSED_Object(FUSED_Unique):
 
     '''
     This is the base class for any calculation in a Fused-Wind work-flow
@@ -403,11 +453,10 @@ class FUSED_Object(object):
 
     default_state_version = StateVersion()
     print_level = 0
-    _object_count = 0
     all_objects = []
 
     def __init__(self, object_name_in='unnamed_object', state_version_in=None, comm = None):
-        object.__init__(self)
+        FUSED_Unique.__init__(self)
 
         # This is the name of the object. Useful for printing helpful messages
         self.object_name = object_name_in
@@ -452,9 +501,31 @@ class FUSED_Object(object):
             self.comm=MPI.COMM_WORLD
 
         # Ensure these objects can be indexed
-        self._hash_value = FUSED_Object._object_count
-        FUSED_Object._object_count += 1
         FUSED_Object.all_objects.append(self)
+
+    # Print the interface
+    def print_interface(self, print_meta=False):
+            ifc = self.get_interface()
+            print_interface(ifc, print_meta)
+
+    # Lets for the fun of it, lets print the connections
+    def print_object_calculations(self, object_set=set()):
+
+        # if this is an indep var then we just print and start the chain reactions
+        if self.is_independent_variable():
+            if not self in object_set:
+                print('Object %s of type %s provides its output'%(self.object_name, str(type(self))))
+                object_set.add(self)
+            return
+
+        # lets print the execution of out sub-objects
+        for src_obj, output_dict in self.connections.items():
+            src_obj.print_object_calculations(object_set=object_set)
+
+        # Now lets print the execution of my object
+        if not self in object_set:
+            print('Object %s of type %s provides its output'%(self.object_name, str(type(self))))
+            object_set.add(self)
 
     # This is for solving some properties of a work-flow
     ####################################################
@@ -565,37 +636,6 @@ class FUSED_Object(object):
             self.ifc_built = True
         return self.interface
 
-    # The following are used for generating hash keys
-    #################################################
-
-    def __cmp__(self, other):
-        if self._hash_value == other._hash_value:
-            return 0
-        if self._hash_value < other._hash_value:
-            return -1
-        return 1
-
-    def __eq__(self, other):
-        return bool(self.__cmp__(other)==0)
-
-    def __ne__(self, other):
-        return bool(self.__cmp__(other)!=0)
-
-    def __lt__(self, other):
-        return bool(self.__cmp__(other)==-1)
-
-    def __le__(self, other):
-        return bool(self.__cmp__(other)!=1)
-
-    def __gt__(self, other):
-        return bool(self.__cmp__(other)==1)
-
-    def __ge__(self, other):
-        return bool(self.__cmp__(other)!=-1)
-
-    def __hash__(self):
-        return self._hash_value
-
     # This is the all important connect method. It tells where to get the input data from
     #####################################################################################
 
@@ -666,6 +706,12 @@ class FUSED_Object(object):
         This method is used to do this task
         '''
 
+        # Lets print the data
+        if FUSED_Object.print_level>=2:
+            for src_name, dst_list in src_dst_map.items():
+                for dst_name in dst_list:
+                    print('%s %s.%s <- %s %s.%s'%(type(self), self.object_name, dst_name, type(source_object), source_object.object_name, src_name))
+
         # If connecting to a group, then extract the output objects and connect directly to them
         if source_object.is_group():
 
@@ -735,18 +781,19 @@ class FUSED_Object(object):
                     print('Connecting variable '+dst_name+' replaces the old connection between '+self.object_name+' and '+self.conn_dict[dst_name][0].object_name)
                 tmp_source_object = self.conn_dict[dst_name][0]
                 tmp_src_name = self.conn_dict[dst_name][1]
-                # Remove the over-ride from the connections
-                if dst_name in self.connections[tmp_source_object][tmp_src_name]:
-                    self.connections[tmp_source_object][tmp_src_name].remove(dst_name)
-                    # 
-                    # Remove that source name, if it is no longer used
-                    if len(self.connections[tmp_source_object][tmp_src_name])==0:
-                        del self.connections[tmp_source_object][tmp_src_name]
-                        # Remove the source object, if it is no longer used
-                        if len(self.connections[tmp_source_object]):
-                            del self.connections[tmp_source_object]
-                else:
-                    raise Exception('Connection data structure corrupted')
+                if not source_object == tmp_source_object or not tmp_src_name == dst_src_map[dst_name]:
+                    # Remove the over-ride from the connections
+                    if dst_name in self.connections[tmp_source_object][tmp_src_name]:
+                        self.connections[tmp_source_object][tmp_src_name].remove(dst_name)
+                        # 
+                        # Remove that source name, if it is no longer used
+                        if len(self.connections[tmp_source_object][tmp_src_name])==0:
+                            del self.connections[tmp_source_object][tmp_src_name]
+                            # Remove the source object, if it is no longer used
+                            if len(self.connections[tmp_source_object])==0:
+                                del self.connections[tmp_source_object]
+                    else:
+                        raise Exception('Connection data structure corrupted')
                 # Remove the upstream connection
                 if dst_name in tmp_source_object.output_connections[tmp_src_name][self]:
                     tmp_source_object.output_connections[tmp_src_name][self].remove(dst_name)
@@ -1206,8 +1253,52 @@ class Independent_Variable(FUSED_Object):
             raise KeyError('That variable does not exist')
         return self.data
 
-# This following is a workflow
-##########################################################################
+# This will take a list or dictionary and seperate out the objects and names
+############################################################################
+
+# this will tell if something is an active fused wind object
+def is_fused_object_or_group(object):
+
+    # simply apply the test and return
+    return isinstance(object, FUSED_System_Base) or isinstance(object, FUSED_Object)
+
+# get the dictionary and object list
+def get_object_dict_and_list(object_container):
+
+    # initialize the object list
+    object_list = []
+    object_dictionary = {}
+    fused_object_list = []
+    fused_object_dictionary = {}
+
+    # If the objects are a dictionary then set that
+    if isinstance(object_container, dict):
+        # set the dictionary
+        object_dictionary = object_container
+        # loop through all the object dictionary
+        for name, obj in object_dictionary.items():
+            object_list.append(obj)
+            if is_fused_object_or_group(obj):
+                fused_object_list.append(obj)
+                fused_object_dictionary[name] = obj
+    else:
+        # basically store the objects
+        object_list = object_container
+        # this set maintains unique names
+        object_name_set = set()
+        # loop through all the objects
+        for obj in object_container:
+            name = None
+            if hasattr(obj, 'object_name'):
+                name = obj.object_name
+                name = make_unique_name(name, object_name_set)
+                object_dictionary[name] = obj
+            if is_fused_object_or_group(obj):
+                fused_object_list.append(obj)
+                if not name is None:
+                    fused_object_dictionary[name] = obj
+
+    return object_dictionary, object_list, fused_object_dictionary, fused_object_list
 
 # The following function will solve the split configuration of a work-flow
 ##########################################################################
@@ -1219,74 +1310,125 @@ class Independent_Variable(FUSED_Object):
 # Together these objects are expected to operate as a system
 # The system base class packages these objects so they act as a single object
 
-class FUSED_System_Base(object):
+class FUSED_System_Base(FUSED_Unique):
 
-    _object_count = 0
-
-    def __init__(self, objects_in):
+    def __init__(self, objects_in={}, group_name='unnamed_base_group', **kwargs):
         super(FUSED_System_Base, self).__init__()
 
-        # basically store the objects
-        self.system_objects = objects_in
+        # This is the group name
+        self.object_name = group_name
+        # If the objects are a dictionary then set that
+        if isinstance(objects_in, dict):
+            # Add the kw-arg objects
+            for key, obj in kwargs.items():
+                if key in objects_in:
+                    raise Exception('Two different objects specified for key "%s"'%key)
+                objects_in[key]=obj
+        else:
+            # Check if we are adding the objects as key-work args
+            if len(kwargs)!=0:
+                raise Exception('Objects cannot be added as key-word arguments when other objects are added as a list')
 
-        # stores the input connection information
-        # CURRENT: system_input_connections[indep_var_obj][indep_var_variable_name][dest_obj]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
-        # FUTURE: system_input_connections[global_input_name][internal_dest_object]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
-        # OLD: self.system_input_connections = {}
-
-        # For the case that we set independent variables, we need to know how the global input name maps to those input variables
-        # FUTURE: A data structure that is system_independent_input[global_input_name][independent_object]=['dest_var_name_1', 'dest_var_name_2', ... , 'dest_var_name_N']
+        # set the internal objects
+        self.object_dictionary, null1, null2, self.system_objects = get_object_dict_and_list(objects_in)
 
         # whether it has been configured or not
         self.system_has_been_configured = False
 
-        # FUTURE:
-        #   system_input_map[obj][lcl_name]                -> (global_input_name, is_set)   * Note: obj can be the input objects and the independent variable
-        #self.system_input_map = {}
-        #   system_input_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
-        #self.system_input_gbl_to_lcl_map = {}
-
-        # Ensure these objects can be indexed
-        self._hash_value = FUSED_System_Base._object_count
-        FUSED_System_Base._object_count += 1
-
-#
-# Some temporary variables:
-#
-#   self._input_obj_var_is_found[local_obj] = [ local_dest_name_1, local_dest_name_2 ...]
+        # The following data is for building the input connection interface and data structures
+        #
+        # Some temporary variables:
+        #
+        #   #This basically registers whether a given input variables has been registered in the automatic interface building methods
+        #   self._input_obj_var_is_found[local_obj] = [ local_dest_name_1, local_dest_name_2 ...]
         self._input_obj_var_is_found = {}
-#   self._input_var_to_obj_pair[global_name] = [ ({obj_1: [local_dest_name_1, local_dest_name_2 ...] }, indep_var) , ... ]
+        #
+        #   #In the automatic interface construction methods.
+        #   #This registers how the public name is associated with the internal objects
+        #   #This can contain multiple inputs associated with a global name, however in the configuration methods, this will be renamed so there are unique inputs
+        #   self._input_var_to_obj_pair[global_name] = [ ({obj_1: [local_dest_name_1, local_dest_name_2 ...] }, indep_var) , ... ]
         self._input_var_to_obj_pair = {}
-#
-# Internal input connection data structure:
-#
-#   self.system_input_map[obj][lcl_name]                -> global_input_name   * Note: obj can be the input objects and the independent variable
+        #
+        # Internal input connection data structure:
+        #
+        #   #This shows how a local object-input is mapped to a given global name
+        #   self.system_input_map[obj][lcl_name]                -> global_input_name   * Note: obj can be the input objects and the independent variable
         self.system_input_map = {}
-#
-# Internal gobal_input_name to object/local name
-#
-#   self.system_input_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
+        #
+        # Internal gobal_input_name to object/local name
+        #
+        #   # This shows how a global input name is mapped to local objects and input names
+        #   self.system_input_gbl_to_lcl_map[global_input_name] -> ( input_dict[obj] -> list( local_input_name_1, local_input_name_2, ... ) , indep_var )
         self.system_input_gbl_to_lcl_map = {}
-#   
+        #   
 
-#
-# Some temporary variables:
-#
-#   self._output_obj_var_is_found[local_obj] = [ local_src_name_1, local_src_name_2, ...]
+        #
+        # Some temporary variables:
+        #
+        #   # This is used in the automatic interface generation methods.
+        #   # This tracks whether a given output has been associated with an output
+        #   self._output_obj_var_is_found[local_obj] = [ local_src_name_1, local_src_name_2, ...]
         self._output_obj_var_is_found = {}
-#   self._output_var_to_obj_pair[global_name] = [ (obj_1, local_src_name_1), (obj_2, local_src_name_2) ]
+        #
+        #   # This is used by the automatic interface generation methods
+        #   # This shows how the global output name is associated with outputs. 
+        #   # In this case, there can be multiple sources but when it is configred, the global output name is re-named so the different sources are unique
+        #   self._output_var_to_obj_pair[global_name] = [ (obj_1, local_src_name_1), (obj_2, local_src_name_2) ]
         self._output_var_to_obj_pair = {}
-#
-# Internal output connection data structure:
-#
-#   self.system_output_map[obj][lcl_name]                 -> global_output_name
+        #
+        # Internal output connection data structure:
+        #
+        #   # This will show how an local object and output name are mapped to global output name
+        #   self.system_output_map[obj][lcl_name]                 -> global_output_name
         self.system_output_map = {}
-#
-# Internal gobal_output_name to object/local name
-#
-#   self.system_output_gbl_to_lcl_map[global_output_name] -> ( obj, local_src_name )
+        #
+        # Internal gobal_output_name to object/local name
+        #
+        #   # This will show how a global output name is mapped to a local object and local output name
+        #   self.system_output_gbl_to_lcl_map[global_output_name] -> ( obj, local_src_name )
         self.system_output_gbl_to_lcl_map = {}
-#
+        #
+
+    # This will retrieve the objects contained within this group
+    def get_object(self, object_name):
+
+        sub_key = None
+        if '.' in object_name:
+            object_name, *remainder = object_name.split('.')
+            sub_key = '.'.join(remainder)
+        if not object_name in self.object_dictionary:
+            raise KeyError('The object %s does not exist within this group'%(object_name))
+        my_obj = self.object_dictionary[object_name]
+        if sub_key is None:
+            return my_obj
+        if not isinstance(my_obj, FUSED_System_Base):
+            raise Exception('Can only access objects from a FUSED_System_Base')
+        return my_obj.get_object(sub_key)
+
+    # This will retrieve the object keys
+    def get_object_keys(self):
+
+        # simply return my object keys
+        return self.object_dictionary.keys()
+
+    # This will return all keys for my objects and my childrens objects
+    def get_all_object_keys(self):
+
+        # Populate the return value with my object keys first
+        retval = list(self.object_dictionary.keys())
+
+        # loop through my objects and get the sub-keys
+        for key, obj in self.object_dictionary.items():
+            # test if it ass the method we want
+            if hasattr(obj, 'get_all_object_keys'):
+                # get the sub-keys
+                sub_keys = obj.get_all_object_keys()
+                # now append them to my return value
+                for sub in sub_keys:
+                    retval.append(key+'.'+sub)
+                    
+        # Return the result
+        return retval
 
     # This is suppose to use the independent variables to build an input interface
     def add_input_interface_from_independent_variables(self, object_list = None):
@@ -1422,7 +1564,7 @@ class FUSED_System_Base(object):
                             self._input_obj_var_is_found[obj].append(name)
 
     # This is suppose to assume that all inputs of all objects in the list are public input variables.
-    def add_input_interface_from_objects(self, object_list = None):
+    def add_input_interface_from_objects(self, object_list = None, merge_by_input_name=False, prepend_name=None, append_name=None):
         # The object list must be a list of objects contained within this object
         # When object_list is none, Then it is assumed that all objects are used
         # This is an automated interface generation scheme
@@ -1434,17 +1576,37 @@ class FUSED_System_Base(object):
         # get the object list from the system objects
         if object_list is None:
             object_list = self.system_objects
+
+        # The assumption is that object_list is a list, if not, put it in a list
+        if not isinstance(object_list, list) and not isinstance(object_list,tuple):
+            object_list = [object_list]
+
         # loop over the objects
         for obj in object_list:
             obj_ifc = obj.get_interface()['input']
             for name in obj_ifc.keys():
                 # Add the variable if not already
                 if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
+                    # get the global name
+                    global_name = name
+                    if not prepend_name is None:
+                        global_name = prepend_name+global_name
+                    if not append_name is None:
+                        global_name = global_name+append_name
                     # Add it to a candidate name
                     if name in self._input_var_to_obj_pair:
-                        self._input_var_to_obj_pair[name].append(({obj:[name]}, None))
+                        if merge_by_input_name:
+                            if len(self._input_var_to_obj_pair[global_name])!=1:
+                                raise Exception('Cannot merge inputs by name when there are already multiple candidates')
+                            obj_dict = self._input_var_to_obj_pair[global_name][0][0]
+                            if not obj in obj_dict:
+                                obj_dict[obj]=[name]
+                            else:
+                                obj_dict[obj].append(name)
+                        else:
+                            self._input_var_to_obj_pair[global_name].append(({obj:[name]}, None))
                     else:
-                        self._input_var_to_obj_pair[name] = [({obj:[name]}, None)]
+                        self._input_var_to_obj_pair[global_name] = [({obj:[name]}, None)]
                     # register that a variable has been found
                     if not obj in self._input_obj_var_is_found:
                         self._input_obj_var_is_found[obj]=[name]
@@ -1582,7 +1744,7 @@ class FUSED_System_Base(object):
                 print('Warning, could not find a connection for global variable %s'%(var_name))
 
     # This is suppose to assume that all outputs of all objects in the list are public output variables.
-    def add_output_interface_from_objects(self, object_list = None):
+    def add_output_interface_from_objects(self, object_list = None, var_name_list=None, exclude_list=[], prepend_name=None, append_name=None):
         # The object list must be a list of objects contained within this object
         # When object_list is none, Then it is assumed that all objects are used
         # This is an automated interface generation scheme
@@ -1594,6 +1756,10 @@ class FUSED_System_Base(object):
         # Get the object list
         if object_list is None:
             object_list = self.system_objects
+
+        # The assumption is that object_list is a list, if not, put it in a list
+        if not isinstance(object_list, list) and not isinstance(object_list,tuple):
+            object_list = [object_list]
  
         # loop through all the connections
         for obj in object_list:
@@ -1602,18 +1768,26 @@ class FUSED_System_Base(object):
                 raise Exception('Cannot build an interface based on objects outside the group')
             # Loop through the output names
             for src_name in obj.get_interface()['output'].keys():
-                # Verify that it meets whether it is already added criteria:
-                if (not obj in self.system_output_map or not src_name in self.system_output_map[obj]) and (not obj in self._output_obj_var_is_found or not src_name in self._output_obj_var_is_found[obj]):
-                    # Add it to the output structure
-                    if not src_name in self._output_var_to_obj_pair:
-                        self._output_var_to_obj_pair[src_name] = [(obj,src_name)]
-                    else:
-                        self._output_var_to_obj_pair[src_name].append( (obj,src_name) )
-                    # add to 'is-found'
-                    if not obj in self._output_obj_var_is_found:
-                        self._output_obj_var_is_found[obj] = [src_name]
-                    else:
-                        self._output_obj_var_is_found[obj].append(src_name)
+                # proceed only if allowed
+                if (var_name_list is None and not src_name in exclude_list) or (not var_name_list is None and src_name in var_name_list):
+                    # set global name
+                    global_src_name = src_name
+                    if not prepend_name is None:
+                        global_src_name = prepend_name+global_src_name
+                    if not append_name is None:
+                        global_src_name = global_src_name+append_name
+                    # Verify that it meets whether it is already added criteria:
+                    if (not obj in self.system_output_map or not src_name in self.system_output_map[obj]) and (not obj in self._output_obj_var_is_found or not src_name in self._output_obj_var_is_found[obj]):
+                        # Add it to the output structure
+                        if not global_src_name in self._output_var_to_obj_pair:
+                            self._output_var_to_obj_pair[global_src_name] = [(obj,src_name)]
+                        else:
+                            self._output_var_to_obj_pair[global_src_name].append( (obj,src_name) )
+                        # add to 'is-found'
+                        if not obj in self._output_obj_var_is_found:
+                            self._output_obj_var_is_found[obj] = [src_name]
+                        else:
+                            self._output_obj_var_is_found[obj].append(src_name)
 
     # This is suppose to collect the interface from existing connections
     def add_output_interface_from_connections(self, object_list = None, use_set_connections = True):
@@ -2038,30 +2212,46 @@ class FUSED_System_Base(object):
 
     def get_object_and_local_from_global_input(self, gbl_name):
 
+        if not self.system_has_been_configured:
+            self.configure_system()
         return self.system_input_gbl_to_lcl_map[gbl_name][0]
 
     def get_indep_var_from_global_input(self, gbl_name):
 
+        if not self.system_has_been_configured:
+            self.configure_system()
         return self.system_input_gbl_to_lcl_map[gbl_name][1]
 
     def get_object_and_local_from_global_output(self, gbl_name):
 
+        if not self.system_has_been_configured:
+            self.configure_system()
         return self.system_output_gbl_to_lcl_map[gbl_name]
 
     def get_global_from_object_and_local_input(self, obj, lcl_name):
 
+        if not self.system_has_been_configured:
+            self.configure_system()
         return self.system_input_map[obj][lcl_name]
 
     def get_global_from_object_and_local_output(self, obj, lcl_name):
 
+        if not self.system_has_been_configured:
+            self.configure_system()
         return self.system_output_map[obj][lcl_name]
 
     def get_system_interface(self):
 
+        if not self.system_has_been_configured:
+            self.configure_system()
         return self.system_ifc
 
     # This will tell this system to compute
     def system_compute(self, input_values, output_values):
+
+        # configure if needed
+        if not self.system_has_been_configured:
+            self.configure_system()
 
         # First set the inputs on the input objects
         for global_name, input_pair in self.system_input_gbl_to_lcl_map.items():
@@ -2156,8 +2346,8 @@ class FUSED_System_Base(object):
 class FUSED_Group(FUSED_System_Base):
 
     # This is the constructor
-    def __init__(self, objects_in=[]):
-        super(FUSED_Group, self).__init__(objects_in=objects_in)
+    def __init__(self, objects_in=[], group_name='unnamed_fused_group'):
+        super(FUSED_Group, self).__init__(objects_in=objects_in, group_name=group_name)
 
     # Identifies whether it is an independent variable
     def is_independent_variable(self):
@@ -2169,9 +2359,12 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will build the interface
     def get_interface(self):
-        if not self.system_has_been_configured:
-            self.configure_system()
         return self.get_system_interface()
+
+    # This will print the interface of the group
+    def print_interface(self, print_meta=False):
+        ifc = self.get_interface()
+        print_interface(ifc, print_meta)
 
     # This will connect the input from an object
     def connect_input_from(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
@@ -2189,6 +2382,17 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will specify connections
     def connect(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+
+        # If there are multiple source objects
+        #########################################################
+
+        if not isinstance(source_object, FUSED_Object) and not isinstance(source_object, FUSED_Group):
+            for obj in source_object:
+                self.connect(obj, var_name_dest, var_name_source, alias)
+            return
+
+        # Now process the connections
+        #########################################################
  
         # 1) Parse the arguments
         src_dst_map, dst_src_map = parse_connect_args(self, source_object, var_name_dest, var_name_source, alias)
@@ -2316,9 +2520,9 @@ class FUSED_Group(FUSED_System_Base):
 class FUSED_System(FUSED_Object, FUSED_System_Base):
 
     # This is the constructor
-    def __init__(self, objects_in=[], object_name_in='unnamed_system_object', state_version_in=None):
-        FUSED_Object.__init__(self, object_name_in=object_name_in, state_version_in=state_version_in)
-        FUSED_System_Base.__init__(self, objects_in=objects_in, output_objects_in=output_objects_in)
+    def __init__(self, objects_in=[], object_name_in='unnamed_system_object', state_version_in=None, comm=None):
+        FUSED_Object.__init__(self, object_name_in=object_name_in, state_version_in=state_version_in, comm=comm)
+        FUSED_System_Base.__init__(self, objects_in=objects_in, group_name=object_name_in)
 
     # Over-ride the configuration method to create an independent sub-system
     def configure_system(self):

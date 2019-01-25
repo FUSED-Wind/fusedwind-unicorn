@@ -1,3 +1,5 @@
+
+import copy
 import numpy as np
 from fusedwind.fused_wind import FUSED_Object
 
@@ -139,4 +141,132 @@ class FUSED_Multiply(FUSED_Object):
     def compute(self, input_values, output_values):
 
         output_values[self.output_name] = input_values[self.lhs_name] * input_values[self.rhs_name]
+
+# This function is for building workflows that must multiple simulations
+def create_workflow_by_cases(case_list, builder_function, build_args={}, case_argument="case_definition", label_function=None, grouper_function=None, grouper_arguments={}, objects_argument='objects', group_case_list_argument=None, group_base_name=None, group_label_argument='group_base_name'):
+    '''
+    This function will generate a work flow that is based on multiple simulations defined by cases.
+
+    Usage:
+
+        workflow_from_cases = create_workflow_by_cases(case_list = my_case_list, builder_function = my_builder_function, build_args = my_build_args, case_argument = my_case_argument, label_function = my_label_function, grouper_function = my_grouper_function, grouper_arguments = my_grouper_arguments, objects_argument = my_objects_argument, group_base_name=my_group_base_name, group_label_argument=my_group_label_argument)
+
+    Input:
+
+        case_list:             This is a list of cases
+        builder_function:      This is the function that will build an object based on the case definition
+        build_args:            This is a dictionary for the arguments that must be passed to the builder_function
+        case_argument:         This is the name of the argument that defines the case definition in the builder function
+        label_function:        This is a function that takes the object and the case definition that returns a label. The label identifies the object within a dictionary.
+        grouper_function:      This is a function that will perform further processing on the set of objectsi and return the workflow as a single object.
+                               Generally it will add any pre/post operations and then wrap it all into a group.
+                               It must return an object that contains the work-flow
+        grouper_arguments:     This contains the arguments that must be passed to the grouper function.
+        objects_argument:      This is the name of the argument in the grouper function that should contain the objects
+        group_base_name:       This is the name for the group
+        group_label_argument:  This is the name of the argument for the group label
+
+    Output:
+
+        workflow_from_cases:   This is the work flow that was generated from the cases.
+                               When a grouper function is given, this is the output of that object
+                               Otherwise, when a label function is given, it is a dictionary of the objects
+                               Otherwise it is a list of the objects generated
+    '''
+
+    # Create the container for the objects
+    if label_function is None:
+        objects = []
+        group_case_list = case_list
+    else:
+        objects = {}
+        group_case_list = {}
+
+    # start generating the objects based on case
+    for i, case_definition in enumerate(case_list):
+        # build the object
+        my_args = copy.copy(build_args)
+        my_args[case_argument]=case_definition
+        obj = builder_function(**my_args)
+        # If we cannot label, then store the object in a list
+        if label_function is None:
+            objects.append(obj)
+        # If we can label an object, then store the object in a dictionary
+        else:
+            label = label_function(obj, case_definition, i)
+            if label in objects:
+                raise Exception('It appears there are duplicates in the labels')
+            objects[label] = obj
+            group_case_list[label] = case_definition
+    # If we cannot group an object, then simply return our object container
+    if grouper_function is None:
+        return objects
+    # Build my group and return the results
+    else:
+        my_args = copy.copy(grouper_arguments)
+        my_args[objects_argument]=objects
+        if not group_base_name is None:
+            my_args[group_label_argument]=group_base_name
+        if not group_case_list_argument is None:
+            my_args[group_case_list_argument]=group_case_list
+        return grouper_function(**my_args)
+
+# This function is for building a set of work flows based on case_definition
+def create_workflow_by_cases_and_case_definition(case_definition, case_definition_to_args=None, base_create_workflow_by_cases_args={}):
+    '''
+    This method is used inconjunction with create_workflow_by_cases to create a work flow by cases, where some parameters are defined by a case-definition. This is useful when multiple case driven work-flows need to be generated.
+
+    Usage:
+
+        workflow_group = create_workflow_by_cases_and_case_definition(case_definition=my_case_definition, case_definition_to_args=my_case_definition_argument, base_create_workflow_by_cases_args=my_base_create_workflow_by_cases_args)
+
+    The input:
+
+        case_definition:                    This contains the data that defines this version of the workflow
+        case_definition_to_args:            Controls how the data in case_definition are used to populate base_create_workflow_by_cases_args
+                                            There are several versions:
+                                                1) It is a function that takes the case_definition and the base_create_workflow_by_cases_args to give the updated arguments
+                                                2) It is a dictionary that maps the case definition key to the argument key
+                                                3) It is None (default), the case definition is transferred directly to the arguments
+        base_create_workflow_by_cases_args: The default arguments for create_workflow_by_cases that do not change
+
+    The output:
+
+        workflow_group:                     The output of 'create_workflow_by_cases' a workflow based on cases
+    '''
+
+    # Empty arguments
+    my_case_args = copy.copy(base_create_workflow_by_cases_args)
+    # Test if the map is callable. If so, then call it
+    if callable(case_definition_to_args):
+        my_case_args = case_definition_to_args(case_definition, my_case_args)
+    # Otherwise lets use the dictionary to map case-definition to the args
+    elif isinstance(case_definition_to_args, dict):
+        for case_def_key, arg_key in case_definition_to_args.items():
+            my_case_args[arg_key]=case_definition[case_def_key]
+    # If there is no conversion, then just use the case definition
+    elif case_definition_to_args is None:
+        for key, value in case_definition.items():
+            my_case_args[key]=value
+    # Lets throw exception
+    else:
+        raise Exception('Failed to recognize case_definition_to_args')
+
+    # Lets create the workflow
+    return create_workflow_by_cases(**my_case_args)
+
+# This is a function to mae the name unique
+def make_unique_name(name, name_set):
+
+    if not name in name_set:
+        name_set.add(name)
+        return name
+
+    idx = 2
+    new_name = name+'_'+str(idx)
+    while new_name in name_set:
+        idx+=1
+        new_name = name+'_'+str(idx)
+    name_set.add(new_name)
+    return new_name
 
