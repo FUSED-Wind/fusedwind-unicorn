@@ -22,6 +22,7 @@ class FUSED_OpenMDAOBase(object):
     all_models = {}
 
     def __init__(self, model):
+        from site import print_trace_now; print_trace_now()
         super(FUSED_OpenMDAOBase, self).__init__()
 
         # Add this as an object
@@ -34,6 +35,7 @@ class FUSED_OpenMDAOBase(object):
 
     @staticmethod
     def setup_splits(group=None):
+        from site import print_trace_now; print_trace_now()
 
         #print('MIMC calling FUSED_OpenMDAOBase.setup_splits(group)')
 
@@ -80,6 +82,7 @@ class FUSED_OpenMDAOBase(object):
 # Return FUSED Component based on version of OpenMDAO 1.x or 2.x
 ################################################################
 def FUSED_Component(*args, **kwargs):
+    from site import print_trace_now; print_trace_now()
 
     model = args[0]
     #print('MIMC wrapping model %s'%(model.object_name))
@@ -100,10 +103,12 @@ def FUSED_Component(*args, **kwargs):
             class FUSED_IndepVarComp(IndepVarComp, FUSED_OpenMDAOBase):
 
                 def __init__(self, model=None, name=None, val=1.0, **kwargs):
+                    from site import print_trace_now; print_trace_now()
                     IndepVarComp.__init__(self, name, val, **kwargs)
                     FUSED_OpenMDAOBase.__init__(self, model)
 
                 def setup(self):
+                    from site import print_trace_now; print_trace_now()
                     if not FUSED_OpenMDAOBase.has_been_split:
                         FUSED_OpenMDAOBase.setup_splits()
                     super(FUSED_IndepVarComp,self).setup()
@@ -118,10 +123,12 @@ def FUSED_Component(*args, **kwargs):
             class FUSED_IndepVarComp(IndepVarComp, FUSED_OpenMDAOBase):
 
                 def __init__(self, model=None, name=None, val=1.0, **kwargs):
+                    from site import print_trace_now; print_trace_now()
                     IndepVarComp.__init__(self, name, val, **kwargs)
                     FUSED_OpenMDAOBase.__init__(self, model)
 
                 def setup(self):
+                    from site import print_trace_now; print_trace_now()
                     if not FUSED_OpenMDAOBase.has_been_split:
                         FUSED_OpenMDAOBase.setup_splits()
 
@@ -137,10 +144,12 @@ def FUSED_Component(*args, **kwargs):
         
 
             def __init__(self, model):
+                from site import print_trace_now; print_trace_now()
                 ExplicitComponent.__init__(self)
                 FUSED_OpenMDAOBase.__init__(self, model)
 
             def setup(self):
+                from site import print_trace_now; print_trace_now()
 
                 if not FUSED_OpenMDAOBase.has_been_split:
                     FUSED_OpenMDAOBase.setup_splits()
@@ -153,6 +162,7 @@ def FUSED_Component(*args, **kwargs):
                 process_io(self, ifc['output'], 'add_output')
         
             def compute(self, inputs, outputs):
+                from site import print_trace_now; print_trace_now()
         
                 self.model.compute(inputs, outputs)
 
@@ -162,10 +172,12 @@ def FUSED_Component(*args, **kwargs):
         class FUSED_OpenMDAO(Component, FUSED_OpenMDAOBase):
         
             def __init__(self, model):
+                from site import print_trace_now; print_trace_now()
                 Component.__init__(self)
                 FUSED_OpenMDAOBase.__init__(self, model)
 
             def setup(self):
+                from site import print_trace_now; print_trace_now()
 
                 if not FUSED_OpenMDAOBase.has_been_split:
                     FUSED_OpenMDAOBase.setup_splits()
@@ -178,6 +190,7 @@ def FUSED_Component(*args, **kwargs):
                 process_io(self, ifc['output'], 'add_output')
         
             def solve_nonlinear(self, params, unknowns, resids):
+                from site import print_trace_now; print_trace_now()
         
                 self.model.compute(params, unknowns)
 
@@ -185,6 +198,7 @@ def FUSED_Component(*args, **kwargs):
 
 # Add inputs and outputs to a class
 def process_io(component, interface, add_method):
+    from site import print_trace_now; print_trace_now()
 
     for k, v in interface.items():
 
@@ -223,6 +237,7 @@ def process_io(component, interface, add_method):
 # Return FUSED Group based on version of OpenMDAO 1.x or 2.x
 ############################################################
 def FUSED_OM_Group(*args, **kwargs):
+    from site import print_trace_now; print_trace_now()
 
     if int(op.__version__[0]) > 1:
         from openmdao.api import Group
@@ -233,6 +248,7 @@ def FUSED_OM_Group(*args, **kwargs):
 
 # Add component or subsystem to group based on version of OpenMDAO 1.x or 2.x
 def FUSED_add(group, component_name, component, promoters=None):
+    from site import print_trace_now; print_trace_now()
   
     #print('MIMC adding to group:', component_name)
     if int(op.__version__[0]) > 1:
@@ -242,6 +258,7 @@ def FUSED_add(group, component_name, component, promoters=None):
 
 # Add explicit connections between group components based on version of OpenMDAO 1.x or 2.x
 def FUSED_connect(group, output_connection, input_connections):
+    from site import print_trace_now; print_trace_now()
   
     if int(op.__version__[0]) > 1:
         return group.connect(output_connection, input_connections)
@@ -250,6 +267,7 @@ def FUSED_connect(group, output_connection, input_connections):
 
 # Add ability to print output for different openmdao versions
 def FUSED_print(group):
+    from site import print_trace_now; print_trace_now()
 
     if int(op.__version__[0]) > 1:
         group.list_outputs()
@@ -261,6 +279,7 @@ def FUSED_print(group):
 # Redundancy kept for consistency with other FUSED functions
 ############################################################
 def FUSED_Problem(*args, **kwargs):
+    from site import print_trace_now; print_trace_now()
 
     if int(op.__version__[0]) > 1:
         from openmdao.api import Problem
@@ -271,6 +290,7 @@ def FUSED_Problem(*args, **kwargs):
 
 # Add independent variable components to a problem
 def FUSED_VarComp(*args, **kwargs):
+    from site import print_trace_now; print_trace_now()
 
     if int(op.__version__[0]) > 1:
         from openmdao.api import IndepVarComp
@@ -281,6 +301,7 @@ def FUSED_VarComp(*args, **kwargs):
 
 # Add ability to print output for different openmdao versions
 def FUSED_setup(problem):
+    from site import print_trace_now; print_trace_now()
 
     if int(op.__version__[0]) > 1:
         problem.setup()
@@ -289,6 +310,7 @@ def FUSED_setup(problem):
 
 # Run problem based on version of OpenMDAO 1.x or 2.x
 def FUSED_run(problem):
+    from site import print_trace_now; print_trace_now()
   
     if int(op.__version__[0]) > 1:
         return problem.run_driver()

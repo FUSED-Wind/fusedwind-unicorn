@@ -6,6 +6,7 @@ from fusedwind.fused_wind import FUSED_Object
 class Shift_Data(FUSED_Object):
 
     def __init__(self, shift_value, input_name_in='unnamed_input', input_meta_in={}, output_name_in='unnamed_output', output_meta_in={}, object_name_in='unnamed_shift_object', state_version_in=None):
+        from site import print_trace_now; print_trace_now()
         super(Shift_Data, self).__init__(object_name_in, state_version_in)
         self.shift_value = shift_value
         self.input_name=input_name_in
@@ -14,21 +15,26 @@ class Shift_Data(FUSED_Object):
         self.output_meta=output_meta_in
 
     def set_input_variable(self, input_name_in, input_meta_in):
+        from site import print_trace_now; print_trace_now()
         self.input_name=input_name_in
         self.input_meta=input_meta_in
 
     def set_output_variable(self, output_name_in, output_meta_in):
+        from site import print_trace_now; print_trace_now()
         self.output_name=output_name_in
         self.output_meta=output_meta_in
 
     def set_shift_value(self, shift_value):
+        from site import print_trace_now; print_trace_now()
         self.shift_value=shift_value
 
     def _build_interface(self):
+        from site import print_trace_now; print_trace_now()
         self.add_input(self.input_name, **self.input_meta)
         self.add_output(self.output_name, **self.output_meta)
 
     def compute(self, input_values, output_values):
+        from site import print_trace_now; print_trace_now()
         # get the interface
         ifc = self.get_interface()
         # get the input name
@@ -49,6 +55,7 @@ class Shift_Data(FUSED_Object):
 class Split_Vector(FUSED_Object):
 
     def __init__(self, input_name_in='unnamed_input', input_meta_in={}, object_name_in='unnamed_split_vector_object', state_version_in=None):
+        from site import print_trace_now; print_trace_now()
 
         super(Split_Vector,self).__init__(object_name_in, state_version_in)
 
@@ -58,6 +65,7 @@ class Split_Vector(FUSED_Object):
         self.size = 0
 
     def _build_interface(self):
+        from site import print_trace_now; print_trace_now()
 
         # Verify the that input vector is the correct size
         meta_shape=self.size
@@ -101,6 +109,7 @@ class Split_Vector(FUSED_Object):
             self.add_output(name, **meta)
 
     def compute(self, input_values, output_values):
+        from site import print_trace_now; print_trace_now()
 
         var_name = self.output.keys()
 
@@ -112,6 +121,7 @@ class Split_Vector(FUSED_Object):
             output_values[name]=input_vector[range_tuple[0]:range_tuple[1]]
     
     def add_output_split(self, name, param_1, param_2=None):
+        from site import print_trace_now; print_trace_now()
 
         if param_2 is None:
             param_2 = self.size+param_1
@@ -123,6 +133,7 @@ class Split_Vector(FUSED_Object):
 class FUSED_Multiply(FUSED_Object):
 
     def __init__(self, lhs_name='lhs', lhs_default_value=1.0, rhs_name='rhs', rhs_default_value=1.0, output_name='solution', output_default_value=1.0, object_name='unnamed_multiply_object', state_version=None):
+        from site import print_trace_now; print_trace_now()
         super(FUSED_Multiply, self).__init__(object_name_in=object_name, state_version_in=state_version)
         self.lhs_name = lhs_name
         self.lhs_default_value = lhs_default_value
@@ -134,16 +145,19 @@ class FUSED_Multiply(FUSED_Object):
             self.output_default_value = self.lhs_default_value*self.rhs_default_value
         
     def _build_interface(self):
+        from site import print_trace_now; print_trace_now()
         self.add_input(self.lhs_name, val=self.lhs_default_value)
         self.add_input(self.rhs_name, val=self.rhs_default_value)
         self.add_output(self.output_name, val=self.output_default_value)
 
     def compute(self, input_values, output_values):
+        from site import print_trace_now; print_trace_now()
 
         output_values[self.output_name] = input_values[self.lhs_name] * input_values[self.rhs_name]
 
 # This function is for building workflows that must multiple simulations
 def create_workflow_by_cases(case_list, builder_function, build_args={}, case_argument="case_definition", label_function=None, grouper_function=None, grouper_arguments={}, objects_argument='objects', group_case_list_argument=None, group_base_name=None, group_label_argument='group_base_name'):
+    from site import print_trace_now; print_trace_now()
     '''
     This function will generate a work flow that is based on multiple simulations defined by cases.
 
@@ -213,6 +227,7 @@ def create_workflow_by_cases(case_list, builder_function, build_args={}, case_ar
 
 # This function is for building a set of work flows based on case_definition
 def create_workflow_by_cases_and_case_definition(case_definition, case_definition_to_args=None, base_create_workflow_by_cases_args={}):
+    from site import print_trace_now; print_trace_now()
     '''
     This method is used inconjunction with create_workflow_by_cases to create a work flow by cases, where some parameters are defined by a case-definition. This is useful when multiple case driven work-flows need to be generated.
 
@@ -257,6 +272,7 @@ def create_workflow_by_cases_and_case_definition(case_definition, case_definitio
 
 # This is a function to mae the name unique
 def make_unique_name(name, name_set):
+    from site import print_trace_now; print_trace_now()
 
     if not name in name_set:
         name_set.add(name)

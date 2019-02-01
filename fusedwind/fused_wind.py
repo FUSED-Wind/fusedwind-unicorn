@@ -32,22 +32,27 @@ except:
 #################################################################
 
 def create_interface():
+    from site import print_trace_now; print_trace_now()
 
     return {'output': {}, 'input': {}}
 
 def set_variable(inner_dict, variable):
+    from site import print_trace_now; print_trace_now()
 
     inner_dict[variable['name']]=copy.deepcopy(variable)
 
 def set_input(fifc, variable):
+    from site import print_trace_now; print_trace_now()
 
     set_variable(fifc['input'], variable)
 
 def set_output(fifc, variable):
+    from site import print_trace_now; print_trace_now()
 
     set_variable(fifc['output'], variable)
 
 def extend_interface(base, extension):
+    from site import print_trace_now; print_trace_now()
 
     for k, v in extension['input'].items():
         set_input(base, v)
@@ -58,6 +63,7 @@ def extend_interface(base, extension):
     return base
 
 def create_variable(name, val=None, desc='', shape=None):
+    from site import print_trace_now; print_trace_now()
 
     retval = {'name' : name, 'desc' : ''}
     if not val is None:
@@ -73,6 +79,7 @@ def create_variable(name, val=None, desc='', shape=None):
     return retval
 
 def print_interface(fifc, print_meta=False):
+    from site import print_trace_now; print_trace_now()
 
     out_ifc = fifc['output']
     in_ifc = fifc['input']
@@ -130,12 +137,14 @@ def print_interface(fifc, print_meta=False):
 class StateVersion(object):
 
     def __init__(self):
+        from site import print_trace_now; print_trace_now()
 
         self.version = 0
         self.isSet = True
 
     # This indicates that the state is being modifed
     def modifying_state(self):
+        from site import print_trace_now; print_trace_now()
 
         if self.isSet:
             self.isSet=False
@@ -143,6 +152,7 @@ class StateVersion(object):
 
     # Retrieve the current state version
     def get_state_version(self):
+        from site import print_trace_now; print_trace_now()
 
         self.isSet=True
         return self.version
@@ -151,6 +161,7 @@ class StateVersion(object):
 ###################################################################################
 
 def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_source=None, alias={}):
+    from site import print_trace_now; print_trace_now()
 
     '''
     These are the different ways of specifying a connection
@@ -401,6 +412,7 @@ class FUSED_Unique(object):
     _object_count = 0
 
     def __init__(self):
+        from site import print_trace_now; print_trace_now()
         object.__init__(self)
 
         self._hash_value = FUSED_Unique._object_count
@@ -410,6 +422,7 @@ class FUSED_Unique(object):
     #################################################
 
     def __cmp__(self, other):
+        from site import print_trace_now; print_trace_now()
         if self._hash_value == other._hash_value:
             return 0
         if self._hash_value < other._hash_value:
@@ -417,24 +430,31 @@ class FUSED_Unique(object):
         return 1
 
     def __eq__(self, other):
+        from site import print_trace_now; print_trace_now()
         return bool(self.__cmp__(other)==0)
 
     def __ne__(self, other):
+        from site import print_trace_now; print_trace_now()
         return bool(self.__cmp__(other)!=0)
 
     def __lt__(self, other):
+        from site import print_trace_now; print_trace_now()
         return bool(self.__cmp__(other)==-1)
 
     def __le__(self, other):
+        from site import print_trace_now; print_trace_now()
         return bool(self.__cmp__(other)!=1)
 
     def __gt__(self, other):
+        from site import print_trace_now; print_trace_now()
         return bool(self.__cmp__(other)==1)
 
     def __ge__(self, other):
+        from site import print_trace_now; print_trace_now()
         return bool(self.__cmp__(other)!=-1)
 
     def __hash__(self):
+        from site import print_trace_now; print_trace_now()
         return self._hash_value
 
 # The following is the FUSED Object
@@ -456,6 +476,7 @@ class FUSED_Object(FUSED_Unique):
     all_objects = []
 
     def __init__(self, object_name_in='unnamed_object', state_version_in=None, comm = None):
+        from site import print_trace_now; print_trace_now()
         FUSED_Unique.__init__(self)
 
         # This is the name of the object. Useful for printing helpful messages
@@ -505,11 +526,13 @@ class FUSED_Object(FUSED_Unique):
 
     # Print the interface
     def print_interface(self, print_meta=False):
-            ifc = self.get_interface()
-            print_interface(ifc, print_meta)
+        from site import print_trace_now; print_trace_now()
+        ifc = self.get_interface()
+        print_interface(ifc, print_meta)
 
     # Lets for the fun of it, lets print the connections
     def print_object_calculations(self, object_set=set()):
+        from site import print_trace_now; print_trace_now()
 
         # if this is an indep var then we just print and start the chain reactions
         if self.is_independent_variable():
@@ -532,6 +555,7 @@ class FUSED_Object(FUSED_Unique):
 
     @staticmethod
     def get_all_objects():
+        from site import print_trace_now; print_trace_now()
 
         return FUSED_Object.all_objects
 
@@ -539,15 +563,18 @@ class FUSED_Object(FUSED_Unique):
     ###########################################################
 
     def is_independent_variable(self):
+        from site import print_trace_now; print_trace_now()
         return False
 
     def is_group(self):
+        from site import print_trace_now; print_trace_now()
         return False
 
     # These are state version methods
     #################################
     
     def set_state_version(self, state_version_in):
+        from site import print_trace_now; print_trace_now()
 
         # This is the state version
         if state_version_in is None:
@@ -557,10 +584,12 @@ class FUSED_Object(FUSED_Unique):
         self.my_state_version = 0
 
     def _update_needed(self):
+        from site import print_trace_now; print_trace_now()
 
         return self.my_state_version!=self.state_version.get_state_version()
 
     def _updating_data(self):
+        from site import print_trace_now; print_trace_now()
 
         self.my_state_version=self.state_version.get_state_version()
 
@@ -569,9 +598,11 @@ class FUSED_Object(FUSED_Unique):
 
     # This method is a place-holder. It is meant to tell the class that it should build it's interface
     def _build_interface(self):
+        from site import print_trace_now; print_trace_now()
         return
 
     def implement_fifc(self, fifc, **kwargs):
+        from site import print_trace_now; print_trace_now()
 
         for k, v in fifc['input'].items():
 
@@ -608,28 +639,33 @@ class FUSED_Object(FUSED_Unique):
             self.add_output(**v)
 
     def add_input(self, name, **kwargs):
+        from site import print_trace_now; print_trace_now()
 
         kwargs['name']=name
         set_input(self.interface, kwargs)
 
     def add_output(self, name, **kwargs):
+        from site import print_trace_now; print_trace_now()
 
         kwargs['name']=name
         set_output(self.interface, kwargs)
 
     def remove_input(self, name, meta=None):
+        from site import print_trace_now; print_trace_now()
 
         retval=self.ifc['input'][name]
         del self.ifc['input'][name]
         return retval
 
     def remove_output(self, name, meta=None):
+        from site import print_trace_now; print_trace_now()
 
         retval=self.ifc['output'][name]
         del self.ifc['output'][name]
         return retval
 
     def get_interface(self):
+        from site import print_trace_now; print_trace_now()
 
         if not self.ifc_built:
             self._build_interface()
@@ -640,9 +676,11 @@ class FUSED_Object(FUSED_Unique):
     #####################################################################################
 
     def connect_input_from(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+        from site import print_trace_now; print_trace_now()
         self.connect(source_object, var_name_source, var_name_dest, alias)
 
     def connect_output_to(self, dest_object, var_name_source=None, var_name_dest=None, alias={}):
+        from site import print_trace_now; print_trace_now()
 
         if not isinstance(dest_object, FUSED_Object):
             for obj in dest_object:
@@ -653,6 +691,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will specify connections
     def connect(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+        from site import print_trace_now; print_trace_now()
 
         '''
         These are the different ways of specifying a connection
@@ -700,6 +739,7 @@ class FUSED_Object(FUSED_Unique):
 
     # Add a connection dirctly to the data structures
     def _add_connection(self, source_object, src_dst_map, dst_src_map):
+        from site import print_trace_now; print_trace_now()
 
         '''
         In special cases, the variable mapping is known and can be added directly.
@@ -813,6 +853,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will verify the connections on both inputs and outputs
     def _verify_connections(self):
+        from site import print_trace_now; print_trace_now()
 
         # Test all data from connections
         for source_object, src_dst_map in self.connections.items():
@@ -878,11 +919,13 @@ class FUSED_Object(FUSED_Unique):
 
     @staticmethod
     def _verify_all_connections():
+        from site import print_trace_now; print_trace_now()
         for obj in FUSED_Object.all_objects:
             obj._verify_connections()
 
     # This will list the connections associated with an object
     def get_connection_with_object(self, obj):
+        from site import print_trace_now; print_trace_now()
 
         if obj in self.connections:
             return self.connections[obj]
@@ -891,6 +934,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will generate a set of independent variable objects to replace a connection from a certain object
     def split_connection(self, from_object):
+        from site import print_trace_now; print_trace_now()
 
         #print('=================== MIMC in split_connection ===================')
         #print('MIMC from_object:', from_object)
@@ -934,10 +978,12 @@ class FUSED_Object(FUSED_Unique):
         return indep_obj_set
 
     def get_source_list(self):
+        from site import print_trace_now; print_trace_now()
 
         return self.connections.keys()
 
     def get_dependency_list(self):
+        from site import print_trace_now; print_trace_now()
 
         retval = [self]
         for dep in self.connections:
@@ -952,6 +998,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will build the default input vector
     def _build_default_input_vector(self):
+        from site import print_trace_now; print_trace_now()
         ifc = self.get_interface()
         for name, meta in ifc['input'].items():
             if 'val' in meta:
@@ -962,6 +1009,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This is for collecting the input data from connections
     def _build_input_vector(self):
+        from site import print_trace_now; print_trace_now()
 
         # Collect the default input values
         if not self.is_default_input_built:
@@ -981,15 +1029,18 @@ class FUSED_Object(FUSED_Unique):
 
     # This is the calculation method that is called
     def compute(self, input_values, output_values):
+        from site import print_trace_now; print_trace_now()
 
         raise Exception('The compute method has not been implemented')
 
     # This instructs this class to collect the input data
     def collect_input_data(self):
+        from site import print_trace_now; print_trace_now()
         self._build_input_vector()
 
     # This will set the case runner for this object
     def set_case_runner(self, case_runner_in = None):
+        from site import print_trace_now; print_trace_now()
 
         if not self.my_case_runner is None:
             print('It appears that you are setting a case runner to this object twice. Note, that nested case-runners are not supported at this time.')
@@ -997,6 +1048,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This instructs this class to update it's data through calculation
     def update_output_data(self):
+        from site import print_trace_now; print_trace_now()
         if not self._update_needed():
             return
         if self.my_case_runner is None or self.my_case_runner.i_am_executing:
@@ -1010,6 +1062,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will retrieve a specific variable
     def __getitem__(self, key):
+        from site import print_trace_now; print_trace_now()
         
         # First verify this is a valid key
         ifc = self.get_interface()
@@ -1025,6 +1078,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will label all variables as remotely calculated
     def set_as_remotely_calculated(self, at_rank):
+        from site import print_trace_now; print_trace_now()
 
         ifc = self.get_interface()
         for out_name in ifc['output'].keys():
@@ -1033,6 +1087,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will synchronize the variables across MPI processes
     def sync_output(self, var_name = None):
+        from site import print_trace_now; print_trace_now()
         # var_name indicates the variables that need to be synchronized
         # None indicates all variables
         # '__downstream__' indicates all downstream involved in connections
@@ -1126,6 +1181,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will retrieve the output dictionary
     def get_output_value(self):
+        from site import print_trace_now; print_trace_now()
 
         ans = self._update_needed()
         if ans:
@@ -1135,6 +1191,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This method is used by case generators to set the output values from other objects
     def _set_output_values(self, output_values):
+        from site import print_trace_now; print_trace_now()
 
         print('WARNING: This method may be depricated')
         if not isinstance(output_values, dict):
@@ -1144,12 +1201,14 @@ class FUSED_Object(FUSED_Unique):
 
     # This method is used by case generators to set the output values from other objects
     def _set_output_value(self, output_key, output_value):
+        from site import print_trace_now; print_trace_now()
 
         print('WARNING: This method may be depricated')
         self.output_values[output_key]=output_value
         self._updating_data()
 
     def get_input_value(self, var_name=None):
+        from site import print_trace_now; print_trace_now()
 
         if isinstance(var_name,str):
             var_name = [var_name]
@@ -1164,6 +1223,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will set the default input value
     def set_default_input_value(self, name, value):
+        from site import print_trace_now; print_trace_now()
 
         # Collect the default input values
         if not self.is_default_input_built:
@@ -1184,6 +1244,7 @@ class FUSED_Object(FUSED_Unique):
 
     # This will set the default input value
     def get_default_input_value(self, name):
+        from site import print_trace_now; print_trace_now()
 
         # Collect the default input values
         if not self.is_default_input_built:
@@ -1202,6 +1263,7 @@ class Independent_Variable(FUSED_Object):
     ''' This represents a source to a calculation '''
 
     def __init__(self, data_in=None, var_name_in='unnamed_variable', var_meta_in=None, object_name_in='unnamed_object', state_version_in=None):
+        from site import print_trace_now; print_trace_now()
         super(Independent_Variable, self).__init__(object_name_in, state_version_in)
 
         self.name = var_name_in
@@ -1223,31 +1285,38 @@ class Independent_Variable(FUSED_Object):
             self.add_output(**self.meta)
 
     def is_independent_variable(self):
+        from site import print_trace_now; print_trace_now()
         return True
 
     def has_data(self):
+        from site import print_trace_now; print_trace_now()
         if self.data is None:
             return False
         else:
             return True
     
     def get_meta(self):
+        from site import print_trace_now; print_trace_now()
         return self.meta
 
     def get_name(self):
+        from site import print_trace_now; print_trace_now()
         return self.name
 
     def set_data(self, data_in):
+        from site import print_trace_now; print_trace_now()
 
         self.state_version.modifying_state()
         self.data = data_in
         self.retval = {self.name:self.data}
 
     def get_output_value(self):
+        from site import print_trace_now; print_trace_now()
 
         return self.retval
 
     def __getitem__(self, key):
+        from site import print_trace_now; print_trace_now()
 
         if not key == self.name:
             raise KeyError('That variable does not exist')
@@ -1258,12 +1327,14 @@ class Independent_Variable(FUSED_Object):
 
 # this will tell if something is an active fused wind object
 def is_fused_object_or_group(object):
+    from site import print_trace_now; print_trace_now()
 
     # simply apply the test and return
     return isinstance(object, FUSED_System_Base) or isinstance(object, FUSED_Object)
 
 # get the dictionary and object list
 def get_object_dict_and_list(object_container):
+    from site import print_trace_now; print_trace_now()
 
     # initialize the object list
     object_list = []
@@ -1313,6 +1384,7 @@ def get_object_dict_and_list(object_container):
 class FUSED_System_Base(FUSED_Unique):
 
     def __init__(self, objects_in={}, group_name='unnamed_base_group', **kwargs):
+        from site import print_trace_now; print_trace_now()
         super(FUSED_System_Base, self).__init__()
 
         # This is the group name
@@ -1391,6 +1463,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This will retrieve the objects contained within this group
     def get_object(self, object_name):
+        from site import print_trace_now; print_trace_now()
 
         sub_key = None
         if '.' in object_name:
@@ -1407,12 +1480,14 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This will retrieve the object keys
     def get_object_keys(self):
+        from site import print_trace_now; print_trace_now()
 
         # simply return my object keys
         return self.object_dictionary.keys()
 
     # This will return all keys for my objects and my childrens objects
     def get_all_object_keys(self):
+        from site import print_trace_now; print_trace_now()
 
         # Populate the return value with my object keys first
         retval = list(self.object_dictionary.keys())
@@ -1432,6 +1507,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This is suppose to use the independent variables to build an input interface
     def add_input_interface_from_independent_variables(self, object_list = None):
+        from site import print_trace_now; print_trace_now()
         # The objects in the object list must be objects within this object
         # When the object list is None, then all the objects in this object are considered
         # The method will search for independent variables from within the list
@@ -1483,6 +1559,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This is suppose to get an input interface from connections
     def add_input_interface_from_connections(self, object_list = None, use_set_connections = True):
+        from site import print_trace_now; print_trace_now()
         # This will build an input interface from the existing connections
         # In cases where a single input goes to two variables within this group, only one input variable is declared
         # Furthermore, in this case, the default name for this variable is based on the first associated object in the internal object list
@@ -1565,6 +1642,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This is suppose to assume that all inputs of all objects in the list are public input variables.
     def add_input_interface_from_objects(self, object_list = None, merge_by_input_name=False, prepend_name=None, append_name=None):
+        from site import print_trace_now; print_trace_now()
         # The object list must be a list of objects contained within this object
         # When object_list is none, Then it is assumed that all objects are used
         # This is an automated interface generation scheme
@@ -1616,6 +1694,7 @@ class FUSED_System_Base(FUSED_Unique):
     # This is suppose to set the input variable based on and internal independent variable
     # Note, that this interface item takes precedent over all automated interface constructions
     def set_input_interface_from_independent_variables(self, var_name, indep_var = None):
+        from site import print_trace_now; print_trace_now()
         # var_name is the global name for the independent variable
         # indep_var is an object in the group which is the independent variable for the input
         # when indep_var is None, then the indep_var is searched for in the object list
@@ -1666,6 +1745,7 @@ class FUSED_System_Base(FUSED_Unique):
     # This is suppose to set an input based on a fused var or name.
     # Note, that this interface item takes precedent over all automated interface constructions
     def set_input_variable(self, var_name, obj_dict = None, dest_list = None):
+        from site import print_trace_now; print_trace_now()
         # var_name:               Can be a name for the variable, or
         #                         Actual fused variable, Note the meta data from the object will be absorbed
         # obj_dict:               A dictionary of objects to make connections to
@@ -1745,6 +1825,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This is suppose to assume that all outputs of all objects in the list are public output variables.
     def add_output_interface_from_objects(self, object_list = None, var_name_list=None, exclude_list=[], prepend_name=None, append_name=None):
+        from site import print_trace_now; print_trace_now()
         # The object list must be a list of objects contained within this object
         # When object_list is none, Then it is assumed that all objects are used
         # This is an automated interface generation scheme
@@ -1791,6 +1872,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This is suppose to collect the interface from existing connections
     def add_output_interface_from_connections(self, object_list = None, use_set_connections = True):
+        from site import print_trace_now; print_trace_now()
         # When 'use_set_connections' is true, then existing connections are used
         # When 'use_set_connections' is false, then empty connections are used
         # This is an automated interface generation scheme
@@ -1827,6 +1909,7 @@ class FUSED_System_Base(FUSED_Unique):
     # This is suppose to add an output based on a fused var.
     # Note, that this interface item takes precedent over all automated interface constructions
     def set_output_variable(self, var_name, obj = None, local_output_name = None):
+        from site import print_trace_now; print_trace_now()
         # var_name:               Can be a name for the variable
         #                         Actual fused variable, Note the meta data from the object will be absorbed
         # obj:                    The internal object where the output is from.
@@ -1877,6 +1960,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This will resolve the output names
     def resolve_interface_names(self, var_to_obj_pair, exclusion_set):
+        from site import print_trace_now; print_trace_now()
 
         # The new dictionary
         tmp_var_to_obj_pair = {}
@@ -1923,6 +2007,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This is called to configure the system
     def configure_system(self):
+        from site import print_trace_now; print_trace_now()
 
         # if configured, then just exit
         if self.system_has_been_configured:
@@ -2001,6 +2086,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This will reduce the object list to only the objects
     def dissolve_groups(self, object_list = None):
+        from site import print_trace_now; print_trace_now()
 
         # If no object list is given, use my own
         my_objects = False
@@ -2200,6 +2286,7 @@ class FUSED_System_Base(FUSED_Unique):
     # OLD METHOD:    #print('MIMC after configuration, the interface looks like this:', self.system_ifc)
 
     def system_set_state_version(self, state_version_in=None):
+        from site import print_trace_now; print_trace_now()
 
         # create a new state version if nothing has been specified
         if state_version_in is None:
@@ -2211,36 +2298,42 @@ class FUSED_System_Base(FUSED_Unique):
             obj.set_state_version(self.system_state_version)
 
     def get_object_and_local_from_global_input(self, gbl_name):
+        from site import print_trace_now; print_trace_now()
 
         if not self.system_has_been_configured:
             self.configure_system()
         return self.system_input_gbl_to_lcl_map[gbl_name][0]
 
     def get_indep_var_from_global_input(self, gbl_name):
+        from site import print_trace_now; print_trace_now()
 
         if not self.system_has_been_configured:
             self.configure_system()
         return self.system_input_gbl_to_lcl_map[gbl_name][1]
 
     def get_object_and_local_from_global_output(self, gbl_name):
+        from site import print_trace_now; print_trace_now()
 
         if not self.system_has_been_configured:
             self.configure_system()
         return self.system_output_gbl_to_lcl_map[gbl_name]
 
     def get_global_from_object_and_local_input(self, obj, lcl_name):
+        from site import print_trace_now; print_trace_now()
 
         if not self.system_has_been_configured:
             self.configure_system()
         return self.system_input_map[obj][lcl_name]
 
     def get_global_from_object_and_local_output(self, obj, lcl_name):
+        from site import print_trace_now; print_trace_now()
 
         if not self.system_has_been_configured:
             self.configure_system()
         return self.system_output_map[obj][lcl_name]
 
     def get_system_interface(self):
+        from site import print_trace_now; print_trace_now()
 
         if not self.system_has_been_configured:
             self.configure_system()
@@ -2248,6 +2341,7 @@ class FUSED_System_Base(FUSED_Unique):
 
     # This will tell this system to compute
     def system_compute(self, input_values, output_values):
+        from site import print_trace_now; print_trace_now()
 
         # configure if needed
         if not self.system_has_been_configured:
@@ -2269,6 +2363,7 @@ class FUSED_System_Base(FUSED_Unique):
     # This will find all the objects and the connection information that provides information to this group. 
     # This will find the connections from objects outside this group
     def find_source_connections(self):
+        from site import print_trace_now; print_trace_now()
 
         # the result, a dictionary with all the connection information {source_object: {dest_object: (src_dst_map, dst_src_map)}}
         retval = {}
@@ -2307,6 +2402,7 @@ class FUSED_System_Base(FUSED_Unique):
     # This will find all the objects and the connection information that recieves information from this group. 
     # This will find the connections from objects outside this group
     def find_dest_connections(self):
+        from site import print_trace_now; print_trace_now()
 
         # the result, a dictionary with all the connection information {dest_object: {source_object: (src_dst_map, dst_src_map)}}
         retval = {}
@@ -2347,31 +2443,38 @@ class FUSED_Group(FUSED_System_Base):
 
     # This is the constructor
     def __init__(self, objects_in=[], group_name='unnamed_fused_group'):
+        from site import print_trace_now; print_trace_now()
         super(FUSED_Group, self).__init__(objects_in=objects_in, group_name=group_name)
 
     # Identifies whether it is an independent variable
     def is_independent_variable(self):
+        from site import print_trace_now; print_trace_now()
         return False
 
     # Identifies if group
     def is_group(self):
+        from site import print_trace_now; print_trace_now()
         return True
 
     # This will build the interface
     def get_interface(self):
+        from site import print_trace_now; print_trace_now()
         return self.get_system_interface()
 
     # This will print the interface of the group
     def print_interface(self, print_meta=False):
+        from site import print_trace_now; print_trace_now()
         ifc = self.get_interface()
         print_interface(ifc, print_meta)
 
     # This will connect the input from an object
     def connect_input_from(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+        from site import print_trace_now; print_trace_now()
         self.connect(source_object, var_name_source, var_name_dest, alias)
 
     # This will connect the output to a certain object
     def connect_output_to(self, dest_object, var_name_source=None, var_name_dest=None, alias={}):
+        from site import print_trace_now; print_trace_now()
 
         if not isinstance(dest_object, FUSED_Object):
             for obj in dest_object:
@@ -2382,6 +2485,7 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will specify connections
     def connect(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
+        from site import print_trace_now; print_trace_now()
 
         # If there are multiple source objects
         #########################################################
@@ -2417,6 +2521,7 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will call on all objects feeding objects in this group to update their output data
     def collect_input_data(self):
+        from site import print_trace_now; print_trace_now()
 
         # Collect the external source objects
         source_dict = self.find_source_connections()
@@ -2427,6 +2532,7 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will call objects in this group to update their data
     def update_output_data(self):
+        from site import print_trace_now; print_trace_now()
 
         # Loop through each object and update output data
         for obj in self.system_objects:
@@ -2434,12 +2540,14 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will retrieve a specific variable
     def __getitem__(self, key):
+        from site import print_trace_now; print_trace_now()
 
         local_object, local_name = self.get_object_and_local_from_global_output(key)
         return local_object[local_name]
 
     # This will label all variables as remotely calculated
     def set_as_remotely_calculated(self, at_rank):
+        from site import print_trace_now; print_trace_now()
 
         # loop through all objects
         for obj in self.system_objects:
@@ -2447,6 +2555,7 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will synchronize the variables across MPI processes
     def sync_output(self, var_name = None):
+        from site import print_trace_now; print_trace_now()
 
         # If it is NONE, then we just loop and sync everything
         if var_name is None:
@@ -2491,6 +2600,7 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will retrieve the output values for the group
     def get_output_value(self):
+        from site import print_trace_now; print_trace_now()
 
         #print('This method "get_output_value" is going to be deprecated')
 
@@ -2511,6 +2621,7 @@ class FUSED_Group(FUSED_System_Base):
 
     # This will set the case runner for all objects
     def set_case_runner(self, case_runner_in=None):
+        from site import print_trace_now; print_trace_now()
 
         # Loop through each object and update output data
         for obj in self.system_objects:
@@ -2521,16 +2632,19 @@ class FUSED_System(FUSED_Object, FUSED_System_Base):
 
     # This is the constructor
     def __init__(self, objects_in=[], object_name_in='unnamed_system_object', state_version_in=None, comm=None):
+        from site import print_trace_now; print_trace_now()
         FUSED_Object.__init__(self, object_name_in=object_name_in, state_version_in=state_version_in, comm=comm)
         FUSED_System_Base.__init__(self, objects_in=objects_in, group_name=object_name_in)
 
     # Over-ride the configuration method to create an independent sub-system
     def configure_system(self):
+        from site import print_trace_now; print_trace_now()
         FUSED_System_Base.configure_system(self)
         self.system_set_state_version(StateVersion())
 
     # This is the compute method
     def compute(self, input_values, output_values):
+        from site import print_trace_now; print_trace_now()
 
         if not self.system_has_been_configured:
             self.configure_system()
@@ -2539,24 +2653,28 @@ class FUSED_System(FUSED_Object, FUSED_System_Base):
 
     # This will build the interface
     def _build_interface(self):
+        from site import print_trace_now; print_trace_now()
 
         if not self.system_has_been_configured:
             self.configure_system()
         self.interface = self.get_system_interface()
 
 def obj_list_to_id_set(obj_list):
+    from site import print_trace_now; print_trace_now()
     retval = set()
     for obj in obj_list:
         retval.add(obj._hash_value)
     return retval
 
 def id_set_to_object_set(id_set, id_obj_map):
+    from site import print_trace_now; print_trace_now()
     retval = set()
     for hash_value in id_set:
         retval.add(id_obj_map[hash_value])
     return retval
 
 def get_execution_order(objects=None):
+    from site import print_trace_now; print_trace_now()
 
     # Retrieve all objects if none are specified
     if objects is None:
@@ -2598,6 +2716,7 @@ def get_execution_order(objects=None):
 # It will solve the objects within the sub-system that provide output for other sub-systems
 # It will solve the objects that accept input from other sub-system objects
 def get_split_configuration(split_points):
+    from site import print_trace_now; print_trace_now()
 
     # 1) Collect all the modules in this work-flow
     all_modules = set(split_points)
@@ -2707,6 +2826,7 @@ def get_split_configuration(split_points):
 
 # This will take the split configuration and actually configure the work-flow according to the result
 def split_worflow(split_points):
+    from site import print_trace_now; print_trace_now()
 
     # 1-8) Collect the split configuration
     (id_obj_map, sub_system_groups, sub_system_output, sub_system_input, indep_sub_sys_set) = get_split_configuration(split_points)

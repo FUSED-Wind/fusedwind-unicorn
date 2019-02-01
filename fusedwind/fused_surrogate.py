@@ -20,6 +20,7 @@ import numpy as np
 
 class FUSED_Surrogate(FUSED_Object):
     def __init__(self, object_name_in='unnamed_surrogate_object',state_version_in=None,model_in=None):
+        from site import print_trace_now; print_trace_now()
         super(FUSED_Surrogate, self).__init__(object_name_in, state_version_in)
 
         self.model = None
@@ -31,6 +32,7 @@ class FUSED_Surrogate(FUSED_Object):
             self.set_model(model_in)
 
     def _build_interface(self):
+        from site import print_trace_now; print_trace_now()
         if self.model is None:
             print('No model connected yet. The interface is still empty')
         else:
@@ -41,6 +43,7 @@ class FUSED_Surrogate(FUSED_Object):
     
     #Class to set the model. The model_obj is described above.
     def set_model(self,model_obj):
+        from site import print_trace_now; print_trace_now()
         self.model = model_obj
         if not hasattr(self.model,'input_names'):
             raise Exception('The model has no attribute .input_names. Add this to the model object to couple it to fused_wind')
@@ -52,6 +55,7 @@ class FUSED_Surrogate(FUSED_Object):
 
     #Fused wind way of getting output:
     def compute(self,inputs,outputs):
+        from site import print_trace_now; print_trace_now()
         if self.model is None:
             raise Exception('No model has been connected')
 
@@ -69,6 +73,7 @@ class FUSED_Surrogate(FUSED_Object):
 class Multi_Fidelity_Surrogate(object):
     
     def __init__(self, cheap=None, exp=None, intersections=None):
+        from site import print_trace_now; print_trace_now()
         if not cheap[1]  == exp[1] and cheap[2] == exp[2]:
             raise Exception('The input and output keys should be the same and in the same order.. Other cases are not implemented yet!!')
         else:
@@ -83,6 +88,7 @@ class Multi_Fidelity_Surrogate(object):
         built = 'False'
 
     def build_model(self):
+        from site import print_trace_now; print_trace_now()
         self.cheap_input = self.data_set_object_cheap.get_numpy_array(self.input_names)
         self.cheap_output = self.data_set_object_cheap.get_numpy_array(self.output_name)
 
@@ -115,11 +121,13 @@ class Multi_Fidelity_Surrogate(object):
  
     #Fast way of getting a prediction on a np-array data set: 
     def get_prediction_matrix(self,input):
+        from site import print_trace_now; print_trace_now()
         prediction = self.cheap_linear_model.get_prediction(input)+self.cheap_GP_model.get_prediction(input)+self.exp_correction_linear_model.get_prediction(input)+self.exp_correction_GP_model.get_prediction(input)
         return prediction
 
     #Single prediction for the fused wind coupling:
     def get_prediction(self,input):
+        from site import print_trace_now; print_trace_now()
         prediction = self.cheap_linear_model.get_prediction(input)+self.cheap_GP_model.get_prediction(input)+self.exp_correction_linear_model.get_prediction(input)+self.exp_correction_GP_model.get_prediction(input)
         sigma = self.cheap_GP_model.get_sigma(input)**2+self.exp_correction_GP_model.get_sigma(input)**2
         sigma = sigma**0.5
@@ -128,6 +136,7 @@ class Multi_Fidelity_Surrogate(object):
 class Linear_Model(linear_model.LinearRegression):
  
     def __init__(self,input=None,output=None,linear_order=3):
+        from site import print_trace_now; print_trace_now()
         super(Linear_Model, self).__init__()
         self.input = input
         self.output = output
@@ -135,12 +144,15 @@ class Linear_Model(linear_model.LinearRegression):
         self.is_build = 'False'
 
     def set_input(self,input=None):
+        from site import print_trace_now; print_trace_now()
         self.input = input
 
     def set_output(self,output=None):
+        from site import print_trace_now; print_trace_now()
         self.output = output
 
     def build(self):
+        from site import print_trace_now; print_trace_now()
         if self.input is None or self.output is None:
             print('#ERR# Input or output is not defined')
         else:
@@ -149,6 +161,7 @@ class Linear_Model(linear_model.LinearRegression):
             self.is_build = 'True'
 
     def get_prediction(self,input):
+        from site import print_trace_now; print_trace_now()
         if input is self.input:
             return self.predict(self.covariates)
         else:
@@ -156,6 +169,7 @@ class Linear_Model(linear_model.LinearRegression):
             return self.predict(covariates)
 
     def create_covariates(self,input_matrix,order):
+        from site import print_trace_now; print_trace_now()
         # -------------- Linear model covariate building ------------------
         # Number of variables:
         n_var = np.size(input_matrix[0,:])
@@ -195,6 +209,7 @@ class Linear_Model(linear_model.LinearRegression):
 class Kriging_Model(GaussianProcessRegressor):
     
     def __init__(self,input=None,output=None):
+        from site import print_trace_now; print_trace_now()
         super(Kriging_Model, self).__init__(input,output)
         self.input = input
         self.output = output
@@ -209,6 +224,7 @@ class Kriging_Model(GaussianProcessRegressor):
         self.is_build = 'False'
 
     def build(self):
+        from site import print_trace_now; print_trace_now()
         if self.input is None or self.output is None:
             print('#ERR# Input for Kriging model not defined')
         else:
@@ -216,8 +232,10 @@ class Kriging_Model(GaussianProcessRegressor):
         self.is_build = 'True'
 
     def get_prediction(self,input):
+        from site import print_trace_now; print_trace_now()
         return self.predict(input)
 
     def get_sigma(self,input):
+        from site import print_trace_now; print_trace_now()
         prediction, sigma = self.predict(input,return_std=True)
         return sigma
