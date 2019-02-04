@@ -1,4 +1,3 @@
-import h5py
 import numpy as np
 import os
 from fusedwind.fused_wind import FUSED_Object
@@ -9,52 +8,48 @@ import time
 
 
 class FUSED_Data_Set(object):
-    '''
+    """
     The Fused data set contains data in a dictionary. It is facilitating connections in the fused-wind environment to a DOE. It consists of the capabilities:
 
-    MIMC
-
     class FUSED_Data_Set(object):
-        def __init__(self, object_name_in = 'Unnamed_DOE_object'):
+    def __init__(self, object_name_in = 'Unnamed_DOE_object'):
 
-        # FILE IO
+    # FILE IO
     #################
 
-        def save_hdf5(self, hdf5_file=None):
-        def load_hdf5(self, hdf5_file):
+    def save_hdf5(self, hdf5_file=None):
+    def load_hdf5(self, hdf5_file):
 
-        # Low-level IO
+    # Low-level IO
     #################
 
-        def declare_variable(self, name, dtype=None):
-        def get_data(self, name=None, job_id=None, return_status=False):
-        def set_data(self, data, name, job_id=None, dtype=None):
-        def set_status(self,name,status,job_id=None):
-        def has_updated_data(self,name,job_id=None,status_flag=1):
+    def declare_variable(self, name, dtype=None):
+    def get_data(self, name=None, job_id=None, return_status=False):
+    def set_data(self, data, name, job_id=None, dtype=None):
+    def set_status(self,name,status,job_id=None):
+    def has_updated_data(self,name,job_id=None,status_flag=1):
 
-        # Connecting to a work flow
+    # Connecting to a work flow
     ##################################
 
-        def connect_indep_var(self,indep_var,data_set_var_name=None):
-        def connect_output_obj(self, output_tag, output_obj, output_name):
-        def get_job_list(self,job_range=[],names=None,status=None):
-        def execute_push_pull(self,job_id):
-        def push_input(self,job_id):
-        def pull_output(self,job_id):
+    def connect_indep_var(self,indep_var,data_set_var_name=None):
+    def connect_output_obj(self, output_tag, output_obj, output_name):
+    def get_job_list(self,job_range=[],names=None,status=None):
+    def execute_push_pull(self,job_id):
+    def push_input(self,job_id):
+    def pull_output(self,job_id):
 
-        # Converting to formats useful for external packages
+    # Converting to formats useful for external packages
     ###################################################
 
-        def get_numpy_array(self,collumn_list,return_status='False'):
-    
+    def get_numpy_array(self,collumn_list,return_status='False'):
+
     # For now a list of jobs can be given and executed in mpi. This feature might be removed in near future updates.
     class data_set_job(object):
-        def __init__(self,data_set,job_id):
         def execute(self):
         def get_output(self):
         def set_output(self,output):
-    '''
-
+    """
     def __init__(self, object_name_in = 'Unnamed_Data_Set_object'):
         self.name = object_name_in
         self.job_count = 0
@@ -63,12 +58,13 @@ class FUSED_Data_Set(object):
         self.input_indep_var_list = []
         self.output_list = []
     
-    #save_hdf5:
+    #save_hdf5 since independent variables and outputs are pytho objects they cannot be saved to hdf5 in a smooth way. Thus the function save_pickle is meant to save everything and used in a python environment.
     def save_hdf5(self, hdf5_file=None):
+        import h5py
         if hdf5_file is None:
             hdf5_file=self.name+'.hdf5'
         if os.path.isfile(hdf5_file):
-            print('File exists already')
+            print('File exists already'.format(hdf5_file))
             old_number = 1
             while True:
                 if not os.path.isfile('old_{}_{}'.format(old_number,hdf5_file)):
@@ -90,6 +86,7 @@ class FUSED_Data_Set(object):
 
     #load_hdf5
     def load_hdf5(self, hdf5_file):
+        import h5py
         if not os.path.isfile(hdf5_file):
             raise Exception('The file does not exist')
 
@@ -103,6 +100,43 @@ class FUSED_Data_Set(object):
             self.data[key] = {}
             self.data[key]['values'] = np.array(f['data/'+key+'/values'])
             self.data[key]['is_set'] = np.array(f['data/'+key+'/status'])
+
+#    def save_pickle(self,pickle_name=None):
+#        import pickle
+#        if pickle_name is None:
+#           pickle_name = self.name+'.p'
+#
+#        if os.path.isfile(pickle_name):
+#            print('File {} exists already'.format(pickle_name))
+#            old_number = 1
+#            while True:
+#                if not os.path.isfile('old_{}_{}'.format(old_number,pickle_name)):
+#                    print('Moving {} to old_{}_{}'.format(pickle_name,old_number,pickle_name))
+#                    os.rename(pickle_name,'old_{}_{}'.format(old_number,pickle_name))
+#                    break
+#                old_number +=1
+#
+#        #Finding comm objects:
+#    
+#        print('Saving DOE as {}'.format(pickle_name))
+#
+#        pickle.dump(self,open(pickle_name,"wb"))
+#
+#    def load_pickle(self,pickle_name):
+#        if not os.path.isfile(pickle_name):
+#            raise Exception('The file {} does not exist'.format(pickle_name))
+#            
+#        DOE = pickle.load( open(pickle_name), "rb")
+#        print('DOE from {} open'.format(pickle_name))
+#        try:
+#            self.name = DOE.name
+#            self.job_count = DOE.job_count
+#            self.data = DOE.data
+#            self.collumn_list = DOE.collumn_list
+#            self.input_indep_var_list = DOE.indput_indep_var_list
+#            self.output_list = DOE.output_list
+#        except:
+#            raise Exception('load of DOE failed. Check that the pickle is saved correctly')
 
     def get_data(self, name=None, job_id=None, return_status=False):
         #Check if the data is requested for several names:
@@ -182,7 +216,7 @@ class FUSED_Data_Set(object):
             #The data point status is default 0, 1 if the data is set and up to date and 2 if it is failed More can be added in a costumized version of the object.
             self.data[name]['is_set'][id] =  True
 
-    #Sets the status flag.
+    #Sets the status flag. Automatically if output is pulled the flag is set to 1.
     def set_status(self,name,status,job_id=None):
         """Set status flag for data. Automatically if output is pulled the flag is set to 1."""
         status = int(status)
@@ -194,7 +228,6 @@ class FUSED_Data_Set(object):
 
     #Checks whether the entire collumn or a single job_id has updated data.
     def has_updated_data(self,name,job_id=None,status_flag=1):
-
         out = True
         if name not in self.data.keys():
             raise Exception('Name not in dataset.')
@@ -353,4 +386,3 @@ class data_set_job(object):
 
     def set_output(self,output):
         self.data_set.set_output(self.job_id,output)
-
