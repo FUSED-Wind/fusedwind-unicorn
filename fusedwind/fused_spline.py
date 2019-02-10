@@ -29,14 +29,12 @@ class SplineSolutionBase(FUSED_Object):
 
     # This is the constructor
     def __init__(self, spline_module_in, var_name_in='unnamed_spline_solution', object_name_in='unnamed_spline_solution_object', state_version_in=None):
-        from site import print_trace_now; print_trace_now()
         super(SplineSolutionBase, self).__init__(object_name_in, state_version_in)
 
         self.spline_module=spline_module_in
         self.var_name=var_name_in
 
     def _build_interface(self):
-        from site import print_trace_now; print_trace_now()
 
         # collect the input
         control_point_name=self.spline_module.var_name
@@ -49,20 +47,17 @@ class SplineSolutionBase(FUSED_Object):
 class SplineModuleBase(FUSED_Object):
 
     def __init__(self, var_name_in='unnamed_spline_module_control_points', object_name_in='unnamed_spline_module_object', state_version_in=None):
-        from site import print_trace_now; print_trace_now()
         super(SplineModuleBase, self).__init__(object_name_in, state_version_in)
         self.var_name=var_name_in
         self.solution_list = []
 
     # This will return a spline object
     def get_spline_solution(self, grid_in, var_name_in=None, spline_solution_name_in=None):
-        from site import print_trace_now; print_trace_now()
 
         raise Exception('The method has not been implemented')
         
     # this will configure a spline solution
     def _configure_solution(self, solution):
-        from site import print_trace_now; print_trace_now()
 
         self.solution_list.append(solution)
         solution.set_state_version(self.state_version)
@@ -71,19 +66,16 @@ class SplineModuleBase(FUSED_Object):
 class SplineSolution_PiecewiseLinear(SplineSolutionBase):
 
     def __init__(self, spline_module_in, grid_in, var_name_in='unnamed_piecewise_spline_values', object_name_in='unnamed_piecewise_spline_solution_object', state_version_in=None):
-        from site import print_trace_now; print_trace_now()
         super(SplineSolution_PiecewiseLinear, self).__init__(spline_module_in, var_name_in, object_name_in)
 
         self.set_grid(grid_in)
 
     def _build_interface(self):
-        from site import print_trace_now; print_trace_now()
         super(SplineSolution_PiecewiseLinear, self)._build_interface()
         self.add_output(self.var_name)
 
     # This will set the name of the input
     def set_spline_name(self, var_name_in='unnamed_piecewise_linear_spline_control_point_variable'):
-        from site import print_trace_now; print_trace_now()
 
         # get the old name
         old_name = self.var_name
@@ -94,7 +86,6 @@ class SplineSolution_PiecewiseLinear(SplineSolutionBase):
             self.add_output(self.var_name, old_meta)
 
     def compute(self, input_values, output_values):
-        from site import print_trace_now; print_trace_now()
 
         control_point_name=self.spline_module.var_name
         values=np.zeros(len(self.grid))
@@ -110,14 +101,12 @@ class SplineSolution_PiecewiseLinear(SplineSolutionBase):
 
     # This will update the grid
     def set_grid(self, grid_in):
-        from site import print_trace_now; print_trace_now()
 
         self.grid=grid_in
         self._update_cp_grid()
 
     # This is called by the spline module to update the blend coefficients
     def _update_cp_grid(self):
-        from site import print_trace_now; print_trace_now()
         
         self.index_list = []
         self.weight_list = []
@@ -137,14 +126,12 @@ class SplineSolution_PiecewiseLinear(SplineSolutionBase):
 class SplineModule_PiecewiseLinear(SplineModuleBase):
 
     def __init__(self, cp_grid_in, var_name_in='unnamed_piecewise_linear_spline_control_point_variable', object_name_in='unnamed_piecewise_linear_spline_object', state_version_in=None):
-        from site import print_trace_now; print_trace_now()
         super(SplineModule_PiecewiseLinear, self).__init__(var_name_in, object_name_in)
 
         self.set_cp_grid(cp_grid_in)
 
     # This will generate a new spline solution
     def get_spline_solution(self, grid_in, var_name_in='unnamed_piecewise_spline_values', spline_solution_name_in='unnamed_piecewise_spline_solution_object'):
-        from site import print_trace_now; print_trace_now()
 
         retval = SplineSolution_PiecewiseLinear(self, grid_in, var_name_in, spline_solution_name_in)
         self._configure_solution(retval)
@@ -152,7 +139,6 @@ class SplineModule_PiecewiseLinear(SplineModuleBase):
 
     # This will set the new spline control points
     def set_cp_grid(self, cp_grid_in):
-        from site import print_trace_now; print_trace_now()
 
         self.cp_grid = cp_grid_in
         for solution in self.solution_list:
@@ -160,7 +146,6 @@ class SplineModule_PiecewiseLinear(SplineModuleBase):
 
     # This will set the name of the input
     def set_control_point_name(self, var_name_in='unnamed_piecewise_linear_spline_control_point_variable'):
-        from site import print_trace_now; print_trace_now()
 
         # get the old name
         old_name = self.var_name
@@ -174,13 +159,11 @@ class SplineModule_PiecewiseLinear(SplineModuleBase):
 
     # This is a method that will trigger the construction of the input interface
     def _build_interface(self):
-        from site import print_trace_now; print_trace_now()
 
         self.add_input(self.var_name)
         self.add_output(self.var_name)
 
     def compute(self, input_values, output_values):
-        from site import print_trace_now; print_trace_now()
 
         output_values[self.var_name] = input_values[self.var_name]
 
@@ -188,7 +171,6 @@ class SplineModule_PiecewiseLinear(SplineModuleBase):
 class Partial_Ordinate_Scaling(object):
 
     def __init__(self, original_ordinate=None, fix_idx=None, renorm=False):
-        from site import print_trace_now; print_trace_now()
         super(Partial_Spline, self).__init__()
 
         self.set_original(original_ordinate)
@@ -196,7 +178,6 @@ class Partial_Ordinate_Scaling(object):
         self.renorm = renorm
 
     def _calc_lengths(self):
-        from site import print_trace_now; print_trace_now()
 
         if not self.orig_ord is None and not self.fix_idx is None:
             self.orig_l = 0.0
@@ -215,21 +196,17 @@ class Partial_Ordinate_Scaling(object):
             self.tip_l = None
 
     def set_original(self, original_ordinate):
-        from site import print_trace_now; print_trace_now()
         self.orig_ord = original_ordinate
         self._calc_lengths()
 
     def set_fix_index(self, idx):
-        from site import print_trace_now; print_trace_now()
         self.fix_idx = idx
         self._calc_lengths()
 
     def set_renormalize(self, renorm=True):
-        from site import print_trace_now; print_trace_now()
         self.renorm = renorm
 
     def remap_ordinate(self, new_l):
-        from site import print_trace_now; print_trace_now()
         if self.orig_l is None or self.base_l is None or self.tip_l is None:
             return None
 
@@ -257,7 +234,6 @@ class FUSED_Partial_Ordinate_Scaling(FUSED_Object):
 
     # This is the constructor
     def __init__(self, input_name='new_length', input_meta={'val':0.0}, output_name='ordinate', output_meta={}, original_ordinate=None, fix_idx=None, renorm=False, object_name_in='unnamed_partial_ordinate_scaling_object', state_version_in=None):
-        from site import print_trace_now; print_trace_now()
         super(SplineSolutionBase, self).__init__(object_name_in, state_version_in)
         self.model=Partial_Ordinate_Scaling(original_ordinate, fix_idx, renorm)
 
@@ -268,22 +244,18 @@ class FUSED_Partial_Ordinate_Scaling(FUSED_Object):
 
     # Sets the oridinal ordinate
     def set_original(self, original_ordinate):
-        from site import print_trace_now; print_trace_now()
         self.model.set_original(original_ordinate)
 
     # The last index in the data where the data is held constant
     def set_fix_index(self, idx):
-        from site import print_trace_now; print_trace_now()
         self.model.set_fix_index(idx)
 
     # specify that the ordinate should be normalized
     def set_renormalize(self, renorm=True):
-        from site import print_trace_now; print_trace_now()
         self.model.set_renormalize(renorm)
 
     # Interface construction
     def _build_interface(self):
-        from site import print_trace_now; print_trace_now()
 
         # make sure the input is consistent
         if self.input_meta is None:
@@ -306,7 +278,6 @@ class FUSED_Partial_Ordinate_Scaling(FUSED_Object):
 
     # The compute method
     def compute(self, input_values, output_values):
-        from site import print_trace_now; print_trace_now()
 
         # perform the computation
         output_values[self.output_name]=self.model.remap_ordinate(input_values[self.input_name])
@@ -314,7 +285,6 @@ class FUSED_Partial_Ordinate_Scaling(FUSED_Object):
 class FUSED_Vector_Extend(FUSED_Object):
 
     def __init__(self, input_names=None, input_meta=None, output_name=None, output_meta=None, object_name='unnamed_vector_extend_object', state_version=None):
-        from site import print_trace_now; print_trace_now()
         super(FUSED_Vector_Extend, self).__init__(object_name, state_version)
         self.input_names=input_names
         self.input_meta=input_meta
@@ -322,7 +292,6 @@ class FUSED_Vector_Extend(FUSED_Object):
         self.output_meta=output_meta
 
     def _build_interface(self):
-        from site import print_trace_now; print_trace_now()
         if isinstance(self.input_names, str):
             self.input_names=[self.input_names]
             self.input_meta=[self.input_meta]
@@ -331,7 +300,6 @@ class FUSED_Vector_Extend(FUSED_Object):
         self.add_output(self.output_name, **self.output_meta)
 
     def compute(self, input_values, output_values):
-        from site import print_trace_now; print_trace_now()
         output_values[self.output_name]=input_values[self.input_names[0]]
         for I in range(1,len(self.input_names)):
             output_values[self.output_name]=np.append(output_values[self.output_name], input_values[self.input_names[I]])

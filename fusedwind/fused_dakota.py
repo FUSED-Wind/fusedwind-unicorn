@@ -5,7 +5,6 @@ from fusedwind.fused_wind import Independent_Variable
 class Independent_Variable_Dakota_Params(Independent_Variable):
 
     def __init__(self, param_file_in=None, var_name_in='unnamed_variable', var_meta_in=None, object_name_in='unnamed_object', state_version_in=None): 
-        from site import print_trace_now; print_trace_now()
         Independent_Variable.__init__(self, None, var_name_in, var_meta_in, object_name_in, state_version_in)
 
         self.param_file = None
@@ -13,7 +12,6 @@ class Independent_Variable_Dakota_Params(Independent_Variable):
             self.read_file(param_file_in)
 
     def read_file(self, param_file_in=None):
-        from site import print_trace_now; print_trace_now()
 
         # Save the parameters file
         if not param_file_in is None:
@@ -43,7 +41,6 @@ class Independent_Variable_Dakota_Params(Independent_Variable):
 class Dakota_Parameter_File_Reader(object):
 
     def __init__(self, param_file_in=None):
-        from site import print_trace_now; print_trace_now()
 
         super(Dakota_Parameter_File_Reader, self).__init__()
 
@@ -56,7 +53,6 @@ class Dakota_Parameter_File_Reader(object):
             self.read_file(param_file_in)
 
     def add_independent_variable(self, indep_var, var_size = None):
-        from site import print_trace_now; print_trace_now()
 
         # need to look at outputs to know the size of the data
         ifc = indep_var.get_interface()
@@ -89,7 +85,6 @@ class Dakota_Parameter_File_Reader(object):
             self.vector_size+=var_size
 
     def read_file(self, param_file_in=None):
-        from site import print_trace_now; print_trace_now()
 
         # Save the parameters file
         if not param_file_in is None:
@@ -128,14 +123,12 @@ class Dakota_Parameter_File_Reader(object):
 class Dakota_Results_File_Writer(object):
 
     def __init__(self):
-        from site import print_trace_now; print_trace_now()
         super(Dakota_Results_File_Writer, self).__init__()
 
         self.output_dict = {}
         self.output_list = []
 
     def add_output(self, output_name, output_object, dakota_output_tag = None):
-        from site import print_trace_now; print_trace_now()
         
         if dakota_output_tag is None:
             dakota_output_tag = output_name
@@ -146,7 +139,6 @@ class Dakota_Results_File_Writer(object):
         self.output_list.append((output_object, output_name, dakota_output_tag))
 
     def write_results(self, results_file_name = None):
-        from site import print_trace_now; print_trace_now()
 
         my_file = open(results_file_name, 'w')
 
@@ -164,7 +156,6 @@ class Dakota_Results_File_Writer(object):
 class Dakota_Work_Flow(object):
 
     def __init__(self, input_object_list, output_list):
-        from site import print_trace_now; print_trace_now()
 
         self.reader = Dakota_Parameter_File_Reader()
         for in_obj in input_object_list:
@@ -175,7 +166,6 @@ class Dakota_Work_Flow(object):
             self.writer.add_output(output_name, output_object, dakota_name)
 
     def execute(self, param_file, result_file):
-        from site import print_trace_now; print_trace_now()
 
         self.reader.read_file(param_file)
         self.writer.write_results(result_file)
@@ -184,13 +174,11 @@ class Dakota_Work_Flow(object):
 class Dakota_Job(object):
 
     def __init__(self, work_flow, param_file, result_file):
-        from site import print_trace_now; print_trace_now()
 
         self.work_flow = work_flow
         self.param_file = param_file
         self.result_file = result_file
 
     def execute(self):
-        from site import print_trace_now; print_trace_now()
         self.work_flow.execute(self.param_file, self.result_file)
 

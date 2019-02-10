@@ -9,7 +9,6 @@ from random import randint
 class Independent_Variable_np_Array(Independent_Variable):
     
     def __init__(self, np_array_in = None, var_name_in='unnamed_variable', var_meta_in=None, object_name_in='unnamed_object', state_version_in=None):
-        from site import print_trace_now; print_trace_now()
         Independent_Variable.__init__(self, None, var_name_in, var_meta_in, object_name_in, state_version_in)
 
         self.np_array = None
@@ -17,7 +16,6 @@ class Independent_Variable_np_Array(Independent_Variable):
                 self.read_np_array(np_array_in)
         
     def read_np_array(self, np_array_in=None):
-        from site import print_trace_now; print_trace_now()
         
         if not np_array_in is None:
             self.np_array = np_array_in
@@ -29,7 +27,6 @@ class Independent_Variable_np_Array(Independent_Variable):
 class np_Array_Reader(object):
 
     def __init__(self, np_array_in=None):
-        from site import print_trace_now; print_trace_now()
         super(np_Array_Reader, self).__init__()
 
         self.param_data = None
@@ -41,7 +38,6 @@ class np_Array_Reader(object):
             self.read_np_array(np_array_in)
 
     def add_independent_variable(self, indep_var, var_size = None):
-        from site import print_trace_now; print_trace_now()
         
         #Looking at outputs to know the size of data.
         ifc = indep_var.get_interface()
@@ -73,7 +69,6 @@ class np_Array_Reader(object):
             self.vector_size+=var_size
 
     def read_np_array(self, np_array_in=None):
-        from site import print_trace_now; print_trace_now()
         if not np_array_in is None:
             self.np_array = np_array_in
         else:
@@ -95,7 +90,6 @@ class np_Array_Reader(object):
 class np_Array_Results_Writer(object):
     
     def __init__(self):
-        from site import print_trace_now; print_trace_now()
         super(np_Array_Results_Writer, self).__init__()
         if MPI_Loaded is True:
             self.comm=MPI.COMM_WORLD
@@ -104,7 +98,6 @@ class np_Array_Results_Writer(object):
         self.output_list = []
 
     def add_output(self, output_name, output_object, output_tag = None):
-        from site import print_trace_now; print_trace_now()
         
         if output_tag is None:
             output_tag = output_name
@@ -115,7 +108,6 @@ class np_Array_Results_Writer(object):
         self.output_list.append((output_object, output_name, output_tag))
 
     def write_results(self):
-        from site import print_trace_now; print_trace_now()
         for obj in self.output_dict.keys():
             self.output_dict[obj]=obj.get_output_value()
 
@@ -140,7 +132,6 @@ class np_Array_Results_Writer(object):
 class np_Array_Work_Flow(object):
 
     def __init__(self, input_object_list, output_list):
-        from site import print_trace_now; print_trace_now()
         self.reader = np_Array_Reader()
         for in_obj in input_object_list:
             self.reader.add_independent_variable(in_obj)
@@ -150,7 +141,6 @@ class np_Array_Work_Flow(object):
             self.writer.add_output(output_name, output_object, name)
 
     def execute(self, np_array_in):
-        from site import print_trace_now; print_trace_now()
         self.reader.read_np_array(np_array_in)
         result = self.writer.write_results()
         return result
@@ -158,7 +148,6 @@ class np_Array_Work_Flow(object):
 class np_Array_Job(object):
 
     def __init__(self, work_flow, np_array):
-        from site import print_trace_now; print_trace_now()
 
         self.work_flow = work_flow
         self.np_array = np_array
@@ -166,6 +155,5 @@ class np_Array_Job(object):
         self.executed = False
 
     def execute(self):
-        from site import print_trace_now; print_trace_now()
         self.result = self.work_flow.execute(self.np_array)
         return {'np_array':self.np_array,'result':self.result}

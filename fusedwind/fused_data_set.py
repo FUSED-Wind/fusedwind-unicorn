@@ -16,7 +16,6 @@ from mpi4py import MPI
 
 class FUSED_Data_Set(object):
     def __init__(self, object_name_in = 'Unnamed_DOE_object'):
-        from site import print_trace_now; print_trace_now()
         self.name = object_name_in
         self.job_count = 0
         self.input_collumns = 0
@@ -31,11 +30,9 @@ class FUSED_Data_Set(object):
         self.result_up2date = []
 
     def save(self,*args):
-        from site import print_trace_now; print_trace_now()
         print('Saving requires the user to choose between .save_hdf5 which saves the input and output data only and .save_pickle which saves the object. Use the corresponding loading. Notice that the only thing lost in hdf5 process is other objects like independent variables and outputs')
     
     def save_hdf5(self, hdf5_file=None):
-        from site import print_trace_now; print_trace_now()
         if hdf5_file is None:
             hdf5_file=self.name+'.hdf5'
         if os.path.isfile(hdf5_file):
@@ -60,12 +57,10 @@ class FUSED_Data_Set(object):
         f.close()
 
     def save_pickle(self,destination=None):
-        from site import print_trace_now; print_trace_now()
         pass
 
     #Load hdf5
     def load_hdf5(self, hdf5_file):
-        from site import print_trace_now; print_trace_now()
         if not os.path.isfile(hdf5_file):
             raise Exception('The file does not exist')
 
@@ -102,7 +97,6 @@ class FUSED_Data_Set(object):
     #
 
     def set_data(self, data, name=None):
-        from site import print_trace_now; print_trace_now()
         #Data set object 2.0 need the data name to avoid any default connections in the data_set.
         if name is None:
             raise Exception('No name of the data provided')
@@ -129,7 +123,6 @@ class FUSED_Data_Set(object):
         
     #In 2.0 there is no distinction between input and data. Thus it is possible to add empty data set for output concerns.
     def add_empty_data(self, name=None):
-        from site import print_trace_now; print_trace_now()
         if name is None:
             raise Exception('No name provided')
 
@@ -146,7 +139,6 @@ class FUSED_Data_Set(object):
         self.collumn_list.append(name)
         
     def get_output(self,job_id):
-        from site import print_trace_now; print_trace_now()
         output = dict()
         for output_tag, output_obj, output_name in self.output_list:
             if self.data[output_name]['status'][job_id] == 1:
@@ -156,7 +148,6 @@ class FUSED_Data_Set(object):
         return output
 
     def set_output(self,job_id,output):
-        from site import print_trace_now; print_trace_now()
         for output_name in output:
             if self.data[output_name]['status'][job_id] == 1:
                 print('!!! WARNING !!! updating result with status 1 name: {}, job_id: {}'.format(output_name,job_id))
@@ -165,7 +156,6 @@ class FUSED_Data_Set(object):
     
     #If the DOE should be able to push and pull results directly from a workflow the communication is like in other fusedwind cases using independent variables. And object_tags combined with fused_objects.
     def add_indep_var(self,indep_var, data_set_var_name=None):
-        from site import print_trace_now; print_trace_now()
         if data_set_var_name is None:
             data_set_var_name = indep_var.name
 
@@ -184,7 +174,6 @@ class FUSED_Data_Set(object):
         #
 
     def add_output(self, output_tag, output_obj, output_name):
-        from site import print_trace_now; print_trace_now()
         # MIMC
         #
         # Long-term solution ...
@@ -199,7 +188,6 @@ class FUSED_Data_Set(object):
 
     #This method returns a list of job-objects which can be executed in mpi. jobrange is an array of two numbers.Start and finish job.
     def get_job_list(self,job_range=[]):
-        from site import print_trace_now; print_trace_now()
 
         # MIMC
         #    As we move away from a input/output classification, we need to track each column seperately to see if it has been set. Then the job list is generated on a per column or a combination of columns.
@@ -223,13 +211,11 @@ class FUSED_Data_Set(object):
 
     #Method to push data to the independent variables and pull outputs.
     def write_output(self,job_id):
-        from site import print_trace_now; print_trace_now()
         self.push_input(job_id)
         self.pull_output(job_id)
         
     #Method to determine the type of input. Should be expanded as new types are tested in the object.
     def type(self,inp):
-        from site import print_trace_now; print_trace_now()
         #
         # MIMC Maybe this is a helpful internal method? If so preceed with _type in the name
         #
@@ -243,7 +229,6 @@ class FUSED_Data_Set(object):
     
     #Returning a dictionary of three numpy arrays. input,output and result_up2date. It only returns variables and outputs that are already in numpy array format. If other data is needed the .data dictionary of the object should be consulted directly.
     def get_numpy_array(self,collumn_list,return_status='False'):
-        from site import print_trace_now; print_trace_now()
         np_array = []
         status_array = []
         if isinstance(collumn_list,list):
@@ -275,7 +260,6 @@ class FUSED_Data_Set(object):
 
     #Pushing input to the independent variables:
     def push_input(self,job_id):
-        from site import print_trace_now; print_trace_now()
         #If the inputs are not named the standard inputs are used. Notice that this might connect the inputs wrongly and thus it is recommended to name the inputs.
         default_input_used = 0
         for indep, name in self.input_indep_var_list:
@@ -287,7 +271,6 @@ class FUSED_Data_Set(object):
                 raise Exception('Independent variable {} could not be populated from the data. If the data shouldn\'t be changed it shouldn\'t be provided to the dataset.'.format(indep.name))
 
     def pull_output(self,job_id=None):
-        from site import print_trace_now; print_trace_now()
         for output_tag, output_obj, output_name in self.output_list:
             if not self.data[output_name]['status'][job_id] == 1:
                 comm = MPI.COMM_WORLD
@@ -297,20 +280,16 @@ class FUSED_Data_Set(object):
 
 class data_set_job(object):
     def __init__(self,data_set,job_id):
-        from site import print_trace_now; print_trace_now()
         self.data_set = data_set
         self.job_id = job_id
 
     def execute(self):
-        from site import print_trace_now; print_trace_now()
         return self.data_set.write_output(self.job_id)
 
     def get_output(self):
-        from site import print_trace_now; print_trace_now()
         return self.data_set.get_output(self.job_id)
 
     def set_output(self,output):
-        from site import print_trace_now; print_trace_now()
         self.data_set.set_output(self.job_id,output)
 
 # MIMC
