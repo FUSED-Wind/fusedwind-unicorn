@@ -15,10 +15,6 @@ def enum(*sequential, **named):
 # Define MPI message tags
 tags = enum('READY', 'DONE', 'EXIT', 'START')
 
-print('MIMC some debug code here')
-log_file_path = '/home/mimc/python_environments/Smart_Tip_SBO_Py3_MPI/tkba_hawc2_example/case_runner_log_rank_%d'%(MPI.COMM_WORLD.rank)
-#log_file = open(log_file_path, 'w')
-
 # This is a case iterator that will run under MPI
 
 # This is a generic case runner
