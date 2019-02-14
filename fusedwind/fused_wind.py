@@ -1300,6 +1300,50 @@ def get_object_dict_and_list(object_container):
 
     return object_dictionary, object_list, fused_object_dictionary, fused_object_list
 
+# This will reduce the object list to only the objects
+def dissolve_groups(object_list, group_set = None):
+
+    # if group_set is None, give an empty one
+    if group_set is None:
+        group_set = set()
+
+    # This is the return set
+    retval = set()
+
+    # This is the map from the original object to the sub object
+    orig_obj_to_sub_obj = {}
+
+    # This is the map from the sub object to the original object
+    sub_obj_to_orig_obj = {}
+
+    # First, dissolve any groups
+    for obj in object_list:
+        if isinstance(obj, FUSED_System_Base):
+            if not obj in group_set:
+                group_set.add(obj)
+                sub_set, null1, null2 = dissolve_groups(obj.system_objects, group_set=group_set)
+                for sub_obj in sub_set:
+                    if not obj in orig_obj_to_sub_obj:
+                        orig_obj_to_sub_obj[obj]={sub_obj}
+                    else:
+                        orig_obj_to_sub_obj[obj].add(sub_obj)
+                    if sub_obj in sub_obj_to_orig_obj:
+                        raise Exception('It appears an object is contained twice')
+                    sub_obj_to_orig_obj[sub_obj]=obj
+                    retval.add(sub_obj)
+        elif isinstance(obj, FUSED_Object):
+            if not obj in orig_obj_to_sub_obj:
+                orig_obj_to_sub_obj[obj]={obj}
+            else:
+                orig_obj_to_sub_obj[obj].add(obj)
+            if obj in sub_obj_to_orig_obj:
+                raise Exception('It appears an object is contained twice')
+            sub_obj_to_orig_obj[obj]=obj
+            retval.add(obj)
+
+    # return the results
+    return retval, orig_obj_to_sub_obj, sub_obj_to_orig_obj
+
 # The following function will solve the split configuration of a work-flow
 ##########################################################################
 
@@ -1382,12 +1426,123 @@ class FUSED_System_Base(FUSED_Unique):
         #   self.system_output_map[obj][lcl_name]                 -> global_output_name
         self.system_output_map = {}
         #
-        # Internal gobal_output_name to object/local name
+        # Internal global_output_name to object/local name
         #
         #   # This will show how a global output name is mapped to a local object and local output name
         #   self.system_output_gbl_to_lcl_map[global_output_name] -> ( obj, local_src_name )
         self.system_output_gbl_to_lcl_map = {}
         #
+
+    # This will retrieve a data-structure that will indicate the extent a group input variable is connected externally
+    #
+    #     dict[dest_obj][dest_name]=(src_obj,src_name,is_external)
+    #
+    def get_all_input_connections(self, global_input_name , internal_object_list = None):
+
+        # Configure the system if needed
+        if not self.system_has_been_configured:
+            self.configure_system()
+
+        # dissolve the system objects
+        if internal_object_list is None:
+            internal_object_list, system_objects_orig_to_sub, system_objects_sub_to_orig = dissolve_groups(self.system_objects)
+
+        if not global_input_name in self.system_input_gbl_to_lcl_map:
+            raise KeyError('The input %s does not exist for this group'%(global_input_name))
+
+        # get our return value
+        retval = {}
+
+        # Loop through our data structure and determine the connections
+        input_dest_dict = self.system_input_gbl_to_lcl_map[global_input_name][0]
+        for obj, dest_list in input_dest_dict.items():
+            # If we have another group, then we have to proceed recursively
+            if isinstance(obj, FUSED_System_Base):
+                # Loop through all the names in the destination list
+                for name in dest_list:
+                    # Retrieve all the connections for that name
+                    sub_conn_dict = obj.get_all_input_connections(name, internal_object_list)
+                    # Loop through all the dest objects
+                    for sub_dest_obj, sub_dest_name_dict in sub_conn_dict.items():
+                        # Add connection information if the object has not been seen
+                        if not sub_dest_obj in retval:
+                            retval[sub_dest_obj]=sub_dest_name_dict
+                        else:
+                            # loop through all the dest names
+                            for sub_dest_name, sub_data in sub_dest_name_dict.items():
+                                # Add the connection data if that destination info has not been seen
+                                if not sub_dest_name in retval[sub_dest_obj]:
+                                    retval[sub_dest_obj][sub_dest_name] = sub_data
+            # If we have an object then we have to access the data directly
+            else:
+                # Add the object if it has not been seen
+                if not obj in retval:
+                    retval[obj] = {}
+                # Loop through the destination names
+                for dest_name in dest_list:
+                    # Add the data if it has not been added already
+                    if not dest_name in retval[obj]:
+                        # Default assumption is that there is no connection so all is None
+                        src_obj = None
+                        src_name = None
+                        src_ext = None
+                        # If it is connected, then we grab all the data
+                        if dest_name in obj.conn_dict:
+                            src_tuple = obj.conn_dict[dest_name]
+                            src_obj = src_tuple[0]
+                            src_name = src_tuple[1]
+                            src_ext = not src_obj in internal_object_list
+                        # add the here
+                        retval[obj][dest_name]=(src_obj, src_name, src_ext)
+
+        return retval
+
+    # This will retrieve a data-structure that will indicate the extent a group input variable is connected externally
+    #
+    #     retval = (src_obj, src_name, {dst_obj:([dst_name_1, dst_name_2, ..., dst_name_N], is_external)}, is_external)
+    #
+    def get_all_output_connections(self, global_output_name , internal_object_list = None):
+
+        # Configure the system if needed
+        if not self.system_has_been_configured:
+            self.configure_system()
+
+        # dissolve the system objects
+        if internal_object_list is None:
+            internal_object_list, system_objects_orig_to_sub, system_objects_sub_to_orig = dissolve_groups(self.system_objects)
+
+        if not global_output_name in self.system_output_gbl_to_lcl_map:
+            raise KeyError('The input %s does not exist for this group'%(global_output_name))
+
+        # get our return value
+        retval = {}
+
+        # Loop through our data structure and determine the connections
+        output_tuple = self.system_output_gbl_to_lcl_map[global_output_name]
+        src_obj = output_tuple[0]
+        src_name = output_tuple[1]
+        is_external = False
+        dest_dict = {}
+        # If we have another group, then we have to proceed recursively
+        if isinstance(src_obj, FUSED_System_Base):
+            src_obj, src_name, dest_dict, is_external = src_obj.get_all_output_connections(src_name, internal_object_list=internal_object_list)
+        else:
+            # If we have a connection, then we process it to build the dest dictionary
+            if src_name in src_obj.output_connections:
+                # loop through all the destination objects
+                for sub_dst_obj, sub_dest_list in src_obj.output_connections[src_name].items():
+                    # test if external
+                    sub_is_external = not sub_dst_obj in internal_object_list
+                    if sub_is_external:
+                        is_external = True
+                    # Add the data for the object
+                    dest_dict[sub_dst_obj]=(sub_dest_list, sub_is_external)
+
+        # Construct the return value
+        retval = (src_obj, src_name, dest_dict, is_external)
+
+        # Return the tuple
+        return retval
 
     # This will retrieve the objects contained within this group
     def get_object(self, object_name):
@@ -1482,7 +1637,7 @@ class FUSED_System_Base(FUSED_Unique):
                 self._input_var_to_obj_pair[var_name] = [iv_result]
 
     # This is suppose to get an input interface from connections
-    def add_input_interface_from_connections(self, object_list = None, use_set_connections = True):
+    def add_input_interface_from_connections(self, object_list = None, use_set_connections = True, prepend_name=None):
         # This will build an input interface from the existing connections
         # In cases where a single input goes to two variables within this group, only one input variable is declared
         # Furthermore, in this case, the default name for this variable is based on the first associated object in the internal object list
@@ -1498,38 +1653,84 @@ class FUSED_System_Base(FUSED_Unique):
         if object_list is None:
             object_list = self.system_objects
 
+        # Get my internal object data
+        system_objects_dissolved, null1, null2 = dissolve_groups(self.system_objects)
+
         # search for the external connections
         if use_set_connections:
             ext_conn_dict = {}
             # loop through all the objects in consideration
-            for obj in object_list:
-                if not obj in self.system_objects:
+            for orig_obj in object_list:
+                if not orig_obj in self.system_objects:
                     raise Exception('Trying to build interface based objects outside the group')
-                # loop through all the connections
-                for ext_obj, src_dst_map in obj.connections.items():
-                    # check if we have a candidate
-                    if not ext_obj in self.system_objects:
-                        # loop over source names
-                        for src_name, dest_list in src_dst_map.items():
-                            # loop over the destination names
-                            for name in dest_list:
-                                # Verify that we have a valid candidate
-                                if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
-                                    # add ext obj to the conn dict
-                                    if not ext_obj in ext_conn_dict:
-                                        ext_conn_dict[ext_obj]={}
-                                    # add src_name to the con dict
-                                    if not src_name in ext_conn_dict[ext_obj]:
-                                        ext_conn_dict[ext_obj][src_name]=({}, None)
-                                    # add the object if not already
-                                    if not obj in ext_conn_dict[ext_obj][src_name][0]:
-                                        ext_conn_dict[ext_obj][src_name][0][obj]=[]
-                                    ext_conn_dict[ext_obj][src_name][0][obj].append(name)
-                                    # Register that a variable has been found
-                                    if not obj in self._input_obj_var_is_found:
-                                        self._input_obj_var_is_found[obj] = [name]
-                                    else:
-                                        self._input_obj_var_is_found[obj].append(name)
+                # If we are working with objects directly, then we just access their connection data structures
+                if isinstance(orig_obj, FUSED_Object):
+                    # loop through every external object
+                    for ext_obj, src_dst_map in orig_obj.connections.items():
+                        # test if that external object is external
+                        if not ext_obj in system_objects_dissolved:
+                            # loop over source names
+                            for src_name, dest_list in src_dst_map.items():
+                                # loop over the destination names
+                                for name in dest_list:
+                                    # Verify that we have a valid candidate
+                                    if (not orig_obj in self.system_input_map or not name in self.system_input_map[orig_obj]) and (not orig_obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[orig_obj]):
+                                        # add ext obj to the conn dict
+                                        if not ext_obj in ext_conn_dict:
+                                            ext_conn_dict[ext_obj]={}
+                                        # add src_name to the con dict
+                                        if not src_name in ext_conn_dict[ext_obj]:
+                                            ext_conn_dict[ext_obj][src_name]=({}, None)
+                                        # add the object if not already
+                                        if not orig_obj in ext_conn_dict[ext_obj][src_name][0]:
+                                            ext_conn_dict[ext_obj][src_name][0][orig_obj]=[]
+                                        ext_conn_dict[ext_obj][src_name][0][orig_obj].append(name)
+                                        # Register that a variable has been found
+                                        if not orig_obj in self._input_obj_var_is_found:
+                                            self._input_obj_var_is_found[orig_obj] = [name]
+                                        else:
+                                            self._input_obj_var_is_found[orig_obj].append(name)
+                # Now we are dealing with the situation that we have a group
+                else:
+                    # Retrieve the interface
+                    obj_ifc = orig_obj.get_interface()
+                    # Loop through the input names
+                    for name in obj_ifc['input'].keys():
+                        # collect the connection structure
+                        input_conn_data = orig_obj.get_all_input_connections(name, internal_object_list=system_objects_dissolved)
+                        is_external = False
+                        ext_obj = None
+                        # Now test if we have an external connection
+                        for sub_dest_obj, sub_dest_dict in input_conn_data.items():
+                            # test the sub_dest_names
+                            for sub_dest_name, sub_dest_data in sub_dest_dict.items():
+                                # test if we have an external connection
+                                if not sub_dest_data[2] is None and sub_dest_data[2]:
+                                    ext_obj = sub_dest_data[0]
+                                    src_name = sub_dest_data[1]
+                                    is_external = True
+                                    break
+                            if is_external:
+                                break
+                        # If we have an external connection, then proceed...
+                        if is_external:
+                            # Verify that we have a valid candidate
+                            if (not orig_obj in self.system_input_map or not name in self.system_input_map[orig_obj]) and (not orig_obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[orig_obj]):
+                                # add ext obj to the conn dict
+                                if not ext_obj in ext_conn_dict:
+                                    ext_conn_dict[ext_obj]={}
+                                # add src_name to the con dict
+                                if not src_name in ext_conn_dict[ext_obj]:
+                                    ext_conn_dict[ext_obj][src_name]=({}, None)
+                                # add the object if not already
+                                if not orig_obj in ext_conn_dict[ext_obj][src_name][0]:
+                                    ext_conn_dict[ext_obj][src_name][0][orig_obj]=[]
+                                ext_conn_dict[ext_obj][src_name][0][orig_obj].append(name)
+                                # Register that a variable has been found
+                                if not orig_obj in self._input_obj_var_is_found:
+                                    self._input_obj_var_is_found[orig_obj] = [name]
+                                else:
+                                    self._input_obj_var_is_found[orig_obj].append(name)
 
             # now we have all our connection groups, figure out the default global name and list the group as a candidate
             for ext_obj, src_dict in ext_conn_dict.items():
@@ -1537,31 +1738,55 @@ class FUSED_System_Base(FUSED_Unique):
                     first_obj = sorted(dest_dict[0].keys())[0]
                     name = dest_dict[0][first_obj][0]
                     # Add it to a candidate name
-                    if name in self._input_var_to_obj_pair:
-                        self._input_var_to_obj_pair[name].append(dest_dict)
+                    global_input_name = name
+                    if not prepend_name is None:
+                        global_input_name = prepend_name + name
+                    if global_input_name in self._input_var_to_obj_pair:
+                        self._input_var_to_obj_pair[global_input_name].append(dest_dict)
                     else:
-                        self._input_var_to_obj_pair[name] = [dest_dict]
+                        self._input_var_to_obj_pair[global_input_name] = [dest_dict]
 
         else:
-            # get the object list from the system objects
-            if object_list is None:
-                object_list = self.system_objects
             # loop over the objects
-            for obj in object_list:
-                obj_ifc = obj.get_interface()['input']
+            for orig_obj in object_list:
+                obj_ifc = orig_obj.get_interface()['input']
+                # Loop through all the inputs
                 for name in obj_ifc.keys():
+                    # Assume we do not have a connection
+                    is_connected = False
+                    # If we have an object, we can access the data structure directly
+                    if isinstance(orig_obj, FUSED_Object) and name in obj.conn_dict:
+                        is_connected = True
+                    # if we have a group, then we access collect the connection information
+                    elif isinstance(orig_obj, FUSED_System_Base):
+                        # collect the connection structure
+                        input_conn_data = orig_obj.get_all_input_connections(name, internal_object_list=system_objects_dissolved)
+                        # Now we loop through all the destination objects
+                        for sub_dest_obj, sub_dest_dict in input_conn_data.items():
+                            # Now we loop over all the destination names
+                            for sub_dest_name, sub_dest_data in sub_dest_dict.items():
+                                # test if we have a connection
+                                if not sub_dest_data[0] is None:
+                                    is_connected = True
+                                    break
+                            if is_connected:
+                                break
                     # Add the variable if not not connectd and not already added
-                    if name not in obj.conn_dict and ((not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj])):
+                    if not is_connected and ((not orig_obj in self.system_input_map or not name in self.system_input_map[orig_obj]) and (not orig_obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[orig_obj])):
+                        # get the global input name
+                        global_input_name = name
+                        if not prepend_name is None:
+                            global_input_name = prepend_name + name
                         # Add it to a candidate name
                         if name in self._input_var_to_obj_pair:
-                            self._input_var_to_obj_pair[name].append(({obj:[name]}, None))
+                            self._input_var_to_obj_pair[global_input_name].append(({orig_obj:[name]}, None))
                         else:
-                            self._input_var_to_obj_pair[name] = [({obj:[name]}, None)]
+                            self._input_var_to_obj_pair[global_input_name] = [({orig_obj:[name]}, None)]
                         # register that a variable has been found
-                        if not obj in self._input_obj_var_is_found:
-                            self._input_obj_var_is_found[obj]=[name]
+                        if not orig_obj in self._input_obj_var_is_found:
+                            self._input_obj_var_is_found[orig_obj]=[name]
                         else:
-                            self._input_obj_var_is_found[obj].append(name)
+                            self._input_obj_var_is_found[orig_obj].append(name)
 
     # This is suppose to assume that all inputs of all objects in the list are public input variables.
     def add_input_interface_from_objects(self, object_list = None, merge_by_input_name=False, prepend_name=None, append_name=None):
@@ -1802,15 +2027,32 @@ class FUSED_System_Base(FUSED_Unique):
         # Get the object list
         if object_list is None:
             object_list = self.system_objects
+
+        # Get the internal object list
+        internal_object_list, null1, null2 = dissolve_groups(self.system_objects)
  
         # loop through all the connections
         for obj in object_list:
             # Verify this is a valid object
             if not obj in self.system_objects:
                 raise Exception('Cannot build an interface based on objects outside the group')
+            # loop through all the output variables
             for src_name in obj.get_interface()['output'].keys():
+                # Assume it is not connected
+                is_connected = False
+                # process directly if we have a simple object
+                if isinstance(obj, FUSED_Object) and src_name in obj.output_connections.keys():
+                    # loop through all the destination objects
+                    for sub_dst_obj, sub_dest_list in obj.output_connections[src_name].items():
+                        # Test if external connection
+                        if not sub_dst_obj in internal_object_list:
+                            is_connected = True
+                            break
+                # Call the output function if it is a group
+                else:
+                    null1, null2, null3, is_connected = obj.get_all_output_connections(src_name, internal_object_list)
                 # Verify that it meets the connection criteria
-                if (use_set_connections and src_name in obj.output_connections.keys()) or (not use_set_connections and not src_name in obj.output_connections.keys()):
+                if (use_set_connections and is_connected) or (not use_set_connections and not is_connected):
                     # Verify that it meets whether it is already added criteria:
                     if (not obj in self.system_output_map or not src_name in self.system_output_map[obj]) and (not obj in self._output_obj_var_is_found or not src_name in self._output_obj_var_is_found[obj]):
                         # Add it to the output structure
