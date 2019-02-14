@@ -120,6 +120,32 @@ class Split_Vector(FUSED_Object):
         if param_2>self.size:
             self.size=param_2
 
+# This will build a vector based on a set of scalars
+class FUSED_Build_Vector(FUSED_Object):
+
+    # The constructor
+    def __init__(self, size, input_var_name = 'scalar', output_var_name = 'vector', object_name='unnamed_build_vector_object', state_version=None):
+        super(FUSED_Build_Vector,self).__init__(object_name_in=object_name, state_version_in=state_version)
+
+        self.size = size
+        self.input_var_name = input_var_name
+        self.output_var_name = output_var_name
+
+    # Build the interface
+    def _build_interface(self):
+
+        for i in range(0, self.size):
+            self.add_input(self.input_var_name+'_'+str(i), val=0.0)
+        self.add_output(self.output_var_name, val=np.zeros(self.size))
+
+    # Construct the vector
+    def compute(self, input_values, output_values):
+
+        output_values[self.output_var_name] = np.zeros(self.size)
+        for i in range(0, self.size):
+            output_values[self.output_var_name][i]=input_values[self.input_var_name+'_'+str(i)]
+
+# This will multiply two values
 class FUSED_Multiply(FUSED_Object):
 
     def __init__(self, lhs_name='lhs', lhs_default_value=1.0, rhs_name='rhs', rhs_default_value=1.0, output_name='solution', output_default_value=1.0, object_name='unnamed_multiply_object', state_version=None):
