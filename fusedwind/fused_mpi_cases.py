@@ -150,8 +150,8 @@ class FUSED_MPI_Cases(object):
 # this is the case runner for actually running Fused-Objects
 class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
-    def __init__(self, jobs=[], comm=None, preExec=None, postExec=None):
-        super(FUSED_MPI_ObjectCases, self).__init__(jobs=jobs, comm=comm, preExec=preExec, postExec=postExec)
+    def __init__(self, jobs=[], comm=None, prePostExec=None):
+        super(FUSED_MPI_ObjectCases, self).__init__(jobs=jobs, comm=comm, prePostExec=prePostExec)
 
         self.sync_arg = '__downstream__'
         for job in self.jobs:
