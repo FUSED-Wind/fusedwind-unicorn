@@ -129,7 +129,7 @@ class Dakota_Results_File_Writer(object):
         self.output_list = []
 
     def add_output(self, output_name, output_object, dakota_output_tag = None):
-        
+ 
         if dakota_output_tag is None:
             dakota_output_tag = output_name
 
@@ -140,6 +140,7 @@ class Dakota_Results_File_Writer(object):
 
     def write_results(self, results_file_name = None):
 
+        # Lets create the file
         my_file = open(results_file_name, 'w')
 
         # retrieve the data
@@ -150,6 +151,7 @@ class Dakota_Results_File_Writer(object):
         for obj, local_name, dakota_name in self.output_list:
             my_file.write(str(self.output_dict[obj][local_name])+' '+dakota_name+'\n')
 
+        # Lets close the file
         my_file.close()
 
 # This is a work-flow that will read dakota parameter files, then write the results
