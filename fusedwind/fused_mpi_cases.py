@@ -20,7 +20,7 @@ tags = enum('READY', 'DONE', 'EXIT', 'START')
 # This is a generic case runner
 class FUSED_MPI_Cases(object):
 
-    def __init__(self, jobs=[], comm=None, preExec=None, postExec=None):
+    def __init__(self, jobs=[], comm=None, prePostExec=None):
         super(FUSED_MPI_Cases, self).__init__()
 
         self.comm=comm
@@ -29,8 +29,7 @@ class FUSED_MPI_Cases(object):
 
         self.jobs = jobs
         self.i_am_executing = False
-        self.preExec = preExec
-        self.postExec = postExec
+        self.prePostExec = prePostExec
 
     def add_job(self, job):
 
@@ -57,13 +56,13 @@ class FUSED_MPI_Cases(object):
 
     def _pre_exec_post_job(self, job_id):
 
-        if not self.preExec is None:
-            self.preExec(self,job_id)
+        if not self.prePostExec is None:
+            self.prePostExec.pre_exec(self,job_id)
 
         self.execute_job(job_id)
 
-        if not self.postExec is None:
-            self.postExec(self, job_id)
+        if not self.prePostExec is None:
+            self.prePostExec.post_exec(self,job_id)
 
     def execute(self):
 
