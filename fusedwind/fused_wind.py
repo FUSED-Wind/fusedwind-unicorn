@@ -1149,6 +1149,7 @@ class FUSED_Object(FUSED_Unique):
         self.output_values[output_key]=output_value
         self._updating_data()
 
+    # Retrieve the input value
     def get_input_value(self, var_name=None):
 
         if isinstance(var_name,str):
