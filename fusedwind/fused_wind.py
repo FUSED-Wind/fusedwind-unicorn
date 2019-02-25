@@ -1291,7 +1291,7 @@ def get_object_dict_and_list(object_container):
             name = None
             if hasattr(obj, 'object_name'):
                 name = obj.object_name
-                name = make_unique_name(name, object_name_set)
+#                name = make_unique_name(name, object_name_set)
                 object_dictionary[name] = obj
             if is_fused_object_or_group(obj):
                 fused_object_list.append(obj)
@@ -1755,7 +1755,7 @@ class FUSED_System_Base(FUSED_Unique):
                     # Assume we do not have a connection
                     is_connected = False
                     # If we have an object, we can access the data structure directly
-                    if isinstance(orig_obj, FUSED_Object) and name in obj.conn_dict:
+                    if isinstance(orig_obj, FUSED_Object) and name in orig_obj.conn_dict:
                         is_connected = True
                     # if we have a group, then we access collect the connection information
                     elif isinstance(orig_obj, FUSED_System_Base):
