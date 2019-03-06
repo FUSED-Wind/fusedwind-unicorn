@@ -273,7 +273,7 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
             if not dst_name in dst_var:
                 raise Exception('That destination variable name does not exist')
             if not src_name in src_var:
-                raise Exception('That source variable name does not exist')
+                raise Exception('That source variable %s  name does not exist in %s'%(src_name,src_var))
             if dst_name in dst_src_map:
                 raise Exception('That destination variable name specified twice')
             # Add to the map
@@ -2498,7 +2498,7 @@ class FUSED_System_Base(FUSED_Unique):
         # First set the inputs on the input objects
         for global_name, input_pair in self.system_input_gbl_to_lcl_map.items():
             if input_pair[1] is None:
-                raise Exception('It seems the independent variable was not set')
+                raise Exception('It seems the independent variable for %s was not set'%global_name)
             input_pair[1].set_data(input_values[global_name])
 
         # Now collect the output
