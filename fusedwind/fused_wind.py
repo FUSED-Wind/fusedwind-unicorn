@@ -1065,9 +1065,19 @@ class FUSED_Object(FUSED_Unique):
                 # broadcast everything
                 if my_rank == at_rank:
                     #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, dictionary in whole -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value))
-                    self.comm.bcast(self.output_values, at_rank)
+                    my_dict = self.output_values
+                    if not isinstance(my_dict, dict):
+                        my_dict = dict(my_dict)
+                    self.comm.bcast(my_dict, at_rank)
                 else:
-                    self.output_values = self.comm.bcast(None, at_rank)
+                    my_dict = self.comm.bcast(None, at_rank)
+                    if isinstance(self.output_values, dict):
+                        self.output_values = my_dict
+                    else:
+                        self.output_values.clear()
+                        for key, val in my_dict.items():
+                            self.output_values[key] = val
+                    
                     #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, dictionary in whole <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value))
                 #bcast_cnt+=1
                 # MIMC #############
