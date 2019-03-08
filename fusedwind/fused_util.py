@@ -234,7 +234,7 @@ def create_workflow_by_cases(case_list, builder_function, build_args={}, case_ar
     # start generating the objects based on case
     for i, case_definition in enumerate(case_list):
         # build the object
-        my_args = copy.deepcopy(build_args)
+        my_args = copy.copy(build_args)
         my_args[case_argument]=case_definition
         obj = builder_function(**my_args)
         # If we cannot label, then store the object in a list

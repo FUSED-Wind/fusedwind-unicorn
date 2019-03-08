@@ -1291,7 +1291,8 @@ def get_object_dict_and_list(object_container):
             name = None
             if hasattr(obj, 'object_name'):
                 name = obj.object_name
-#                name = make_unique_name(name, object_name_set)
+                from fusedwind.fused_util import make_unique_name
+                name = make_unique_name(name, object_name_set)
                 object_dictionary[name] = obj
             if is_fused_object_or_group(obj):
                 fused_object_list.append(obj)
