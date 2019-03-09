@@ -156,10 +156,10 @@ class FUSED_Build_Vector_From_Vectors(FUSED_Object):
         self.size_tuple=size_tuple
 
     def _build_interface(self):
-        for index,size in enumerate(self.size_tuple):
-            self.add_input('%s_%i'%(self.input_var_name,index),val=np.zeros(size))
+        for index, size in enumerate(self.size_tuple):
+            self.add_input('%s_%i'%(self.input_var_name,index),shape=size)
 
-        self.add_output(self.output_var_name,val=np.zeros(sum(self.size_tuple)))
+        self.add_output(self.output_var_name,shape=sum(self.size_tuple))
 
     def compute(self, input_values, output_values):
         outvec = np.array([])
