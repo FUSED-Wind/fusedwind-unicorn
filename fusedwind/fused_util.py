@@ -145,6 +145,29 @@ class FUSED_Build_Vector(FUSED_Object):
         for i in range(0, self.size):
             output_values[self.output_var_name][i]=input_values[self.input_var_name+'_'+str(i)]
 
+#Combining two or more np_arrays:
+class FUSED_Build_Vector_From_Vectors(FUSED_Object):
+
+    def __init__(self, size_tuple=(1), input_var_name='input_vector', output_var_name='output_vector', object_name='unnamed_build_vector_from_vector_object', state_version=None):
+        super(FUSED_Build_Vector_From_Vectors,self).__init__(object_name_in=object_name, state_version_in=state_version)
+        
+        self.input_var_name = input_var_name
+        self.output_var_name = output_var_name
+        self.size_tuple=size_tuple
+
+    def _build_interface(self):
+        for index,size in enumerate(self.size_tuple):
+            self.add_input('%s_%i'%(self.input_var_name,index),val=np.zeros(size))
+
+        self.add_output(self.output_var_name,val=np.zeros(sum(self.size_tuple)))
+
+    def compute(self, input_values, output_values):
+        outvec = np.array([])
+        for input in input_values:
+            outvec = np.append(outvec,input_values[input])
+
+        output_values[self.output_var_name] = outvec
+
 # This will multiply two values
 class FUSED_Multiply(FUSED_Object):
 

@@ -273,7 +273,7 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
             if not dst_name in dst_var:
                 raise Exception('That destination variable name does not exist')
             if not src_name in src_var:
-                raise Exception('That source variable name does not exist')
+                raise Exception('That source variable %s  name does not exist in %s'%(src_name,src_var))
             if dst_name in dst_src_map:
                 raise Exception('That destination variable name specified twice')
             # Add to the map
@@ -1292,6 +1292,7 @@ def get_object_dict_and_list(object_container):
             name = None
             if hasattr(obj, 'object_name'):
                 name = obj.object_name
+                from fusedwind.fused_util import make_unique_name
                 name = make_unique_name(name, object_name_set)
                 object_dictionary[name] = obj
             if is_fused_object_or_group(obj):
@@ -1756,7 +1757,7 @@ class FUSED_System_Base(FUSED_Unique):
                     # Assume we do not have a connection
                     is_connected = False
                     # If we have an object, we can access the data structure directly
-                    if isinstance(orig_obj, FUSED_Object) and name in obj.conn_dict:
+                    if isinstance(orig_obj, FUSED_Object) and name in orig_obj.conn_dict:
                         is_connected = True
                     # if we have a group, then we access collect the connection information
                     elif isinstance(orig_obj, FUSED_System_Base):
@@ -2499,7 +2500,7 @@ class FUSED_System_Base(FUSED_Unique):
         # First set the inputs on the input objects
         for global_name, input_pair in self.system_input_gbl_to_lcl_map.items():
             if input_pair[1] is None:
-                raise Exception('It seems the independent variable was not set')
+                raise Exception('It seems the independent variable for %s was not set'%global_name)
             input_pair[1].set_data(input_values[global_name])
 
         # Now collect the output
