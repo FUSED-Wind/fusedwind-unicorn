@@ -437,11 +437,6 @@ class FUSED_Unique(object):
     def __hash__(self):
         return self._hash_value
 
-#######################################################
-print('MIMC the silly push warning flag is here')
-push_warning_given = False
-#######################################################
-
 # The following is the FUSED Object
 #########################################################################
 
@@ -513,6 +508,8 @@ class FUSED_Object(FUSED_Unique):
         self.my_case_runner = None
         # This indicates that what object we are populating the input data from
         self.populating_input_data = False
+        # Indicates that the object already has some input data
+        self.input_data_partially_populated = False
         # This indicates that we were already pushed the data
         self.objects_that_already_pushed_data = []
         # This will force down-stream objects to update when this is updated
@@ -989,22 +986,56 @@ class FUSED_Object(FUSED_Unique):
                 self.default_input[name]=np.zeros(meta['shape'])
         self.is_default_input_built = True
 
-    # This is for collecting the input data from connections
-    def _build_input_vector(self):
+    # Open the object for collecting input
+    def open_for_building_input_vector(self):
 
-        # Collect the default input values
-        if not self.is_default_input_built:
-            self._build_default_input_vector()
+        # if data is already in input vector, then don't initialize the data
+        if not self.input_data_partially_populated:
 
-        # initialize my input vector
-        self.input_values = copy.copy(self.default_input)
+            # Collect the default input values
+            if not self.is_default_input_built:
+                self._build_default_input_vector()
+
+            # initialize my input vector
+            self.input_values = copy.copy(self.default_input)
+            # initializing the list of objects that have pushed
+            self.objects_that_already_pushed_data = []
+            # clear the failed input flag
+            self.failed_input = []
 
         # indicate that we are populating input data
         self.populating_input_data = True
+
+    # this will clear the input data
+    def clear_input_vector(self):
+
+        # clear my input vector
+        self.input_values.clear()
         # initializing the list of objects that have pushed
         self.objects_that_already_pushed_data = []
         # clear the failed input flag
         self.failed_input = []
+        # indicate that we are not collecting input
+        self.populating_input_data = False
+        # indicate that we have no partial data
+        self.input_data_partially_populated=False
+
+    # this will close the object for collecting input data
+    def close_for_building_input_vector(self):
+
+        # indicate that we are populating input data
+        self.populating_input_data = False
+
+        # clear if there is no data
+        if len(self.objects_that_already_pushed_data)==0:
+            self.clear_input_vector()
+
+    # This is for collecting the input data from connections
+    def _build_input_vector(self):
+
+        # Open for input construction
+        if not self.populating_input_data:
+            self.open_for_building_input_vector()
 
         # Loop through all connections and collect the data
         for obj, src_dst_map in self.connections.items():
@@ -1027,6 +1058,8 @@ class FUSED_Object(FUSED_Unique):
         self.populating_input_data = False
         # initializing the list of objects that have pushed
         self.objects_that_already_pushed_data = []
+        # indicate that we have no partial data
+        self.input_data_partially_populated=False
         # If the failed input list is not empty, indicate my own failure
         if len(self.failed_input)!=0 and not self.tolerate_failure:
             self.succeeded = False
@@ -1076,32 +1109,31 @@ class FUSED_Object(FUSED_Unique):
             # labeling the object as not distributed
             self.output_at_rank = {}
             # deleting the data in the input values dictionary
-            self.input_values.clear()
+            self.clear_input_vector()
             # push data, if instructed
             if self.push_on_update:
                 self.push_output()
         else:
             self.my_case_runner.execute()
 
+    # This is called by a case runner and it disables data push's outside the job
+    def disable_external_push(self):
+        self.push_on_update=False
+
     # This will force all upstream objects to update
     def push_output(self):
-
-        global push_warning_given
-        if not push_warning_given:
-            print('WARNING: In this version of FUSED-Wind, it is dangerous to push data when operating within an MPI case runner.\n\tThis is because the data needs to be synchronized based on several assumptions.\n\tThe first is that the objects outside the case-runner, retain the same execution status, thus the calls for data synchronization are them-selves synchronized.\n\tThe second is when it comes to synchronization, it is assumed that data in the source object exists, if delete-on-push is active, this is not necessarily true.\n\tThe push and sync architecture\n\tCurrently, the assumption is that the push will ONLY occur within an MPI case job')
-            push_warning_given=True
 
         # Push the output
         for my_output_name, dest_obj_dict in self.output_connections.items():
             for dest_obj, dest_list in dest_obj_dict.items():
-                dest_obj.recieve_push(self)
+                dest_obj.receive_push(self)
         # Delete my data if instructed
         if self.delete_on_push:
             self.clear_output_values()
 
     # This method is called from up-stream objects to indicate it should execute
-    def recieve_push(self, src_obj):
-        # if we are populating, then simply recieve the data
+    def receive_push(self, src_obj):
+        # if we are populating, then simply receive the data
         if self.populating_input_data:
             # If the object failed, then we put our failure variables to the fail list
             set_to_fail = not src_obj.succeeded
@@ -1114,8 +1146,8 @@ class FUSED_Object(FUSED_Unique):
                         self.input_values[dst_name]=None
                         self.failed_input.append(dst_name)
                     else:
-                        self.input_values[dst_name]=obj[src_name]
-            # indicate that we have already recieved the data
+                        self.input_values[dst_name]=src_obj[src_name]
+            # indicate that we have already received the data
             self.objects_that_already_pushed_data.append(src_obj)
         # If we are not populating the input data, then simply execute before the data goes missing
         else:
@@ -2042,7 +2074,7 @@ class FUSED_System_Base(FUSED_Unique):
         #                         When this is None, then all objects will be searched for input variables that could match the name
         # dest_list:              All objects are searched for names in dest-list
         # Note 1: That when both obj_dict and dest_list are None, all objects are searched for candidates based on the var_name
-        # Note 2: It will be assumed that multiple destination variables found will all recieve the same data
+        # Note 2: It will be assumed that multiple destination variables found will all receive the same data
 
         # If the variable is already in the interface, then we need to exit
         if var_name in self.system_input_gbl_to_lcl_map:
@@ -2689,7 +2721,7 @@ class FUSED_System_Base(FUSED_Unique):
         # Return the result
         return retval
 
-    # This will find all the objects and the connection information that recieves information from this group. 
+    # This will find all the objects and the connection information that receives information from this group. 
     # This will find the connections from objects outside this group
     def find_dest_connections(self):
 
@@ -2800,6 +2832,27 @@ class FUSED_Group(FUSED_System_Base):
         for obj, conn_dict in dest_conn_struct.items():
             obj.connect(source_object, conn_dict)
 
+    # This will call on all system objects to open for collecting input
+    def open_for_building_input_vector(self):
+
+        # Loop through each object and open for building input vector
+        for obj in self.system_objects:
+            obj.open_for_building_input_vector()
+
+    # this will clear the input data
+    def clear_input_vector(self):
+
+        # Loop through each object and clear input vector
+        for obj in self.system_objects:
+            obj.clear_input_vector()
+
+    # this will close the object for collecting input data
+    def close_for_building_input_vector(self):
+
+        # Loop through each object and clear input vector
+        for obj in self.system_objects:
+            obj.close_for_building_input_vector()
+
     # This will call on all objects feeding objects in this group to update their output data
     def collect_input_data(self):
 
@@ -2809,6 +2862,22 @@ class FUSED_Group(FUSED_System_Base):
         # Then update the output data for the input object
         for src_obj in source_dict.keys():
             src_obj.update_output_data()
+
+    # This will disable all objects with external output connections to push data
+    def disable_external_push(self):
+ 
+        # Retrieve the destination objects
+        dest_obj_dict=self.find_dest_connections()
+
+        # loop through to collect all the internal objects, sending data to external objects
+        int_to_ext_obj_set=set()
+        for dest_obj, src_obj_dict in dest_obj_dict.items():
+            for src_obj in src_obj_dict.keys():
+                int_to_ext_obj_set.add(src_obj)
+
+        # loop through ad disable all the push operations
+        for src_obj in int_to_ext_obj_set:
+            src_obj.disable_external_push()
 
     # This will call objects in this group to update their data
     def update_output_data(self):
