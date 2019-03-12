@@ -437,6 +437,11 @@ class FUSED_Unique(object):
     def __hash__(self):
         return self._hash_value
 
+#######################################################
+print('MIMC the silly push warning flag is here')
+push_warning_given = False
+#######################################################
+
 # The following is the FUSED Object
 #########################################################################
 
@@ -462,10 +467,12 @@ class FUSED_Object(FUSED_Unique):
         self.object_name = object_name_in
 
         # This is the interface
+        #######################
         self.ifc_built = False
         self.interface = create_interface()
 
         # Variables for a default input vector
+        ######################################
         self.is_default_input_built = False
         self.default_input = {}
 
@@ -485,6 +492,9 @@ class FUSED_Object(FUSED_Unique):
         # self.output_connections[my_output_name][dest_object]=['dest_input_name_1', 'dest_input_name_2', ...]
         self.output_connections={}
 
+        # This is the data structures for execution
+        ###########################################
+
         # This is the state version
         if state_version_in is None:
             self.state_version = FUSED_Object.default_state_version
@@ -493,7 +503,22 @@ class FUSED_Object(FUSED_Unique):
         self.my_state_version = 0
         self.output_values = {}
         self.output_at_rank = {}
+        # Indicates that an object executed successfully
+        self.succeeded = False
+        # Indicates that an object tolerates failure
+        self.tolerate_failure = False
+        # Indicates what input failures are from a failed simulation
+        self.failed_input = []
+        # This is the reference that stores a case runner
         self.my_case_runner = None
+        # This indicates that what object we are populating the input data from
+        self.populating_input_data = False
+        # This indicates that we were already pushed the data
+        self.objects_that_already_pushed_data = []
+        # This will force down-stream objects to update when this is updated
+        self.push_on_update = False
+        # This will delete the output data after a push
+        self.delete_on_push = False
 
         # This is the MPI comm
         self.comm = comm
@@ -563,6 +588,10 @@ class FUSED_Object(FUSED_Unique):
     def _updating_data(self):
 
         self.my_state_version=self.state_version.get_state_version()
+
+    def _reset_my_state(self):
+
+        self.my_state_version = 0
 
     # These are interface methods
     #############################
@@ -967,21 +996,55 @@ class FUSED_Object(FUSED_Unique):
         if not self.is_default_input_built:
             self._build_default_input_vector()
 
-        # Loop through all connections and collect the data
+        # initialize my input vector
         self.input_values = copy.copy(self.default_input)
+
+        # indicate that we are populating input data
+        self.populating_input_data = True
+        # initializing the list of objects that have pushed
+        self.objects_that_already_pushed_data = []
+        # clear the failed input flag
+        self.failed_input = []
+
+        # Loop through all connections and collect the data
         for obj, src_dst_map in self.connections.items():
-            #output = obj.get_output_value()
-            for src_name, dst_list in src_dst_map.items():
-                for dst_name in dst_list:
-                    self.input_values[dst_name]=obj[src_name]
-                    #self.input_values[dst_name]=output[src_name]
+            # only populate from objects that have not already pushed
+            if obj not in self.objects_that_already_pushed_data:
+                # update the upstream object output data, this may trigger a push
+                obj.update_output_data()
+                # only proceed if there has not been a push
+                if obj not in self.objects_that_already_pushed_data:
+                    set_to_fail = not obj.succeeded
+                    for src_name, dst_list in src_dst_map.items():
+                        for dst_name in dst_list:
+                            if set_to_fail:
+                                self.input_values[dst_name]=None
+                                self.failed_input.append(dst_name)
+                            else:
+                                self.input_values[dst_name]=obj[src_name]
+
+        # indicate that we are no longer populating input data
+        self.populating_input_data = False
+        # initializing the list of objects that have pushed
+        self.objects_that_already_pushed_data = []
+        # If the failed input list is not empty, indicate my own failure
+        if len(self.failed_input)!=0 and not self.tolerate_failure:
+            self.succeeded = False
 
         # return the results
         return self.input_values
 
+    # This will return whether a given input is from a failed simulation
+    def is_input_from_a_failed_simulation(self, input_test):
+        return input_test in self.failed_input
+
     # This is the calculation method that is called
     def compute(self, input_values, output_values):
 
+        print('Error is about to be thrown because the compute method has not been implemented')
+        print('The object is of type', type(self))
+        print('The name is:', self.object_name)
+        print('The id is:', id(self))
         raise Exception('The compute method has not been implemented')
 
     # This instructs this class to collect the input data
@@ -1000,13 +1063,63 @@ class FUSED_Object(FUSED_Unique):
         if not self._update_needed():
             return
         if self.my_case_runner is None or self.my_case_runner.i_am_executing:
+            # Set the success flag to true if we are about to run a new calculation
+            self.succeeded=True
+            # build the input vector
             self._build_input_vector()
-            self.compute(self.input_values, self.output_values)
+            # If our input failed, then don't execute
+            if self.succeeded:
+                # Compute the results
+                self.compute(self.input_values, self.output_values)
+            # Indicate that we have been updated
             self._updating_data()
             # labeling the object as not distributed
             self.output_at_rank = {}
+            # deleting the data in the input values dictionary
+            self.input_values.clear()
+            # push data, if instructed
+            if self.push_on_update:
+                self.push_output()
         else:
             self.my_case_runner.execute()
+
+    # This will force all upstream objects to update
+    def push_output(self):
+
+        global push_warning_given
+        if not push_warning_given:
+            print('WARNING: In this version of FUSED-Wind, it is dangerous to push data when operating within an MPI case runner.\n\tThis is because the data needs to be synchronized based on several assumptions.\n\tThe first is that the objects outside the case-runner, retain the same execution status, thus the calls for data synchronization are them-selves synchronized.\n\tThe second is when it comes to synchronization, it is assumed that data in the source object exists, if delete-on-push is active, this is not necessarily true.\n\tThe push and sync architecture\n\tCurrently, the assumption is that the push will ONLY occur within an MPI case job')
+            push_warning_given=True
+
+        # Push the output
+        for my_output_name, dest_obj_dict in self.output_connections.items():
+            for dest_obj, dest_list in dest_obj_dict.items():
+                dest_obj.recieve_push(self)
+        # Delete my data if instructed
+        if self.delete_on_push:
+            self.clear_output_values()
+
+    # This method is called from up-stream objects to indicate it should execute
+    def recieve_push(self, src_obj):
+        # if we are populating, then simply recieve the data
+        if self.populating_input_data:
+            # If the object failed, then we put our failure variables to the fail list
+            set_to_fail = not src_obj.succeeded
+            # complete the population of the input object
+            src_dst_map = self.connections[src_obj]
+            for src_name, dst_list in src_dst_map.items():
+                for dst_name in dst_list:
+                    # Place them in the fail list if failed
+                    if set_to_fail:
+                        self.input_values[dst_name]=None
+                        self.failed_input.append(dst_name)
+                    else:
+                        self.input_values[dst_name]=obj[src_name]
+            # indicate that we have already recieved the data
+            self.objects_that_already_pushed_data.append(src_obj)
+        # If we are not populating the input data, then simply execute before the data goes missing
+        else:
+            self.update_output_data()
 
     # This will retrieve a specific variable
     def __getitem__(self, key):
@@ -1064,12 +1177,16 @@ class FUSED_Object(FUSED_Unique):
             if cont:
                 # broadcast everything
                 if my_rank == at_rank:
+                    # sending
                     #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, dictionary in whole -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value))
+                    if len(self.output_values)==0:
+                        print('WARNING: transferring empty dictionary. It is possible that the data has been delete.\n\tFor object of type %s, and object name %s.\n\tThis occurs when both push-on-execute and delete-on-push is set to true.\n\tThis can be fixed if all the down-stream objects in a push configuration are also executed in the case-runner job.\n\tThis way synchronization occurs after the push'%(str(type(self)),self.object_name))
                     my_dict = self.output_values
                     if not isinstance(my_dict, dict):
                         my_dict = dict(my_dict)
                     self.comm.bcast(my_dict, at_rank)
                 else:
+                    # receiving
                     my_dict = self.comm.bcast(None, at_rank)
                     if isinstance(self.output_values, dict):
                         self.output_values = my_dict
@@ -1107,13 +1224,13 @@ class FUSED_Object(FUSED_Unique):
             # Only if the list contains a valid variable
             if name in self.output_at_rank and self.output_at_rank[name]>=0:
                 at_rank = self.output_at_rank[name]
-                if not name in self.output_values:
-                    self.output_values[name] = None
                 if my_rank == at_rank:
                     #if isinstance(self.output_values[name], np.ndarray):
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
                     #else:
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
+                    if not name in self.output_values:
+                        raise Exception('For object of type %s, and object name %s, it appears that the output data %s has been deleted before it can be synchronized.\n\tThis occurs when both push-on-execute and delete-on-push is set to true.\n\tThis can be fixed if all the down-stream objects in a push configuration are also executed in the case-runner job.\n\tThis way synchronization occurs after the push'%(str(type(self)),self.object_name, name))
                     self.comm.bcast(self.output_values[name], at_rank)
                 else:
                     self.output_values[name] = self.comm.bcast(None, at_rank)
@@ -1149,7 +1266,12 @@ class FUSED_Object(FUSED_Unique):
         print('WARNING: This method may be depricated')
         if not isinstance(output_values, dict):
             raise ValueError('The output values must be a dictionary')
-        self.output_values=output_values
+        if isinstance(self.output_values, dict):
+            self.output_values=output_values
+        else:
+            self.output_values.clear()
+            for key, value in output_values.items():
+                self.output_values[key]=value
         self._updating_data()
 
     # This method is used by case generators to set the output values from other objects
@@ -1158,6 +1280,11 @@ class FUSED_Object(FUSED_Unique):
         print('WARNING: This method may be depricated')
         self.output_values[output_key]=output_value
         self._updating_data()
+
+    # This will clear the output values
+    def clear_output_values(self):
+        self.output_values.clear()
+        self._reset_my_state()
 
     # Retrieve the input value
     def get_input_value(self, var_name=None):
@@ -1172,6 +1299,7 @@ class FUSED_Object(FUSED_Unique):
             if not name in self.input_values:
                 raise KeyError('A requested input is not in the input vector')
             retval[name] = self.input_values[name]
+        return retval
 
     # This will set the default input value
     def set_default_input_value(self, name, value):
@@ -1232,6 +1360,7 @@ class Independent_Variable(FUSED_Object):
             if not data_in is None:
                 self.meta['val']=self.data
             self.add_output(**self.meta)
+        self.succeeded = True
 
     def is_independent_variable(self):
         return True
@@ -1253,6 +1382,9 @@ class Independent_Variable(FUSED_Object):
         self.state_version.modifying_state()
         self.data = data_in
         self.retval = {self.name:self.data}
+
+    def update_output_data(self):
+        return
 
     def get_output_value(self):
 
