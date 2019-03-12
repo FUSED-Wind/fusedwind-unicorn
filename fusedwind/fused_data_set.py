@@ -368,10 +368,15 @@ class FUSED_Data_Set(object):
                 raise Exception('Independent variable {} could not be populated from the data. If the data shouldn\'t be changed it shouldn\'t be provided to the dataset.'.format(indep.name))
 
     def pull_output(self,job_id):
+        has_updated = set()
         for output_tag, output_obj, output_name in self.output_list:
             if not self.data[output_name]['is_set'][job_id] == True:
-                self.data[output_name]['values'][job_id] = output_obj[output_tag]
-                self.data[output_name]['is_set'][job_id] = True
+                if not output_obj in has_updated:
+                    output_obj.update_output_data()
+                    has_updated.add(output_obj)
+                if output_obj.succeeded:
+                    self.data[output_name]['values'][job_id] = output_obj[output_tag]
+                    self.data[output_name]['is_set'][job_id] = True
 
 class data_set_job(object):
     def __init__(self,data_set,job_id):
