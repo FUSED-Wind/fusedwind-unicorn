@@ -19,7 +19,6 @@
 import numpy as np
 import copy
 import time
-from fusedwind.fused_util import make_unique_name
 
 try:
     from mpi4py import MPI
@@ -28,6 +27,24 @@ try:
 except:
     print('It seems that we are not able to import MPI')
     MPI = None
+
+# This is a helpful helper function that is used a lot in the code
+##################################################################
+
+# This is a function to mae the name unique
+def make_unique_name(name, name_set):
+
+    if not name in name_set:
+        name_set.add(name)
+        return name
+
+    idx = 2
+    new_name = name+'_'+str(idx)
+    while new_name in name_set:
+        idx+=1
+        new_name = name+'_'+str(idx)
+    name_set.add(new_name)
+    return new_name
 
 # The following are helper functions to create a custom interface
 #################################################################

@@ -304,18 +304,3 @@ def create_workflow_by_cases_and_case_definition(case_definition, case_definitio
     # Lets create the workflow
     return create_workflow_by_cases(**my_case_args)
 
-# This is a function to mae the name unique
-def make_unique_name(name, name_set):
-
-    if not name in name_set:
-        name_set.add(name)
-        return name
-
-    idx = 2
-    new_name = name+'_'+str(idx)
-    while new_name in name_set:
-        idx+=1
-        new_name = name+'_'+str(idx)
-    name_set.add(new_name)
-    return new_name
-
