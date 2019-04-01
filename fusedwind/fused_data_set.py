@@ -42,7 +42,7 @@ class FUSED_Data_Set(object):
     # Converting to formats useful for external packages
     ###################################################
 
-    def get_numpy_array(self,collumn_list,return_status='False'):
+    def get_numpy_array(self,column_list,return_status='False'):
 
     # For now a list of jobs can be given and executed in mpi. This feature might be removed in near future updates.
     class data_set_job(object):
@@ -50,11 +50,11 @@ class FUSED_Data_Set(object):
         def get_output(self):
         def set_output(self,output):
     """
-    def __init__(self, object_name_in = 'Unnamed_Data_Set_object'):
+    def __init__(self, job_count_in=0, object_name_in = 'Unnamed_Data_Set_object'):
         self.name = object_name_in
-        self.job_count = 0
+        self.job_count = job_count_in
         self.data = dict()
-        self.collumn_list = []
+        self.column_list = []
         self.input_indep_var_list = []
         self.output_list = []
     
@@ -132,11 +132,14 @@ class FUSED_Data_Set(object):
 #            self.name = DOE.name
 #            self.job_count = DOE.job_count
 #            self.data = DOE.data
-#            self.collumn_list = DOE.collumn_list
+#            self.column_list = DOE.column_list
 #            self.input_indep_var_list = DOE.indput_indep_var_list
 #            self.output_list = DOE.output_list
 #        except:
 #            raise Exception('load of DOE failed. Check that the pickle is saved correctly')
+
+    def get_labels(self):
+        return self.data.keys()
 
     def get_data(self, name=None, job_id=None, return_status=False):
         #Check if the data is requested for several names:
@@ -145,7 +148,7 @@ class FUSED_Data_Set(object):
             name = [name]
             single_name = True
         elif name is None:
-            name = self.collumn_list
+            name = self.column_list
             print('Returning data for all names')
         elif not type(name) is list:
             raise Exception('The data set get_data method expects string or list but got {}'.format(type(name)))
@@ -167,7 +170,7 @@ class FUSED_Data_Set(object):
             if return_status is True:
                status_out.append([self.data[n]['is_set'][id] for id in job_id])
 
-        #If only one collumn is requested the data is compiled to a single list:
+        #If only one column is requested the data is compiled to a single list:
         if single_name:
             values_out = values_out[0]
             if return_status is True:
@@ -180,7 +183,7 @@ class FUSED_Data_Set(object):
             return(values_out)
 
 
-    #set_data data and adds it to the data set. A job_id can be given if only parts of a data collumn should be altered.
+    #set_data data and adds it to the data set. A job_id can be given if only parts of a data column should be altered.
     def set_data(self, data, name, job_id=None, dtype=None):
         #Determining the numpy datatype:
         if dtype is None:
@@ -195,12 +198,12 @@ class FUSED_Data_Set(object):
             print('Data set initiated with length {}'.format(self.job_count))
 
         #Does the data already exist? This is not nescesarily a problem:
-        if name in self.collumn_list:
+        if name in self.column_list:
             print('Writing to existing data name {}.'.format(name))
         else:
             self.declare_variable(name,dtype)
 
-        #If the job_id is None the entire collumn should be set:
+        #If the job_id is None the entire column should be set:
         if job_id is None:
             job_id = range(self.job_count)
         elif not type(job_id) == list:
@@ -226,7 +229,7 @@ class FUSED_Data_Set(object):
         else:
             self.data[name]['is_set'][job_id] = status
 
-    #Checks whether the entire collumn or a single job_id has updated data.
+    #Checks whether the entire column or a single job_id has updated data.
     def has_updated_data(self,name,job_id=None,status_flag=1):
         out = True
         if name not in self.data.keys():
@@ -241,7 +244,7 @@ class FUSED_Data_Set(object):
                 out = False
         return out
     
-    #Iniate a variable collumn in the data set with name:
+    #Iniate a variable column in the data set with name:
     def declare_variable(self, name, dtype=None):
         if name in self.data.keys():
             raise Exception('Data already exists with the name {}. Remove the data before initiating empty data row'.format(name))
@@ -254,7 +257,7 @@ class FUSED_Data_Set(object):
         self.data[name]['values'] = np.empty(self.job_count,dtype=dtype)
         self.data[name]['is_set'] = np.zeros(self.job_count,dtype=bool)
 
-        self.collumn_list.append(name)
+        self.column_list.append(name)
       
     #If the DOE should be able to push and pull results directly from a workflow the communication is like in other fusedwind cases using independent variables. And object_tags combined with fused_objects.
     def connect_indep_var(self,indep_var, data_set_var_name=None):
@@ -263,14 +266,14 @@ class FUSED_Data_Set(object):
 
         self.input_indep_var_list.append((indep_var,data_set_var_name))
 
-    #Function to add a fusedwind output to the dataset. It connects the output to the corresponding data collumn
+    #Function to add a fusedwind output to the dataset. It connects the output to the corresponding data column
     def connect_output_obj(self, output_tag, output_obj, output_name):
         self.output_list.append((output_tag, output_obj, output_name))
         if output_name not in self.data.keys():
             self.declare_variable(output_name)
-            #print('Empty data collumn {} initiated'.format(output_name))
+            #print('Empty data column {} initiated'.format(output_name))
         else:
-            print('WARNING:! Data collumn of name {} already exists.'.format(output_name))
+            print('WARNING:! Data column of name {} already exists.'.format(output_name))
 
     #This method returns a list of job-objects which can be executed in mpi.
     #job_range is an array of two numbers.Start and finish job.
@@ -313,13 +316,13 @@ class FUSED_Data_Set(object):
         self.push_input(job_id)
         self.pull_output(job_id)
 
-    #Returning numpy arrays. collumn_list and job_id are lists of the data to be returned. The return_status flag returns another numpy array i.e. the "is-set" variables at the data-points.
+    #Returning numpy arrays. column_list and job_id are lists of the data to be returned. The return_status flag returns another numpy array i.e. the "is-set" variables at the data-points.
     #If data requested is different dtypes the function breaks.
-    def get_numpy_array(self,collumn_list=None,return_status=False,job_id=None):
+    def get_numpy_array(self,column_list=None,return_status=False,job_id=None):
         np_array = []
         status_array = []
-        if collumn_list is None:
-            collumn_list = self.collumn_list
+        if column_list is None:
+            column_list = self.column_list
 
         if job_id is None:
             job_id = np.array(range(self.job_count))
@@ -327,8 +330,8 @@ class FUSED_Data_Set(object):
         if not type(job_id) == list:
             job_id = [job_id]
 
-        if isinstance(collumn_list,list):
-            for name in collumn_list:
+        if isinstance(column_list,list):
+            for name in column_list:
                 if not name in self.data:
                     raise Exception('Name {} is not found in data set'.format(name))
                 current_values = [self.data[name]['values'][id] for id in job_id]
@@ -340,8 +343,8 @@ class FUSED_Data_Set(object):
                     np_array = np.concatenate((np_array,current_values),axis=0)
                     status_array = np.concatenate((status_array,current_status),axis=0)
 
-        elif isinstance(collumn_list,str):
-            name = collumn_list
+        elif isinstance(column_list,str):
+            name = column_list
             if not name in self.data:
                 raise Exception('Name {} is not found in data set'.format(name))
 
@@ -349,7 +352,7 @@ class FUSED_Data_Set(object):
             status_array = [self.data[name]['is_set'][id] for id in job_id]
 
         else:
-            raise Exception('{} is not a supportet type in get_numpy_array'.format(type(collumn_list)))
+            raise Exception('{} is not a supportet type in get_numpy_array'.format(type(column_list)))
 
         if not return_status is False:
             return np_array, status_array
