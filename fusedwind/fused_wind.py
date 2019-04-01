@@ -1166,7 +1166,10 @@ class FUSED_Object(FUSED_Unique):
         if key in self.output_at_rank and self.output_at_rank[key]>=0:
             self.sync_output(key)
         # Return the result
-        return self.output_values[key]
+        if self.succeeded:
+            return self.output_values[key]
+        else:
+            return None
 
     # This will label all variables as remotely calculated
     def set_as_remotely_calculated(self, at_rank):
@@ -1211,6 +1214,7 @@ class FUSED_Object(FUSED_Unique):
                 if my_rank == at_rank:
                     # sending
                     #print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, dictionary in whole -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value))
+                    self.comm.bcast(self.succeeded, at_rank)
                     if len(self.output_values)==0:
                         print('WARNING: transferring empty dictionary. It is possible that the data has been delete.\n\tFor object of type %s, and object name %s.\n\tThis occurs when both push-on-execute and delete-on-push is set to true.\n\tThis can be fixed if all the down-stream objects in a push configuration are also executed in the case-runner job.\n\tThis way synchronization occurs after the push'%(str(type(self)),self.object_name))
                     my_dict = self.output_values
@@ -1219,6 +1223,7 @@ class FUSED_Object(FUSED_Unique):
                     self.comm.bcast(my_dict, at_rank)
                 else:
                     # receiving
+                    self.succeeded = self.comm.bcast(None, at_rank)
                     my_dict = self.comm.bcast(None, at_rank)
                     if isinstance(self.output_values, dict):
                         self.output_values = my_dict
@@ -1261,11 +1266,15 @@ class FUSED_Object(FUSED_Unique):
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
                     #else:
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %d -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, self.output_values[name]))
-                    if not name in self.output_values:
-                        raise Exception('For object of type %s, and object name %s, it appears that the output data %s has been deleted before it can be synchronized.\n\tThis occurs when both push-on-execute and delete-on-push is set to true.\n\tThis can be fixed if all the down-stream objects in a push configuration are also executed in the case-runner job.\n\tThis way synchronization occurs after the push'%(str(type(self)),self.object_name, name))
-                    self.comm.bcast(self.output_values[name], at_rank)
+                    self.comm.bcast(self.succeeded, at_rank)
+                    if self.succeeded:
+                        if not name in self.output_values:
+                            raise Exception('For object of type %s, and object name %s, it appears that the output data %s has been deleted before it can be synchronized.\n\tThis occurs when both push-on-execute and delete-on-push is set to true.\n\tThis can be fixed if all the down-stream objects in a push configuration are also executed in the case-runner job.\n\tThis way synchronization occurs after the push'%(str(type(self)),self.object_name, name))
+                        self.comm.bcast(self.output_values[name], at_rank)
                 else:
-                    self.output_values[name] = self.comm.bcast(None, at_rank)
+                    self.succeeded = self.comm.bcast(None, at_rank)
+                    if self.succeeded:
+                        self.output_values[name] = self.comm.bcast(None, at_rank)
                     #if isinstance(self.output_values[name], np.ndarray):
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s <- RECIEVING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
                     #else:
@@ -1315,7 +1324,8 @@ class FUSED_Object(FUSED_Unique):
 
     # This will clear the output values
     def clear_output_values(self):
-        self.output_values.clear()
+        for key in self.output_values.keys():
+            self.output_values[key]=None
         self._reset_my_state()
 
     # Retrieve the input value
