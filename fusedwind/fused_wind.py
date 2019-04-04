@@ -226,15 +226,15 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
             src_name = var_name_source
             # Use Alias and Verify
             if not src_name in src_var:
-                raise Exception('That source variable name does not exist')
+                raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
             dst_name = src_name
             # Apply alias
             if src_name in r_alias:
                 dst_name = r_alias[src_name]
             if dst_name not in dst_var:
-                raise Exception('That destination variable name does not exist')
+                raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
             if dst_name in dst_src_map:
-                raise Exception('That destination variable name specified twice')
+                raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
             # Add to the map
             if src_name in src_dst_map:
                 src_dst_map[src_name].append(dst_name)
@@ -246,14 +246,14 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
             for src_name in var_name_source:
                 # Use Alias and Verify
                 if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
+                    raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
                 dst_name = src_name
                 if src_name in r_alias:
                     dst_name = r_alias[src_name]
                 if not dst_name in dst_var:
-                    raise Exception('That destination variable name does not exist')
+                    raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
                 if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
+                    raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
                 # Add to the map
                 if src_name in src_dst_map:
                     src_dst_map[src_name].append(dst_name)
@@ -269,14 +269,14 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
         if var_name_source is None:
             dst_name = var_name_dest
             if not dst_name in dst_var:
-                raise Exception('That destination variable name does not exist')
+                raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
             src_name = dst_name
             if dst_name in alias:
                 src_name = alias[dst_name]
             if not src_name in src_var:
-                raise Exception('That source variable name does not exist')
+                raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
             if dst_name in dst_src_map:
-                raise Exception('That destination variable name specified twice')
+                raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
             # Add to the map
             if src_name in src_dst_map:
                 src_dst_map[src_name].append(dst_name)
@@ -289,11 +289,11 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
             src_name = var_name_source
             # Verify things are OK
             if not dst_name in dst_var:
-                raise Exception('That destination variable name does not exist')
+                raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
             if not src_name in src_var:
-                raise Exception('That source variable %s  name does not exist in %s'%(src_name,src_var))
+                raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
             if dst_name in dst_src_map:
-                raise Exception('That destination variable name specified twice')
+                raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
             # Add to the map
             if src_name in src_dst_map:
                 src_dst_map[src_name].append(dst_name)
@@ -308,11 +308,11 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
             src_name = var_name_source[0]
             # Verify things are OK
             if not dst_name in dst_var:
-                raise Exception('That destination variable name does not exist')
+                raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
             if not src_name in src_var:
-                raise Exception('That source variable name does not exist')
+                raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
             if dst_name in dst_src_map:
-                raise Exception('That destination variable name specified twice')
+                raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
             # Add to the map
             if src_name in src_dst_map:
                 src_dst_map[src_name].append(dst_name)
@@ -331,11 +331,11 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
                 src_name = v
                 # Verify things are OK
                 if not dst_name in dst_var:
-                    raise Exception('That destination variable name does not exist')
+                    raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
                 if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
+                    raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
                 if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
+                    raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
                 # Add to the map
                 if src_name in src_dst_map:
                     src_dst_map[src_name].append(dst_name)
@@ -350,14 +350,14 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
         if var_name_source is None:
             for dst_name in var_name_dest:
                 if not dst_name in dst_var:
-                    raise Exception('That destination variable name does not exist')
+                    raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
                 src_name = dst_name
                 if dst_name in alias:
                     src_name = alias[dst_name]
                 if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
+                    raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
                 if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
+                    raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
                 # Add to the map
                 if src_name in src_dst_map:
                     src_dst_map[src_name].append(dst_name)
@@ -372,11 +372,11 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
             src_name = var_name_source
             # Verify things are OK
             if not dst_name in dst_var:
-                raise Exception('That destination variable name does not exist')
+                raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
             if not src_name in src_var:
-                raise Exception('That source variable name does not exist')
+                raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
             if dst_name in dst_src_map:
-                raise Exception('That destination variable name specified twice')
+                raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
             # Add to the map
             if src_name in src_dst_map:
                 src_dst_map[src_name].append(dst_name)
@@ -392,11 +392,11 @@ def parse_connect_args(dest_object, source_object, var_name_dest=None, var_name_
                 src_name = var_name_source[i]
                 # Verify things are OK
                 if not dst_name in dst_var:
-                    raise Exception('That destination variable name does not exist')
+                    raise Exception('That destination variable "%s" does not exist within %s'%(dst_name,dst_var))
                 if not src_name in src_var:
-                    raise Exception('That source variable name does not exist')
+                    raise Exception('That source variable "%s" does not exist in %s'%(src_name,src_var))
                 if dst_name in dst_src_map:
-                    raise Exception('That destination variable name specified twice')
+                    raise Exception('The destination variable "%s" specified twice in the arguments'%(dst_name))
                 # Add to the map
                 if src_name in src_dst_map:
                     src_dst_map[src_name].append(dst_name)
