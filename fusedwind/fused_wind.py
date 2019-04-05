@@ -1656,12 +1656,13 @@ class FUSED_System_Base(FUSED_Unique):
                 self._input_var_to_obj_pair[var_name] = [iv_result]
 
     # This is suppose to get an input interface from connections
-    def add_input_interface_from_connections(self, object_list = None, use_set_connections = True, prepend_name=None):
+    def add_input_interface_from_connections(self, object_list = None, use_set_connections = True, prepend_name=None, merge_by_input_name=False):
         # This will build an input interface from the existing connections
         # In cases where a single input goes to two variables within this group, only one input variable is declared
         # Furthermore, in this case, the default name for this variable is based on the first associated object in the internal object list
         # When 'use_set_connections' is true, then existing connections are used
         # When 'use_set_connections' is false, then each empty connection is used
+        # When merge_by_input_name, variables with the same name are merged
         # This is an automated interface generation scheme
 
         # cannot add variables if the system is already configured
@@ -1674,6 +1675,10 @@ class FUSED_System_Base(FUSED_Unique):
 
         # Get my internal object data
         system_objects_dissolved, null1, null2 = dissolve_groups(self.system_objects)
+
+        # Check some variable consistency
+        if use_set_connections and merge_by_input_name:
+            print('WARNING: Cannot merge by input name when exposing input via set connections')
 
         # search for the external connections
         if use_set_connections:
@@ -1798,7 +1803,16 @@ class FUSED_System_Base(FUSED_Unique):
                             global_input_name = prepend_name + name
                         # Add it to a candidate name
                         if name in self._input_var_to_obj_pair:
-                            self._input_var_to_obj_pair[global_input_name].append(({orig_obj:[name]}, None))
+                            if merge_by_input_name:
+                                if len(self._input_var_to_obj_pair[global_input_name])!=1:
+                                    raise Exception('Cannot merge inputs by name when there are already multiple candidates')
+                                obj_dict = self._input_var_to_obj_pair[global_input_name][0][0]
+                                if not orig_obj in obj_dict:
+                                    obj_dict[orig_obj]=[name]
+                                else:
+                                    obj_dict[orig_obj].append(name)
+                            else:
+                                self._input_var_to_obj_pair[global_input_name].append(({orig_obj:[name]}, None))
                         else:
                             self._input_var_to_obj_pair[global_input_name] = [({orig_obj:[name]}, None)]
                         # register that a variable has been found
