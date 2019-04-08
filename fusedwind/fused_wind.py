@@ -3292,4 +3292,36 @@ def split_worflow(split_points):
 
     # 16) Return the models
     return (sub_system_models, sub_system_input_map)
+
+# This is for printing the work flow structure
+def print_workflow_structure(workflow):
+
+    # print the interface
+    print('\nPrinting the interface for the work-flow\n==================================================================')
+    workflow.print_interface()
+    print('\nPrinting the object keys within the work-flow\n==================================================================')
+    obj_key_list = workflow.get_all_object_keys()
+    for key in obj_key_list:
+        print(key)
+    print('\nPrinting the object attributes within the work-flow\n==================================================================')
+    for key in obj_key_list:
+        sub_obj = workflow.get_object(key)
+        if hasattr(sub_obj, 'object_name'):
+            print('%s has type %s and name %s'%(key, str(type(sub_obj)),sub_obj.object_name))
+        else:
+            print('%s has type %s and has no name'%(key, str(type(sub_obj))))
+    print('\nPrinting the interfaces for all objects\n==================================================================')
+    for key in obj_key_list:
+        sub_obj = workflow.get_object(key)
+        if hasattr(sub_obj, 'print_interface'):
+            print('\nPrinting the interfaces for the object at key "%s", of type "%s" and named "%s"\n============================================================================================================================================================================================================================'%(key,str(type(sub_obj)),sub_obj.object_name))
+            sub_obj.print_interface()
+    print('\nPrinting the outputs for all objects\n==================================================================')
+    for key in obj_key_list:
+        sub_obj = workflow.get_object(key)
+        if hasattr(sub_obj, 'get_interface'):
+            ifc=sub_obj.get_interface()
+            out_ifc = ifc['output']
+            for name, meta in out_ifc.items():
+                print('%s -> %s'%(key,name))
  
