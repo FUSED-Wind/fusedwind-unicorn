@@ -110,7 +110,7 @@ class Split_Vector(FUSED_Object):
                 raise Exception('The output does not exist')
             range_tuple = self.output[name]
             output_values[name]=input_vector[range_tuple[0]:range_tuple[1]]
-    
+ 
     def add_output_split(self, name, param_1, param_2=None):
 
         if param_2 is None:
@@ -168,6 +168,47 @@ class FUSED_Build_Vector_From_Vectors(FUSED_Object):
 
         output_values[self.output_var_name] = outvec
 
+# This will build a vector based on a set of scalars
+class FUSED_Set_Vector_Entry(FUSED_Object):
+
+    # The constructor
+    def __init__(self, size=0, input_vector_name = 'vector', output_var_name = 'vector', object_name='unnamed_set_vector_entry_object', state_version=None):
+        super(FUSED_Set_Vector_Entry,self).__init__(object_name_in=object_name, state_version_in=state_version)
+
+        self.size = size
+        self.entries = {}
+        self.input_vector_name = input_vector_name
+        self.output_var_name = output_var_name
+
+    # Build the interface
+    def _build_interface(self):
+
+        # Add the default source
+        self.add_input(self.input_vector_name, val=np.zeros(self.size))
+        # Add the modification of the entries
+        for var in set(self.entries.values()):
+            self.add_input(var, val=0.0)
+        # Add the output
+        self.add_output(self.output_var_name, val=np.zeros(self.size))
+
+    # Construct the vector
+    def compute(self, input_values, output_values):
+
+        # first set to the default
+        output_values[self.output_var_name] = np.copy(input_values[self.input_vector_name])
+
+        # now set all the entries
+        for idx, var in self.entries.items():
+            output_values[self.output_var_name][idx]=input_values[var]
+
+    # Add entries
+    def add_entry(self, at_index, with_var):
+
+        # Processing at the index
+        if at_index in self.entries.keys():
+            raise ValueError('The index %d has already been added to the structure'%(at_index))
+        self.entries[at_index]=with_var
+
 # This will multiply two values
 class FUSED_Multiply(FUSED_Object):
 
@@ -190,6 +231,27 @@ class FUSED_Multiply(FUSED_Object):
     def compute(self, input_values, output_values):
 
         output_values[self.output_name] = input_values[self.lhs_name] * input_values[self.rhs_name]
+
+# This will blend a vector
+class FUSED_Blend(FUSED_Object):
+
+    def __init__(self, lower_name='lower', upper_name='upper', weight_name='weight', output_name='solution', shape=1, object_name='unnamed_blend_object', state_version=None):
+        super(FUSED_Blend, self).__init__(object_name_in=object_name, state_version_in=state_version)
+        self.lower_name = lower_name
+        self.upper_name = upper_name
+        self.weight_name = weight_name
+        self.output_name = output_name
+        self.shape = shape
+
+    def _build_interface(self):
+        self.add_input(self.lower_name, shape=self.shape)
+        self.add_input(self.upper_name, shape=self.shape)
+        self.add_input(self.weight_name, val=0.0)
+        self.add_output(self.output_name, shape=self.shape)
+
+    def compute(self, input_values, output_values):
+
+        output_values[self.output_name] = input_values[self.lower_name] * (1.0-input_values[self.weight_name]) + input_values[self.upper_name] * input_values[self.weight_name]
 
 # This function is for building workflows that must multiple simulations
 def create_workflow_by_cases(case_list, builder_function, build_args={}, label_function=None, grouper_function=None, grouper_arguments={}, object_list_argument='object_list', object_dict_argument='object_dict', group_case_list_argument=None, group_case_dict_argument=None, group_base_name=None, group_label_argument='group_base_name'):

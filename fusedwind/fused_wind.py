@@ -90,22 +90,22 @@ def create_variable(name, val=None, desc='', shape=None):
 
     return retval
 
-def print_interface(fifc, print_meta=False):
+def print_interface(fifc, print_meta=False, prepend=''):
 
     out_ifc = fifc['output']
     in_ifc = fifc['input']
-    print("Input:")
+    print(prepend+"Input:")
     for name, meta in in_ifc.items():
         if print_meta:
-            print('\t%s: %s'%(name, str(meta)))
+            print(prepend+'\t%s: %s'%(name, str(meta)))
         else:
-            print('\t%s'%(name))
-    print("Output:")
+            print(prepend+'\t%s'%(name))
+    print(prepend+"Output:")
     for name, meta in out_ifc.items():
         if print_meta:
-            print('\t%s: %s'%(name, str(meta)))
+            print(prepend+'\t%s: %s'%(name, str(meta)))
         else:
-            print('\t%s'%(name))
+            print(prepend+'\t%s'%(name))
 
 # This is a class that tracks where a value is located within an MPI environment
 # ##############################################################################
@@ -544,9 +544,9 @@ class FUSED_Object(FUSED_Unique):
         FUSED_Object.all_objects.append(self)
 
     # Print the interface
-    def print_interface(self, print_meta=False):
+    def print_interface(self, print_meta=False, prepend=''):
         ifc = self.get_interface()
-        print_interface(ifc, print_meta)
+        print_interface(ifc, print_meta, prepend)
 
     # Lets for the fun of it, lets print the connections
     def print_object_calculations(self, object_set=set()):
@@ -628,8 +628,6 @@ class FUSED_Object(FUSED_Unique):
                             print('The interface requires that the size '+my_name+' is specified')
                             raise Exception
                         v['shape'][i]=kwargs[my_name]
-                if 'val' in v.keys():
-                    v['val']=np.zeros(v['shape'])
 
             # Add our parameter
             self.add_input(**v)
@@ -645,8 +643,6 @@ class FUSED_Object(FUSED_Unique):
                             print('The interface requires that the size '+my_name+' is specified')
                             raise Exception
                         v['shape'][i]=kwargs[my_name]
-                if 'val' in v.keys():
-                    v['val']=np.zeros(v['shape'])
 
             # add out output
             self.add_output(**v)
@@ -766,7 +762,10 @@ class FUSED_Object(FUSED_Unique):
                 if obj in source_object_dict:
                     local_src_dst_map = source_object_dict[obj][0]
                     local_dst_src_map = source_object_dict[obj][1]
-                    local_src_dst_map[source_name]=dest_list
+                    if local_name in local_src_dst_map:
+                        local_src_dst_map[local_name].extend(dest_list)
+                    else:
+                        local_src_dst_map[local_name]=dest_list
                     for dest_name in dest_list:
                         local_dst_src_map[dest_name]=source_name
                 else:
@@ -1789,7 +1788,7 @@ class FUSED_System_Base(FUSED_Unique):
         return retval
 
     # This is suppose to use the independent variables to build an input interface
-    def add_input_interface_from_independent_variables(self, object_list = None):
+    def add_input_interface_from_independent_variables(self, object_list = None, prepend_name=None, append_name=None):
         # The objects in the object list must be objects within this object
         # When the object list is None, then all the objects in this object are considered
         # The method will search for independent variables from within the list
@@ -1821,7 +1820,7 @@ class FUSED_System_Base(FUSED_Unique):
                             # If this is a legitimate input, then lets add it as a candidate
                             if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
                                 # Then populate the iv_dict
-                                if not obj in iv_dict:
+                                if not iv_obj in iv_dict:
                                     iv_dict[iv_obj]=({}, iv_obj)
                                 if not obj in iv_dict[iv_obj][0]:
                                     iv_dict[iv_obj][0][obj] = []
@@ -1834,13 +1833,17 @@ class FUSED_System_Base(FUSED_Unique):
         # Find the default names
         for iv_obj, iv_result in iv_dict.items():
             var_name = iv_result[1].name
+            if not prepend_name is None:
+                var_name = prepend_name + var_name
+            if not append_name is None:
+                var_name = var_name + append_name
             if var_name in self._input_var_to_obj_pair:
                 self._input_var_to_obj_pair[var_name].append(iv_result)
             else:
                 self._input_var_to_obj_pair[var_name] = [iv_result]
 
     # This is suppose to get an input interface from connections
-    def add_input_interface_from_connections(self, object_list = None, use_set_connections = True, prepend_name=None, merge_by_input_name=False):
+    def add_input_interface_from_connections(self, object_list = None, use_set_connections = True, prepend_name=None, append_name=None, merge_by_input_name=False):
         # This will build an input interface from the existing connections
         # In cases where a single input goes to two variables within this group, only one input variable is declared
         # Furthermore, in this case, the default name for this variable is based on the first associated object in the internal object list
@@ -1948,7 +1951,9 @@ class FUSED_System_Base(FUSED_Unique):
                     # Add it to a candidate name
                     global_input_name = name
                     if not prepend_name is None:
-                        global_input_name = prepend_name + name
+                        global_input_name = prepend_name + global_input_name
+                    if not append_name is None:
+                        global_input_name = global_input_name + append_name
                     if global_input_name in self._input_var_to_obj_pair:
                         self._input_var_to_obj_pair[global_input_name].append(dest_dict)
                     else:
@@ -1985,6 +1990,8 @@ class FUSED_System_Base(FUSED_Unique):
                         global_input_name = name
                         if not prepend_name is None:
                             global_input_name = prepend_name + name
+                        if not append_name is None:
+                            global_input_name = global_input_name + append_name
                         # Add it to a candidate name
                         if name in self._input_var_to_obj_pair:
                             if merge_by_input_name:
@@ -2822,9 +2829,9 @@ class FUSED_Group(FUSED_System_Base):
         return self.get_system_interface()
 
     # This will print the interface of the group
-    def print_interface(self, print_meta=False):
+    def print_interface(self, print_meta=False, prepend=''):
         ifc = self.get_interface()
-        print_interface(ifc, print_meta)
+        print_interface(ifc, print_meta, prepend=prepend)
 
     # This will connect the input from an object
     def connect_input_from(self, source_object, var_name_dest=None, var_name_source=None, alias={}):
@@ -2853,7 +2860,7 @@ class FUSED_Group(FUSED_System_Base):
 
         # Now process the connections
         #########################################################
- 
+
         # 1) Parse the arguments
         src_dst_map, dst_src_map = parse_connect_args(self, source_object, var_name_dest, var_name_source, alias)
 
@@ -3329,4 +3336,36 @@ def split_worflow(split_points):
 
     # 16) Return the models
     return (sub_system_models, sub_system_input_map)
+
+# This is for printing the work flow structure
+def print_workflow_structure(workflow):
+
+    # print the interface
+    print('\nPrinting the interface for the work-flow\n==================================================================')
+    workflow.print_interface()
+    print('\nPrinting the object keys within the work-flow\n==================================================================')
+    obj_key_list = workflow.get_all_object_keys()
+    for key in obj_key_list:
+        print(key)
+    print('\nPrinting the object attributes within the work-flow\n==================================================================')
+    for key in obj_key_list:
+        sub_obj = workflow.get_object(key)
+        if hasattr(sub_obj, 'object_name'):
+            print('%s has type %s and name %s'%(key, str(type(sub_obj)),sub_obj.object_name))
+        else:
+            print('%s has type %s and has no name'%(key, str(type(sub_obj))))
+    print('\nPrinting the interfaces for all objects\n==================================================================')
+    for key in obj_key_list:
+        sub_obj = workflow.get_object(key)
+        if hasattr(sub_obj, 'print_interface'):
+            print('\nPrinting the interfaces for the object at key "%s", of type "%s" and named "%s"\n============================================================================================================================================================================================================================'%(key,str(type(sub_obj)),sub_obj.object_name))
+            sub_obj.print_interface()
+    print('\nPrinting the outputs for all objects\n==================================================================')
+    for key in obj_key_list:
+        sub_obj = workflow.get_object(key)
+        if hasattr(sub_obj, 'get_interface'):
+            ifc=sub_obj.get_interface()
+            out_ifc = ifc['output']
+            for name, meta in out_ifc.items():
+                print('%s -> %s'%(key,name))
  
