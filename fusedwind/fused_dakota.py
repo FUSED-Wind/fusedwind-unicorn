@@ -149,7 +149,10 @@ class Dakota_Results_File_Writer(object):
 
         # write the data
         for obj, local_name, dakota_name in self.output_list:
-            my_file.write(str(self.output_dict[obj][local_name])+' '+dakota_name+'\n')
+            if obj.succeeded:
+                my_file.write('%0.17e %s\n'%(self.output_dict[obj][local_name],dakota_name))
+            else:
+                my_file.write('None '+dakota_name+'\n')
 
         # Lets close the file
         my_file.close()
@@ -182,5 +185,6 @@ class Dakota_Job(object):
         self.result_file = result_file
 
     def execute(self):
+
         self.work_flow.execute(self.param_file, self.result_file)
 
