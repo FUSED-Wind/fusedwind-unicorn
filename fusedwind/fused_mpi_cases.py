@@ -27,6 +27,7 @@ class FUSED_MPI_Cases(object):
         if not MPI is None and self.comm==None:
             self.comm=MPI.COMM_WORLD
 
+        # set the data
         self.jobs = jobs
         self.i_am_executing = False
         self.prePostExec = prePostExec
@@ -71,16 +72,21 @@ class FUSED_MPI_Cases(object):
 
         self.i_am_executing = True
 
-        # Check if we are running under MPI
-        if not self.comm is None and self.comm.size>1:
-
-            self.pre_run()
-
-            # prepare the case data
+        # prepare the case data
+        if self.comm is None:
+            comm=self.comm
+            size=1
+            rank=0
+        else:
             comm=self.comm
             size=comm.size
             rank=comm.rank
-            job_list=[]
+
+        self.pre_run()
+        job_list=[]
+
+        # Check if we are running under MPI
+        if size>1:
 
             # If we have enough processors then just execute all jobs at once according to rank
             if size>=len(self.jobs):
@@ -132,13 +138,15 @@ class FUSED_MPI_Cases(object):
                     # collect the job list (to coordinate broadcasts)
                     job_list=comm.bcast(None, root=0)
 
-            self.post_run(job_list)
 
         # If not in MPI run all the jobs serially
         else:
 
             for job_id in range(0, len(self.jobs)):
                 self._pre_exec_post_job(job_id)
+            job_list=[rank]*len(self.jobs)
+
+        self.post_run(job_list)
 
         self.i_am_executing = False
 
@@ -156,13 +164,28 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
         self.sync_arg = '__downstream__'
         for job in self.jobs:
             job.set_case_runner(self)
+            job.disable_external_push()
 
     # This will make sure that the upstream calculations are completed
     def pre_run(self):
 
+        # open all the jobs for building
+        for job in self.jobs:
+            job.open_for_building_input_vector()
         # we need to pull the input so that part of the script runs in serial
         for job in self.jobs:
             job.collect_input_data()
+        # open all the jobs for building
+        for job in self.jobs:
+            job.close_for_building_input_vector()
+
+    # This will ad the jobs
+    def add_job(self, job):
+
+        # disable the external push
+        job.disable_external_push()
+        # Add the job
+        FUSED_MPI_Cases.add_job(self, job)
 
     # This will execute the job
     def execute_job(self, job_id):
@@ -171,6 +194,14 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
     # This will ensure that all the data is synchronized
     def post_run(self, job_list):
+
+        # clear the input vector in case it has not already
+        for job in self.jobs:
+            job.clear_input_vector()
+
+        # if we are not running in MPI, then just exit
+        if MPI is None:
+            return
 
         # First indicate that all the data is distributed
         for i, job in enumerate(self.jobs):
