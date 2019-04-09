@@ -192,20 +192,19 @@ class FUSED_Multiply(FUSED_Object):
         output_values[self.output_name] = input_values[self.lhs_name] * input_values[self.rhs_name]
 
 # This function is for building workflows that must multiple simulations
-def create_workflow_by_cases(case_list, builder_function, build_args={}, case_argument="case_definition", label_function=None, grouper_function=None, grouper_arguments={}, objects_argument='objects', group_case_list_argument=None, group_base_name=None, group_label_argument='group_base_name'):
+def create_workflow_by_cases(case_list, builder_function, build_args={}, label_function=None, grouper_function=None, grouper_arguments={}, object_list_argument='object_list', object_dict_argument='object_dict', group_case_list_argument=None, group_case_dict_argument=None, group_base_name=None, group_label_argument='group_base_name'):
     '''
     This function will generate a work flow that is based on multiple simulations defined by cases.
 
     Usage:
 
-        workflow_from_cases = create_workflow_by_cases(case_list = my_case_list, builder_function = my_builder_function, build_args = my_build_args, case_argument = my_case_argument, label_function = my_label_function, grouper_function = my_grouper_function, grouper_arguments = my_grouper_arguments, objects_argument = my_objects_argument, group_base_name=my_group_base_name, group_label_argument=my_group_label_argument)
+        workflow_from_cases = create_workflow_by_cases(case_list = my_case_list, builder_function = my_builder_function, build_args = my_build_args, label_function = my_label_function, grouper_function = my_grouper_function, grouper_arguments = my_grouper_arguments, objects_argument = my_objects_argument, group_base_name=my_group_base_name, group_label_argument=my_group_label_argument)
 
     Input:
 
-        case_list:             This is a list of cases
+        case_list:             This is a dictionary of lists, the keys correspond to arguments in the builder function, then the values is a list of permutations for that argument
         builder_function:      This is the function that will build an object based on the case definition
         build_args:            This is a dictionary for the arguments that must be passed to the builder_function
-        case_argument:         This is the name of the argument that defines the case definition in the builder function
         label_function:        This is a function that takes the object and the case definition that returns a label. The label identifies the object within a dictionary.
         grouper_function:      This is a function that will perform further processing on the set of objectsi and return the workflow as a single object.
                                Generally it will add any pre/post operations and then wrap it all into a group.
@@ -224,41 +223,66 @@ def create_workflow_by_cases(case_list, builder_function, build_args={}, case_ar
     '''
 
     # Create the container for the objects
-    if label_function is None:
-        objects = []
-        group_case_list = case_list
-    else:
-        objects = {}
-        group_case_list = {}
+    my_object_list = []
+    my_object_dict = {}
+    my_case_list = []
+    my_case_dict = {}
+
+    # Count the number of cases and ensure that everything is consistent in size
+    if not type(case_list) is dict:
+        raise Exception('The case_list must be a dictionary of lists')
+    case_count = None
+    for key, sub_case_list in case_list.items():
+        if not type(sub_case_list) is list:
+            raise Exception('The case_list must be a dictionary of lists')
+        if case_count is None:
+            case_count=len(sub_case_list)
+        elif case_count!=len(sub_case_list):
+            raise Exception('The lists within the case_list must be the same size')
 
     # start generating the objects based on case
-    for i, case_definition in enumerate(case_list):
-        # build the object
+    for i in range(0, case_count):
+        # construct the arguments
         my_args = copy.copy(build_args)
-        my_args[case_argument]=case_definition
+        my_case_data = {}
+        for case_argument, sub_list in case_list.items():
+            my_args[case_argument]=sub_list[i]
+            my_case_data[case_argument]=sub_list[i]
+        # build the object
         obj = builder_function(**my_args)
-        # If we cannot label, then store the object in a list
-        if label_function is None:
-            objects.append(obj)
-        # If we can label an object, then store the object in a dictionary
-        else:
-            label = label_function(obj, case_definition, i)
-            if label in objects:
+        # Store the object and case data into a list
+        my_object_list.append(obj)
+        my_case_list.append(my_case_data)
+        # If we can label, then store the object and case data into a dictionary
+        if not label_function is None:
+            label = label_function(obj, my_case_data, i)
+            if label in my_object_dict:
                 raise Exception('It appears there are duplicates in the labels')
-            objects[label] = obj
-            group_case_list[label] = case_definition
+            my_object_dict[label] = obj
+            my_case_dict[label] = my_case_data
     # If we cannot group an object, then simply return our object container
     if grouper_function is None:
-        return objects
+        return my_object_list, my_object_dict, my_case_list, my_case_dict
     # Build my group and return the results
     else:
         my_args = copy.copy(grouper_arguments)
-        my_args[objects_argument]=objects
+        if not object_list_argument is None:
+            my_args[object_list_argument]=my_object_list
+        if not object_dict_argument is None:
+            if label_function is None:
+                raise Exception('The grouper requires the objects in a dictionary, yet we cannot construct the dictionary because the label function is not given. If the grouper can function without an object dictionary, then do not provide teh object_dict_argument to this function')
+            my_args[object_dict_argument]=my_object_dict
+        if not group_case_list_argument is None:
+            my_args[group_case_list_argument]=my_case_list
+        if not group_case_dict_argument is None:
+            if label_function is None:
+                raise Exception('The grouper requires the cases in a dictionary, yet we cannot construct the dictionary because the label function is not given. If the grouper can function without a case dictionary, then do not provide teh group_case_dict_argument to this function')
+            my_args[group_case_dict_argument]=my_case_dict
         if not group_base_name is None:
             my_args[group_label_argument]=group_base_name
-        if not group_case_list_argument is None:
-            my_args[group_case_list_argument]=group_case_list
-        return grouper_function(**my_args)
+        # Construct and return the results
+        workflow = grouper_function(**my_args)
+        return workflow
 
 # This function is for building a set of work flows based on case_definition
 def create_workflow_by_cases_and_case_definition(case_definition, case_definition_to_args=None, base_create_workflow_by_cases_args={}):
