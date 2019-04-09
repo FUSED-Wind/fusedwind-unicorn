@@ -1822,7 +1822,7 @@ class FUSED_System_Base(FUSED_Unique):
                             self._input_obj_var_is_found[orig_obj].append(name)
 
     # This is suppose to assume that all inputs of all objects in the list are public input variables.
-    def add_input_interface_from_objects(self, object_list = None, merge_by_input_name=False, prepend_name=None, append_name=None):
+    def add_input_interface_from_objects(self, object_list = None, local_name_list=None, local_exclude_list=[], merge_by_input_name=False, prepend_name=None, append_name=None):
         # The object list must be a list of objects contained within this object
         # When object_list is none, Then it is assumed that all objects are used
         # This is an automated interface generation scheme
@@ -1843,33 +1843,34 @@ class FUSED_System_Base(FUSED_Unique):
         for obj in object_list:
             obj_ifc = obj.get_interface()['input']
             for name in obj_ifc.keys():
-                # Add the variable if not already
-                if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
-                    # get the global name
-                    global_name = name
-                    if not prepend_name is None:
-                        global_name = prepend_name+global_name
-                    if not append_name is None:
-                        global_name = global_name+append_name
-                    # Add it to a candidate name
-                    if name in self._input_var_to_obj_pair:
-                        if merge_by_input_name:
-                            if len(self._input_var_to_obj_pair[global_name])!=1:
-                                raise Exception('Cannot merge inputs by name when there are already multiple candidates')
-                            obj_dict = self._input_var_to_obj_pair[global_name][0][0]
-                            if not obj in obj_dict:
-                                obj_dict[obj]=[name]
+                if (local_name_list is None or name in local_name_list) and not name in local_exclude_list:
+                    # Add the variable if not already
+                    if (not obj in self.system_input_map or not name in self.system_input_map[obj]) and (not obj in self._input_obj_var_is_found or not name in self._input_obj_var_is_found[obj]):
+                        # get the global name
+                        global_name = name
+                        if not prepend_name is None:
+                            global_name = prepend_name+global_name
+                        if not append_name is None:
+                            global_name = global_name+append_name
+                        # Add it to a candidate name
+                        if name in self._input_var_to_obj_pair:
+                            if merge_by_input_name:
+                                if len(self._input_var_to_obj_pair[global_name])!=1:
+                                    raise Exception('Cannot merge inputs by name when there are already multiple candidates')
+                                obj_dict = self._input_var_to_obj_pair[global_name][0][0]
+                                if not obj in obj_dict:
+                                    obj_dict[obj]=[name]
+                                else:
+                                    obj_dict[obj].append(name)
                             else:
-                                obj_dict[obj].append(name)
+                                self._input_var_to_obj_pair[global_name].append(({obj:[name]}, None))
                         else:
-                            self._input_var_to_obj_pair[global_name].append(({obj:[name]}, None))
-                    else:
-                        self._input_var_to_obj_pair[global_name] = [({obj:[name]}, None)]
-                    # register that a variable has been found
-                    if not obj in self._input_obj_var_is_found:
-                        self._input_obj_var_is_found[obj]=[name]
-                    else:
-                        self._input_obj_var_is_found[obj].append(name)
+                            self._input_var_to_obj_pair[global_name] = [({obj:[name]}, None)]
+                        # register that a variable has been found
+                        if not obj in self._input_obj_var_is_found:
+                            self._input_obj_var_is_found[obj]=[name]
+                        else:
+                            self._input_obj_var_is_found[obj].append(name)
 
     # This is suppose to set the input variable based on and internal independent variable
     # Note, that this interface item takes precedent over all automated interface constructions
