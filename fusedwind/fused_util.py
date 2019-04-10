@@ -110,7 +110,7 @@ class Split_Vector(FUSED_Object):
                 raise Exception('The output does not exist')
             range_tuple = self.output[name]
             output_values[name]=input_vector[range_tuple[0]:range_tuple[1]]
- 
+
     def add_output_split(self, name, param_1, param_2=None):
 
         if param_2 is None:

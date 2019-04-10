@@ -1278,6 +1278,8 @@ class FUSED_Object(FUSED_Unique):
             # Only if the list contains a valid variable
             if name in self.output_at_rank and self.output_at_rank[name]>=0:
                 at_rank = self.output_at_rank[name]
+                if not name in self.output_values:
+                    self.output_values[name] = None
                 if my_rank == at_rank:
                     #if isinstance(self.output_values[name], np.ndarray):
                     #    print('MIMC MPI broadcast %d at rank: %d, obj name: %s, obj number: %d, var name: %s, value: %s -> SENDING'%(bcast_cnt, my_rank, self.object_name, self._hash_value, name, str(self.output_values[name])))
