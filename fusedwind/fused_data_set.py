@@ -1,3 +1,14 @@
+try:
+    from mpi4py import MPI
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    mpi_size = comm.Get_size()
+except:
+    MPI = None
+    rank = 0
+    mpi_size = 1
+    comm = None
+
 import numpy as np
 import os
 from fusedwind.fused_wind import FUSED_Object
@@ -87,19 +98,50 @@ class FUSED_Data_Set(object):
     #load_hdf5
     def load_hdf5(self, hdf5_file):
         import h5py
-        if not os.path.isfile(hdf5_file):
-            raise Exception('The file does not exist')
+        #if not os.path.isfile(hdf5_file):
+        #    raise Exception('The file does not exist')
 
-        f = h5py.File(hdf5_file)
-        stringSet = f['stringSet']
+        #f = h5py.File(hdf5_file)
+        #stringSet = f['stringSet']
 
-        self.name = stringSet.attrs['name']
-        self.job_count = int(np.array(f['job_count']))
-        for key in f['data'].keys():
-            #converting from hdf5 format:
-            self.data[key] = {}
-            self.data[key]['values'] = np.array(f['data/'+key+'/values'])
-            self.data[key]['is_set'] = np.array(f['data/'+key+'/status'])
+        #self.name = stringSet.attrs['name']
+        #self.job_count = int(np.array(f['job_count']))
+        #for key in f['data'].keys():
+        #    #converting from hdf5 format:
+        #    self.data[key] = {}
+        #    self.data[key]['values'] = np.array(f['data/'+key+'/values'])
+        #    self.data[key]['is_set'] = np.array(f['data/'+key+'/status'])
+
+        if rank==0:
+            if not os.path.isfile(hdf5_file):
+                raise Exception('The file does not exist')
+
+            f = h5py.File(hdf5_file)
+            stringSet = f['stringSet']
+
+            self.name = stringSet.attrs['name']
+            self.job_count = int(np.array(f['job_count']))
+            for key in f['data'].keys():
+                #converting from hdf5 format:
+                self.data[key] = {}
+                self.data[key]['values'] = np.array(f['data/'+key+'/values'])
+                self.data[key]['is_set'] = np.array(f['data/'+key+'/status'])
+            key_list = list(f['data'].keys())
+        else:
+            key_list = None
+            self.name = None
+            self.job_count = None
+        if not comm is None:
+            self.name = comm.bcast(self.name, root=0)
+            self.job_count = comm.bcast(self.job_count, root=0)
+            key_list = comm.bcast(key_list, root=0)
+            for key in key_list:
+                if rank!=0:
+                    self.data[key] = {}
+                    self.data[key]['values'] = None
+                    self.data[key]['is_set'] = None
+                self.data[key]['values'] = comm.bcast(self.data[key]['values'], root=0)
+                self.data[key]['is_set'] = comm.bcast(self.data[key]['is_set'], root=0)
 
 #    def save_pickle(self,pickle_name=None):
 #        import pickle
@@ -260,7 +302,7 @@ class FUSED_Data_Set(object):
         self.column_list.append(name)
       
     #If the DOE should be able to push and pull results directly from a workflow the communication is like in other fusedwind cases using independent variables. And object_tags combined with fused_objects.
-    def connect_indep_var(self,indep_var, data_set_var_name=None):
+    def connect_indep_var(self, indep_var, data_set_var_name=None):
         if data_set_var_name is None:
             data_set_var_name = indep_var.name
 
