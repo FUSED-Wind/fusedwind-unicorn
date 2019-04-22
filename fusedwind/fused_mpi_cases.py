@@ -65,7 +65,10 @@ class FUSED_MPI_Cases(object):
         if not self.prePostExec is None:
             self.prePostExec.post_exec(self,job_id)
 
-    def execute(self):
+    def execute(self, job_id_list=None):
+
+        if job_id_list is None:
+            job_id_list=range(0, len(self.jobs))
 
         if self.i_am_executing:
             return
@@ -83,17 +86,17 @@ class FUSED_MPI_Cases(object):
             rank=comm.rank
 
         self.pre_run()
-        job_list=[]
+        job_list=[None]*len(self.jobs)
 
         # Check if we are running under MPI
         if size>1:
 
             # If we have enough processors then just execute all jobs at once according to rank
-            if size>=len(self.jobs):
-                for i in range(len(self.jobs)):
-                    job_list.append(i)
-                if rank<len(self.jobs):
-                    self._pre_exec_post_job(rank)
+            if size>=len(job_id_list):
+                for rank, job_id in enumerate(job_id_list):
+                    job_list[job_id].append(rank)
+                if rank<len(job_id_list):
+                    self._pre_exec_post_job(job_id_list[rank])
 
             # We do not have enough processors so execute with a round robin
             else:
@@ -109,9 +112,9 @@ class FUSED_MPI_Cases(object):
                         source = status.Get_source()
                         tag = status.Get_tag()
                         if tag == tags.READY:
-                            if task_index < len(self.jobs):
-                                job_list.append(source)
-                                comm.send(task_index, dest=source, tag=tags.START)
+                            if task_index < len(job_id_list):
+                                job_list[job_id_list[task_index]]=source
+                                comm.send(job_id_list[task_index], dest=source, tag=tags.START)
                                 task_index += 1
                             else:
                                 comm.send(None, dest=source, tag=tags.EXIT)
@@ -142,9 +145,9 @@ class FUSED_MPI_Cases(object):
         # If not in MPI run all the jobs serially
         else:
 
-            for job_id in range(0, len(self.jobs)):
+            for job_id in job_id_list:
                 self._pre_exec_post_job(job_id)
-            job_list=[rank]*len(self.jobs)
+                job_list[job_id]=rank
 
         self.post_run(job_list)
 
@@ -205,6 +208,7 @@ class FUSED_MPI_ObjectCases(FUSED_MPI_Cases):
 
         # First indicate that all the data is distributed
         for i, job in enumerate(self.jobs):
-            job.set_as_remotely_calculated(job_list[i])
-            job.sync_output(self.sync_arg)
+            if not job_list[i] is None:
+                job.set_as_remotely_calculated(job_list[i])
+                job.sync_output(self.sync_arg)
 
