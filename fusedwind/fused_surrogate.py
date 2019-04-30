@@ -19,13 +19,15 @@ import numpy as np
 
 
 class FUSED_Surrogate(FUSED_Object):
-    def __init__(self, object_name_in='unnamed_surrogate_object',state_version_in=None,model_in=None):
+    def __init__(self, object_name_in='unnamed_surrogate_object',state_version_in=None,model_in=None,input_names=[],output_name=None):
         super(FUSED_Surrogate, self).__init__(object_name_in, state_version_in)
 
         self.model = None
-        self.model_input_names = None
-        self.model_output_names = ['prediction']
-        self.output_name = None
+        self.model_input_names = []
+        self.model_output_names = []
+
+        self.input_names = input_names
+        self.output_name = output_name
 
         if not model_in is None:
             self.set_model(model_in)
@@ -34,10 +36,19 @@ class FUSED_Surrogate(FUSED_Object):
         if self.model is None:
             print('No model connected yet. The interface is still empty')
         else:
-            for var in self.model_output_names:
-                self.add_output(var)
+            #Adding the outputs that exist in the model to the interface:
+            for var in self.output_names:
+                if not var in self.model_output_names:
+                    print('output name %s not found in model'%var,flush=True)
+                else:
+                    self.add_output(var)
+
+            #Testing that all the inputs for the model is supplied:
             for var in self.model_input_names:
-                self.add_input(var)
+                if not var in self.input_names:
+                    raise Exception('Input name %s not supplied by the fused object. Make sure that all inputs are given to the model'%var)
+                else:        
+                    self.add_input(var)
     
     #Class to set the model. The model_obj is described above.
     def set_model(self,model_obj):
@@ -49,6 +60,13 @@ class FUSED_Surrogate(FUSED_Object):
             self.model_output_names = self.model.output_names
         else:
             print('The model has no outputname. The output name of the fused-object is by default \'prediction\'')
+        if self.input_names == []:
+            self.input_names = self.model.input_names
+
+        if self.output_name == None:
+            self.output_name = self.model.output_name
+        
+        self.output_names = ['%s_prediction'%self.output_name,'%s_sigma'%self.output_name]
 
     #Fused wind way of getting output:
     def compute(self,inputs,outputs):
@@ -58,166 +76,277 @@ class FUSED_Surrogate(FUSED_Object):
         np_array = np.empty((1,len(inputs)))
         for n, var in enumerate(self.model_input_names):
             if not var in inputs:
-                raise Exception('The name {} was not found in the input variables. Syncronize the connected independent variables and the model.input_names to ensure that the model is connect correctly')
+                raise Exception('The name %s was not found in the input variables. Syncronize the connected independent variables and the model.input_names to ensure that the model is connect correctly'%var)
             np_array[0,n] = inputs[var]
         prediction = self.model.get_prediction(np_array)
         for n, var in enumerate(self.model_output_names):
             outputs[var] = prediction[n]
 
 ## ----------- The rest of the classes are CMOS customized surrogates. They can be used as default, but are a bit complicated to modify and NOT seen as an integrated part of fused wind.
+#Single fidelity surrogate object:
+class Single_Fidelity_Surrogate(object):
 
-class Multi_Fidelity_Surrogate(object):
-    
-    def __init__(self, cheap=None, exp=None, intersections=None):
-        if not cheap[1]  == exp[1] and cheap[2] == exp[2]:
-            raise Exception('The input and output keys should be the same and in the same order.. Other cases are not implemented yet!!')
+    def __init__(self, input=None, output=None, dataset=None, input_names=None, output_name=None, include_kriging=True,include_LARS=True):
+        self.input = input
+        self.output = output
+
+        self.include_kriging = include_kriging
+        self.include_LARS = include_LARS
+
+        self.input_names = []
+        self.input_names.extend(input_names)
+        self.output_name = output_name
+        if output_name == None:
+            self.output_names = ['prediction','sigma']
         else:
-            self.input_names = cheap[1]
-            self.output_name = cheap[2]
-
-        self.output_names = ['prediction','sigma']
-
-        self.data_set_object_cheap = cheap[0]
-        self.data_set_object_exp = exp[0]
-
-        built = 'False'
-
-    def build_model(self):
-        self.cheap_input = self.data_set_object_cheap.get_numpy_array(self.input_names)
-        self.cheap_output = self.data_set_object_cheap.get_numpy_array(self.output_name)
-
-        self.exp_input = self.data_set_object_exp.get_numpy_array(self.input_names)
-        self.exp_output = self.data_set_object_cheap.get_numpy_array(self.output_name)
-
-        ###########
-        self.exp_correction = self.exp_output
-        ###########
-
-        self.cheap_linear_model = Linear_Model(self.cheap_input,self.cheap_output)
-        self.cheap_linear_model.build()
+            self.output_names = ['%s_prediction'%output_name,'%s_sigma'%output_name]
         
-        linear_prediction_cheap = self.cheap_linear_model.get_prediction(self.cheap_input)
-        linear_remainder = self.cheap_output-linear_prediction_cheap
-
-        self.cheap_GP_model = Kriging_Model(self.cheap_input,linear_remainder)
-        self.cheap_GP_model.build()
-
-        self.exp_correction_linear_model = Linear_Model(self.exp_input,self.exp_correction)
-        self.exp_correction_linear_model.build()
-
-        linear_prediction_correction = self.exp_correction_linear_model.get_prediction(self.exp_input)
-        linear_remainder_correction = self.exp_correction-linear_prediction_correction
-
-        self.exp_correction_GP_model = Kriging_Model(self.exp_input,linear_remainder_correction)
-        self.exp_correction_GP_model.build()
-
-        built = 'True'
- 
-    #Fast way of getting a prediction on a np-array data set: 
-    def get_prediction_matrix(self,input):
-        prediction = self.cheap_linear_model.get_prediction(input)+self.cheap_GP_model.get_prediction(input)+self.exp_correction_linear_model.get_prediction(input)+self.exp_correction_GP_model.get_prediction(input)
-        return prediction
-
-    #Single prediction for the fused wind coupling:
-    def get_prediction(self,input):
-        prediction = self.cheap_linear_model.get_prediction(input)+self.cheap_GP_model.get_prediction(input)+self.exp_correction_linear_model.get_prediction(input)+self.exp_correction_GP_model.get_prediction(input)
-        sigma = self.cheap_GP_model.get_sigma(input)**2+self.exp_correction_GP_model.get_sigma(input)**2
-        sigma = sigma**0.5
-        return [prediction,sigma]
- 
-class Linear_Model(linear_model.LinearRegression):
- 
-    def __init__(self,input=None,output=None,linear_order=3):
-        super(Linear_Model, self).__init__()
-        self.input = input
-        self.output = output
-        self.linear_order = linear_order
-        self.is_build = 'False'
-
-    def set_input(self,input=None):
-        self.input = input
-
-    def set_output(self,output=None):
-        self.output = output
-
-    def build(self):
-        if self.input is None or self.output is None:
-            print('#ERR# Input or output is not defined')
+        if self.include_LARS:
+            self.linear_model = LARS_model(input,output)
+            if self.include_kriging:
+                linear_remainder = self.output-self.linear_model.get_prediction(input)
+                self.GP_model = Kriging_Model(input,linear_remainder)
+        elif self.include_kriging:
+            self.GP_model = Kriging_Model(input,output)
         else:
-            self.covariates = self.create_covariates(self.input,self.linear_order)
-            self.fit(self.covariates,self.output)
-            self.is_build = 'True'
+            raise Exception('either LARS or Kriging should be included in the model')
+        
+    def get_prediction(self,input,return_std=True):
+        #There is no speed deficit by taking the standard deviation of the prediction as well:
+        prediction = 0
+        gp_sigma = 0
+
+        if self.include_LARS:
+            prediction = self.linear_model.get_prediction(input)
+
+        if self.include_kriging:
+            gp_prediction, gp_sigma = self.GP_model.get_prediction(input,return_std=True)
+            prediction = prediction+gp_prediction
+        
+        if return_std:
+            return prediction,gp_sigma
+        else:
+            return prediction
+
+    def do_LOO(self, extra_array_input=None, extra_array_output=None):
+        error_array = do_LOO(self, extra_array_input, extra_array_output)
+        return error_array
+
+    #Print a variogram of the data:
+    def print_variogram(self,file_location=False,n_lags=30):
+        try:
+            from skgstat import Variogram
+        except:
+            print('!ERROR! not able to import skgstat.Variogram for variogram printing')
+        
+        if self.include_kriging:
+            coordinates = self.GP_model.X
+        elif self.include_LARS:
+            coordinates = self.linear_model.X
+        else:
+            coordinates = self.input
+
+        V = Variogram(coordinates=coordinates,values=np.transpose(self.output)[0],n_lags=n_lags)
+        plt = V.plot()
+        plt.suptitle('%s variogram'%self.output_name)
+        if not file_location is False:
+            plt.savefig(file_location)
+
+import sklearn.linear_model as skl_lin
+import sklearn.preprocessing as skl_pre
+import sklearn.gaussian_process as skl_gp
+import pylab as py 
+
+class LARS_model(object):
+
+    def __init__(self,input,output):
+
+        #Adjustment parameters:
+        self.p = 4
+        self.q = 0.6
+
+        self.train_input = input
+        self.train_output = np.transpose(output)[0]
+
+        self.n_vars = len(self.train_input[0,:])
+
+        self.std_obj = skl_pre.StandardScaler()
+        self.X = self.std_obj.fit_transform(self.train_input)
+        
+        self.X_feat, self.poly_names, self.poly_names_all = self._get_features(self.X,ret_names=True)
+        self.std_poly_obj = skl_pre.StandardScaler().fit(self.X_feat)
+        self.X_feat = self._get_scale_feat(self.X)
+
+        #Fitting the polynomial surrogate:
+        folds = 5 # Cross validation folds
+        self.reg_poly = skl_lin.LassoLarsCV(cv=folds,normalize=False).fit(self.X_feat,self.train_output)
 
     def get_prediction(self,input):
-        if input is self.input:
-            return self.predict(self.covariates)
+        std_input = self.std_obj.transform(input)
+        std_input_feat = self._get_scale_feat(std_input)
+        predict = self.reg_poly.predict(std_input_feat)
+        return np.transpose([predict])
+
+    def _get_features(self,X,ret_names=False):
+        poly_feat_obj = skl_pre.PolynomialFeatures(degree=self.p,include_bias=False)
+        X_feat_all = poly_feat_obj.fit_transform(X)
+
+        poly_names_all = poly_feat_obj.get_feature_names()
+        X_feat = []
+        poly_names = []
+        for feat, name in zip(X_feat_all.T,poly_names_all): #Looping over features
+            if py.norm(self._name2polydeg(name),self.q) <= self.p:
+                X_feat.append(feat)
+                poly_names.append(name)
+        X_feat = py.array(X_feat).T
+        if ret_names:
+            return X_feat, poly_names, poly_names_all
         else:
-            covariates = self.create_covariates(input,self.linear_order)
-            return self.predict(covariates)
+            return X_feat
 
-    def create_covariates(self,input_matrix,order):
-        # -------------- Linear model covariate building ------------------
-        # Number of variables:
-        n_var = np.size(input_matrix[0,:])
-        orderGroups = {}
-        orderGroups[1] = np.array(range(1,n_var+1))
-        orderGroups[1] = orderGroups[1][np.newaxis,:]
-        # insert constant and first order term:
-        covariates = np.concatenate([np.vstack(np.ones(len(input_matrix[:,0]))),input_matrix],axis=1)
-        # Going up through the orders of the covariates:
-        for order_loop in range(2,order+1):
-            # Going through all the existing covariates to add one factor:
-            for covariate_loop in  range(0,np.size(orderGroups[order_loop-1][0,:])):
-                # Inserting a variable at the end of the existing covariates. This creates dublicates, which are removed on a later stage:
-                for variable_loop in range(0,n_var):
-                    testGroup = np.vstack(np.sort(np.concatenate([orderGroups[order_loop-1][:,covariate_loop],[variable_loop+1]])))
-                    #Adding the first number to the testgroup:
-                    if not order_loop in orderGroups:
-                        orderGroups[order_loop] = testGroup
-                        covariate = covariates[:,testGroup[0]]
-                        for k in testGroup[1:]:
-                            covariate = covariate*covariates[:,k]
-                        covariate = np.concatenate([covariates,covariate],axis=1)
-                    else:
-                        #Running through the existing covariates of same order to see if it is a duplicate:
-                        for kernels in range(0,np.size(orderGroups[order_loop][0,:])):
-                            if np.array_equal(testGroup, np.vstack(orderGroups[order_loop][:,kernels])):
-                                break
-                            #If we are at the end of the line:
-                            if kernels is np.size(orderGroups[order_loop][0,:])-1:
-                                orderGroups[order_loop] = np.concatenate([orderGroups[order_loop],testGroup],axis=1)
-                                covariate = covariates[:,testGroup[0]]
-                                for k in testGroup[1:]:
-                                    covariate = covariate*covariates[:,k]
-                                covariates = np.concatenate([covariates,covariate],axis=1)
-        return covariates
+    def _get_scale_feat(self,X):
+        X_feat = self._get_features(X)
+        return self.std_poly_obj.transform(X_feat)
 
-class Kriging_Model(GaussianProcessRegressor):
+    def _name2polydeg(self,names):
+        degs =[0]*self.n_vars #initial deg list
+        for name in names.split(" "):
+            name = name.replace("x","")
+            name = name.split("^")
+            [ind,deg] = name if len(name) > 1 else [name[0],"1"]
+            degs[int(ind)] = int(deg)
+        return degs
+
+class Kriging_Model(object):
+
+    def __init__(self,input,output):
+        self.train_input = input
+        self.train_output = np.transpose(output)[0]
+        
+        #Number of variables:
+        self.n_vars = len(self.train_input[0,:])
+        
+        #The std_obj is scaling the input matrix to match the sklearn standard. Print variogram for graphical interpretation.
+        self.std_obj = skl_pre.StandardScaler()
+        self.X = self.std_obj.fit_transform(self.train_input)
+        
+        #Creating kernel !!This is a tunable point!!
+        RBF_kernel = skl_gp.kernels.RBF(length_scale=[1]*self.n_vars,length_scale_bounds=[(1e-4,10)]*self.n_vars)
+        self.GP = skl_gp.GaussianProcessRegressor(kernel=RBF_kernel,alpha=4e-4,n_restarts_optimizer=5,normalize_y=True).fit(self.X,self.train_output)
+
+    def get_prediction(self, input, return_std=True):
+        input = self.std_obj.transform(input)
+        if return_std:
+            prediction, sigma = self.GP.predict(input, return_std)
+            sigma = np.transpose([sigma])
+        else:
+            prediction = self.GP.predict(input, return_std)
+            sigma = []
+        prediction = np.transpose([prediction])
+
+        return prediction, sigma 
+
+def do_LOO(self, extra_array_input=None, extra_array_output=None):
+    '''
+    This function creates a Leave One Out error calculation on the input/output data of the model.
+    The function takes an extra data array of test-cases.
+    '''
+    full_input = self.input
+    full_output = self.output
+    error_array = []
+
+    #Doing leave one out test:
+    for ind in range(len(self.input[:,0])):
+        test_input = np.array([full_input[ind]])
+        test_output = full_output[ind]
+
+        self.input = np.delete(full_input,ind,0)
+        self.output = np.delete(full_output,ind)
+
+        self.build_model()
+        predicted_output = self.get_prediction(test_input)[0]
+
+        error_array.append(np.abs(predicted_output-test_output))
+
+    self.input = full_input
+    self.output = full_output
+    self.build_model()
+
+    #Testing error on extra points:
+    if not extra_array_input is None:
+        for ind, test_input in enumerate(extra_array_input):
+            TI = np.array([test_input])
+            TO = extra_array_output[ind]
+            predicted_output = self.get_prediction(TI)[0]
+            error_array.append(np.abs(predicted_output-TO))
+
+    return np.mean(error_array)
+
+def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_collumn_names,linear_model=None,GP_model=None, include_kriging=True, include_LARS=True):
+
+    from fusedwind.fused_wind import FUSED_Group
+    from copy import copy
+
+    #Get input data:
+    input_array = np.transpose(data_set.get_numpy_array(input_collumn_names))
+    surrogate_list = []
+
+    #We need a surrogate for each output_collumn:
+    for output in output_collumn_names:
+        current_lin_model = copy(linear_model)
+        current_GP_model = copy(GP_model)
+
+        output_array = np.transpose(data_set.get_numpy_array(output))
+        surrogate_model = Single_Fidelity_Surrogate(input_array,output_array,input_names=input_collumn_names,output_name = output, include_kriging=include_kriging,include_LARS=include_LARS)
+        fused_object = FUSED_Surrogate(model_in=surrogate_model)
+        surrogate_list.append(fused_object)
     
-    def __init__(self,input=None,output=None):
-        super(Kriging_Model, self).__init__(input,output)
-        self.input = input
-        self.output = output
+    group = FUSED_Group(surrogate_list)
+    group.add_input_interface_from_objects(surrogate_list,merge_by_input_name=True)
+    group.add_output_interface_from_objects(surrogate_list)
+    return group
 
-        self.kernel = C(1.0, (1e-2,1e2))*RBF(10,(1e-3,1e3))
-        self.n_restarts_optimizer = 9
-        self.optimizer = 'fmin_l_bfgs_b'
-        self.alpha = 1e-6
-        self.normalize_y = True
-        self.copy_X_train = False
-        self.random_state = None
-        self.is_build = 'False'
+#A method to get much faster sampling from a group of surrogates than to push and pull:
+def get_matrix_prediction_from_group(surrogate_group, input, return_std=True):
+    #Get object list:
+    object_list = []
+    group_output_list = []
+    method_output_list = []
+    output = []
 
-    def build(self):
-        if self.input is None or self.output is None:
-            print('#ERR# Input for Kriging model not defined')
-        else:
-            self.fit(self.input,self.output)
-        self.is_build = 'True'
+    for key in surrogate_group.get_all_object_keys():
+        object_list.append(surrogate_group.get_object(key))
+    for key in surrogate_group.get_interface()['output'].keys():
+        group_output_list.append(key)
 
-    def get_prediction(self,input):
-        return self.predict(input)
+    for object in object_list:
+        output_name = object.output_name
+        object_used = False
+        avail_std = False
 
-    def get_sigma(self,input):
-        prediction, sigma = self.predict(input,return_std=True)
-        return sigma
+        #Checking for the common output naming types:
+        if output_name in group_output_list:
+            method_output_list.append(output_name)
+            object_used = True
+        elif output_name+'_prediction':
+            method_output_list.append(output_name+'_prediction')
+            object_used = True
+
+        if output_name+'_sigma' in group_output_list:
+            if return_std:
+                method_output_list.append(output_name+'_sigma')
+            avail_std = True
+        
+        if object_used:
+            prediction = object.model.get_prediction(input,return_std=avail_std)
+            if avail_std:
+                if return_std:
+                    prediction = np.concatenate([[prediction[0][:,0]],[prediction[1][:,0]]],axis=0)
+                else:
+                    prediction = np.array([prediction[0][:,0]])
+            else:
+                raise print('WARNING matrix prediction of group is not tested without standard deviation yet.')
+            output.append(prediction)
+    output = np.concatenate(output,axis=0)
+
+    return output,method_output_list
