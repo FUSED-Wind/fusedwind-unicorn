@@ -251,7 +251,20 @@ def build_path(path):
 # This is a class that will copy the fused-wind results from a data base so that they can be re-used
 class PrePostExec_SaveReloadSimulation(object):
 
-    def __init__(self, save_file_list, save_directory_list, model_extractor=None, fail_file='failed', database_folder='./database/', database_fail_folder=None, rerun_failed_jobs=False, doe_design_id_extractor=None, doe_design_directory_name = 'doe_design_', clear_sim_dir=False, link_files_on_reload=True, log_file_name=None):
+    def __init__(self,
+                save_file_list,
+                save_directory_list,
+                model_extractor=None,
+                fail_file='failed',
+                database_folder='./database/',
+                database_fail_folder=None,
+                rerun_failed_jobs=False,
+                doe_design_id_extractor=None,
+                doe_design_directory_name = 'doe_design_',
+                clear_sim_dir=False,
+                link_files_on_reload=True,
+                log_file_name=None
+            ):
         super(PrePostExec_SaveReloadSimulation, self).__init__()
 
         # This is the list of files that needs to be saved
