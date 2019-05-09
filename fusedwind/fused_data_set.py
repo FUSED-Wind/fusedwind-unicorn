@@ -141,9 +141,10 @@ class FUSED_Data_Set(object):
                     self.data[key] = {}
                     self.data[key]['values'] = None
                     self.data[key]['is_set'] = None
+                    self.column_list.append(key)
+
                 self.data[key]['values'] = comm.bcast(self.data[key]['values'], root=0)
                 self.data[key]['is_set'] = comm.bcast(self.data[key]['is_set'], root=0)
-                self.column_list.append(key)
 
 #    def save_pickle(self,pickle_name=None):
 #        import pickle
@@ -228,7 +229,7 @@ class FUSED_Data_Set(object):
 
 
     #set_data data and adds it to the data set. A job_id can be given if only parts of a data column should be altered.
-    def set_data(self, data, name, job_id=None, dtype=None):
+    def set_data(self, data, name, job_id=None, dtype=None,verbose=True):
         #Determining the numpy datatype:
         if dtype is None:
             try:
@@ -239,7 +240,8 @@ class FUSED_Data_Set(object):
         #If the data_set_object is empty it is initiated:
         if len(self.data.keys()) is 0:
             self.job_count = len(data)
-            print('Data set initiated with length {}'.format(self.job_count))
+            if verbose:
+                print('Data set initiated with length {}'.format(self.job_count))
 
         #Does the data already exist? This is not nescesarily a problem:
         if name in self.column_list:
