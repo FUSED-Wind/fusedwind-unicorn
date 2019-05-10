@@ -231,8 +231,8 @@ class Kriging_Model(object):
         self.X = self.std_obj.fit_transform(self.train_input)
         
         #Creating kernel !!This is a tunable point!!
-        RBF_kernel = skl_gp.kernels.RBF(length_scale=[1]*self.n_vars,length_scale_bounds=[(1e-4,10)]*self.n_vars)
-        self.GP = skl_gp.GaussianProcessRegressor(kernel=RBF_kernel,alpha=4e-4,n_restarts_optimizer=5,normalize_y=True).fit(self.X,self.train_output)
+        RBF_kernel = skl_gp.kernels.ConstantKernel(1,(1e-6,1e20))*skl_gp.kernels.RBF(length_scale=[1]*self.n_vars,length_scale_bounds=[(1e-20,10)]*self.n_vars)
+        self.GP = skl_gp.GaussianProcessRegressor(kernel=RBF_kernel,alpha=4e-4,n_restarts_optimizer=9,normalize_y=True).fit(self.X,self.train_output)
 
     def get_prediction(self, input, return_std=True):
         input = self.std_obj.transform(input)
@@ -282,7 +282,7 @@ def do_LOO(self, extra_array_input=None, extra_array_output=None):
 
     return np.mean(error_array)
 
-def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_collumn_names,linear_model=None,GP_model=None, include_kriging=True, include_LARS=True):
+def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_collumn_names,linear_model=None,GP_model=None, include_kriging=True, include_LARS=True, model_list=[]):
 
     from fusedwind.fused_wind import FUSED_Group
     from copy import copy
@@ -292,12 +292,15 @@ def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_co
     surrogate_list = []
 
     #We need a surrogate for each output_collumn:
-    for output in output_collumn_names:
+    for index,output in enumerate(output_collumn_names):
         current_lin_model = copy(linear_model)
         current_GP_model = copy(GP_model)
 
         output_array = np.transpose(data_set.get_numpy_array(output))
-        surrogate_model = Single_Fidelity_Surrogate(input_array,output_array,input_names=input_collumn_names,output_name = output, include_kriging=include_kriging,include_LARS=include_LARS)
+        if not model_list==[]:
+            surrogate_model = model_list[index]
+        else:
+            surrogate_model = Single_Fidelity_Surrogate(input_array,output_array,input_names=input_collumn_names,output_name = output, include_kriging=include_kriging,include_LARS=include_LARS)
         fused_object = FUSED_Surrogate(model_in=surrogate_model)
         surrogate_list.append(fused_object)
     
@@ -350,3 +353,39 @@ def get_matrix_prediction_from_group(surrogate_group, input, return_std=True):
     output = np.concatenate(output,axis=0)
 
     return output,method_output_list
+
+#Method to do a LOO analysis on a data set. It uses the standard building method to build surrogates.
+def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_ids=[]):
+    from fusedwind.fused_data_set import FUSED_Data_Set
+
+    #Extracting data arrays:
+    input = data_set.get_numpy_array(input_columns)
+    output = data_set.get_numpy_array(output_columns)
+    #List for errors:
+    LOO_error_list = []
+    
+    print('Conducting LOO analysis')
+    
+    #Looping through a range of indexes to leave out:
+    for index in range(0,data_set.job_count,step_size):
+        print('LOO %i of %i'%(index,data_set.job_count))
+        current_data_set = FUSED_Data_Set()
+        
+        #The current data:
+        current_benchmark_input = input[:,index]
+        current_benchmark_output = output[:,index]
+        current_input = np.delete(input,index,1)
+        current_output = np.delete(output,index,1)
+        
+        #Creating the data set to build a surrogate group from:
+        for data,name in zip(np.ndarray.tolist(current_input)+np.ndarray.tolist(current_output),input_columns+output_columns):
+            current_data_set.set_data(np.array(data),name,verbose=False)
+        
+        #Creating the surrogate:
+        surrogate_group = Create_Group_Of_Surrogates_On_Dataset(current_data_set,input_columns,output_columns)
+        prediction = get_matrix_prediction_from_group(surrogate_group,[current_benchmark_input],return_std=False)[0]
+        
+        #Calculating the error at the current point:
+        error = np.abs(np.subtract(current_benchmark_output,np.transpose(prediction)[0]))
+        LOO_error_list.append(error)
+    return LOO_error_list
