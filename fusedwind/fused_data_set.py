@@ -369,7 +369,7 @@ class FUSED_Data_Set(object):
             column_list = self.column_list
 
         if job_id is None:
-            job_id = np.array(range(self.job_count))
+            job_id = list(range(self.job_count))
 
         if not type(job_id) == list:
             job_id = [job_id]
