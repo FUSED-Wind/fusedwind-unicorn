@@ -1,5 +1,6 @@
 
 import os
+import time
 
 try:
     from mpi4py import MPI
@@ -96,7 +97,7 @@ class FUSED_MPI_Cases(object):
             # If we have enough processors then just execute all jobs at once according to rank
             if size>=len(job_id_list):
                 for rank, job_id in enumerate(job_id_list):
-                    job_list[job_id].append(rank)
+                    job_list[job_id]=rank
                 if rank<len(job_id_list):
                     self._pre_exec_post_job(job_id_list[rank])
 

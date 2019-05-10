@@ -315,7 +315,7 @@ class FUSED_Data_Set(object):
             self.declare_variable(output_name)
             #print('Empty data column {} initiated'.format(output_name))
         else:
-            print('WARNING:! Data column of name {} already exists.'.format(output_name))
+            print('WARNING:! Data column of name {} already exists. Retaining original data'.format(output_name))
 
     #This method returns a list of job-objects which can be executed in mpi.
     #job_range is an array of two numbers.Start and finish job.
