@@ -126,6 +126,7 @@ class FUSED_Data_Set(object):
                 self.data[key] = {}
                 self.data[key]['values'] = np.array(f['data/'+key+'/values'])
                 self.data[key]['is_set'] = np.array(f['data/'+key+'/status'])
+                self.column_list.append(key)
             key_list = list(f['data'].keys())
         else:
             key_list = None
@@ -142,6 +143,7 @@ class FUSED_Data_Set(object):
                     self.data[key]['is_set'] = None
                 self.data[key]['values'] = comm.bcast(self.data[key]['values'], root=0)
                 self.data[key]['is_set'] = comm.bcast(self.data[key]['is_set'], root=0)
+                self.column_list.append(key)
 
 #    def save_pickle(self,pickle_name=None):
 #        import pickle
@@ -422,6 +424,32 @@ class FUSED_Data_Set(object):
                 if output_obj.succeeded:
                     self.data[output_name]['values'][job_id] = output_obj[output_tag]
                     self.data[output_name]['is_set'][job_id] = True
+
+    def print_bounds(self,names=None):
+        if names == None:
+            names = self.collumn_list
+        #Find longest name:
+        string_length = str(len(max(names,key=len)))
+        row_format = "{0:>"+string_length+"}{1:.4}{2:4}{3:4}{4:4}"
+        print(row_format.format('Name',' ','Min',' ','Max'))
+        row_format = "{0:>"+string_length+"}{1:4}{2:2E}{3:4}{4:2E}"
+        for name in names:
+            array = self.get_numpy_array(name)
+            print(row_format.format(name,'',np.min(array),'',np.max(array)))
+
+    def split_data_set(self,index):
+        data1 = self.get_numpy_array(self.column_list,job_id=range(index))
+        data2 = self.get_numpy_array(self.column_list,job_id=range(index,self.job_count))
+        
+        data_set1 = FUSED_Data_Set()
+        data_set2 = FUSED_Data_Set()
+
+        for index,name in enumerate(self.column_list):
+            data_set1.set_data(data1[index],name)
+            data_set2.set_data(data2[index],name)
+
+        return data_set1, data_set2
+        #data1 = self.get_numpy_array(self.
 
 class data_set_job(object):
     def __init__(self,data_set,job_id):
