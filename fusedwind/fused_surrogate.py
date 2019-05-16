@@ -232,6 +232,7 @@ class Kriging_Model(object):
         
         #Creating kernel !!This is a tunable point!!
         RBF_kernel = skl_gp.kernels.ConstantKernel(1,(1e-6,1e20))*skl_gp.kernels.RBF(length_scale=[1]*self.n_vars,length_scale_bounds=[(1e-20,10)]*self.n_vars)
+        print('MIMC Note that below this line, you can set the n_restarts to larger values to get better surrogates')
         self.GP = skl_gp.GaussianProcessRegressor(kernel=RBF_kernel,alpha=4e-4,n_restarts_optimizer=9,normalize_y=True).fit(self.X,self.train_output)
 
     def get_prediction(self, input, return_std=True):
