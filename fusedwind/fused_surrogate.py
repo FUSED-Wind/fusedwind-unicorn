@@ -426,8 +426,8 @@ def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_id
     from fusedwind.fused_data_set import FUSED_Data_Set
 
     #Extracting data arrays:
-    input = data_set.get_numpy_array(input_columns)
-    output = data_set.get_numpy_array(output_columns)
+    input = np.array(data_set.get_numpy_array(input_columns))
+    output = np.array(data_set.get_numpy_array(output_columns))
     #List for errors:
     LOO_error_list = []
     LOO_LARS_error_list = []
