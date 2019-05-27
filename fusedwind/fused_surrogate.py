@@ -457,6 +457,13 @@ def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_id
 
         full_prediction = []
         linear_prediction = []
+        
+        #Making sure that we have lists:
+        if not type(prediction)==list:
+            prediction = [prediction]
+
+        if not type(names)==list:
+            names = [names]
 
         for pred, name in zip(prediction,names):
             if name.endswith('_prediction'):
