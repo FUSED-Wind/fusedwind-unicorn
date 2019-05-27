@@ -179,7 +179,7 @@ class LARS_model(object):
 
         #Fitting the polynomial surrogate:
         folds = 10 # Cross validation folds
-        self.reg_poly = skl_lin.Lars(normalize=True,verbose=True,n_nonzero_coefs=np.inf).fit(self.X_feat,self.train_output)
+        self.reg_poly = skl_lin.LassoLarsCV(cv=folds,normalize=False).fit(self.X_feat,self.train_output) 
 
     def get_prediction(self,input):
         std_input = self.std_obj.transform(input)
@@ -217,6 +217,7 @@ class LARS_model(object):
             degs[int(ind)] = int(deg)
         return degs
 
+    #Adding methods to pring the model parameters of the LARS prediction:
     def _name2name(self,names,input_names=[]):
         if not len(input_names) == self.n_vars:
             print('Correct input names not provided')
@@ -258,7 +259,7 @@ class Kriging_Model(object):
         self.X = self.std_obj.fit_transform(self.train_input)
         
         #Creating kernel !!This is a tunable point!!
-        RBF_kernel = skl_gp.kernels.ConstantKernel(1,(1e-6,1e20))*skl_gp.kernels.RBF(length_scale=[10]*self.n_vars,length_scale_bounds=[(1e-20,1)]*self.n_vars)
+        RBF_kernel = skl_gp.kernels.ConstantKernel(1,(1e-6,1e20))*skl_gp.kernels.RBF(length_scale=[1]*self.n_vars,length_scale_bounds=[(1e-20,10)]*self.n_vars)
         self.GP = skl_gp.GaussianProcessRegressor(kernel=RBF_kernel,alpha=4e-4,n_restarts_optimizer=9,normalize_y=True).fit(self.X,self.train_output)
 
     def get_prediction(self, input, return_std=True):
