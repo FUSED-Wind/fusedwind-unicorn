@@ -75,12 +75,14 @@ class FUSED_Data_Set(object):
         if hdf5_file is None:
             hdf5_file=self.name+'.hdf5'
         if os.path.isfile(hdf5_file):
-            print('File exists already'.format(hdf5_file))
+            print('File exists already:', hdf5_file)
+            dir_name, file_name = os.path.split(hdf5_file)
             old_number = 1
             while True:
-                if not os.path.isfile('old_{}_{}'.format(old_number,hdf5_file)):
-                    print('Moving {} to old_{}_{}'.format(hdf5_file,old_number,hdf5_file))
-                    os.rename(hdf5_file,'old_{}_{}'.format(old_number,hdf5_file))
+                new_file = os.path.join(dir_name, 'old_%d_%s'%(old_number, file_name))
+                if not os.path.isfile(new_file):
+                    print('Moving {} to {}'.format(hdf5_file,new_file))
+                    os.rename(hdf5_file,new_file)
                     break
                 old_number +=1
         print('Saving DOE as {}'.format(hdf5_file))        
@@ -96,7 +98,7 @@ class FUSED_Data_Set(object):
         f.close()
 
     #load_hdf5
-    def load_hdf5(self, hdf5_file):
+    def load_hdf5(self, hdf5_file, load_serial = False):
         import h5py
         #if not os.path.isfile(hdf5_file):
         #    raise Exception('The file does not exist')
@@ -112,7 +114,7 @@ class FUSED_Data_Set(object):
         #    self.data[key]['values'] = np.array(f['data/'+key+'/values'])
         #    self.data[key]['is_set'] = np.array(f['data/'+key+'/status'])
 
-        if rank==0:
+        if rank==0 or load_serial:
             if not os.path.isfile(hdf5_file):
                 raise Exception('The file does not exist')
 
@@ -132,7 +134,7 @@ class FUSED_Data_Set(object):
             key_list = None
             self.name = None
             self.job_count = None
-        if not comm is None:
+        if not comm is None and not load_serial:
             self.name = comm.bcast(self.name, root=0)
             self.job_count = comm.bcast(self.job_count, root=0)
             key_list = comm.bcast(key_list, root=0)
@@ -258,7 +260,7 @@ class FUSED_Data_Set(object):
 
         #Is the data the correct length?
         if not len(data) == len(job_id):
-            raise Exception('Data length {} is not corresponding to job_id count {}.'.format(len(data)),format(len(job_id)))
+            raise Exception('Data length {} is not corresponding to job_id count {}.'.format(len(data),len(job_id)))
         
         #Setting the data and meta data:
         for i, id in enumerate(job_id):
