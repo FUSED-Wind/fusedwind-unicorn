@@ -4,6 +4,7 @@ from sklearn import linear_model
 from sklearn.externals import joblib
 from fusedwind.fused_wind import FUSED_Object, Independent_Variable, get_execution_order
 import numpy as np
+from copy import copy
 # CMOS Thoughts on the surrogate capabilities:
 #   The surrogate object should when finished be able to connect to independent variables and outputs. The "Model" part is what the power user defines. This should take a numpy array(matrix) and spit out predictions(vector) in a function .get_prediction(np_input) further more it should include a field(list) calles .input_names which allows the surrogate object to know where to connect which inputs. Notice that the order of this list is essential!
 # The model might have an output name. Otherwise this is simply 'prediction'
@@ -161,6 +162,8 @@ class LARS_model(object):
 
     def __init__(self,input,output):
 
+        #Test the special case where
+
         #Adjustment parameters:
         self.p = 4
         self.q = 0.6
@@ -178,8 +181,8 @@ class LARS_model(object):
         self.X_feat = self._get_scale_feat(self.X)
 
         #Fitting the polynomial surrogate:
-        folds = 5 # Cross validation folds
-        self.reg_poly = skl_lin.LassoLarsCV(cv=folds,normalize=False).fit(self.X_feat,self.train_output)
+        folds = 10 # Cross validation folds
+        self.reg_poly = skl_lin.LassoLarsCV(cv=folds,normalize=False).fit(self.X_feat,self.train_output) 
 
     def get_prediction(self,input):
         std_input = self.std_obj.transform(input)
@@ -217,12 +220,40 @@ class LARS_model(object):
             degs[int(ind)] = int(deg)
         return degs
 
+    #Adding methods to pring the model parameters of the LARS prediction:
+    def _name2name(self,names,input_names=[]):
+        if not len(input_names) == self.n_vars:
+            print('Correct input names not provided')
+            return names
+        else:
+            if isinstance(names,list) or isinstance(names,py.ndarray):
+                out = []
+                for name in names:
+                    for number,input_name in enumerate(input_names):
+                        name = name.replace('x%i'%number,input_name)
+                out.append(name)
+            else:
+                for number,input_name in enumerate(input_names):
+                    names = names.replace('x%i'%number,input_name)
+                out = names
+                return out                   
+
+    def print_model_params(self,number_params=5,input_names=[]):
+        ind_max_coef = py.argsort(abs(self.reg_poly.coef_))[::-1]
+        print('The %d features with the largest coefficients:'%number_params)
+        for i_max_coef in ind_max_coef[:number_params]:
+            print(self._name2name(self.poly_names[i_max_coef],input_names),'(val: %1.12e)'%self.reg_poly.coef_[i_max_coef])
+        print("Non-zero coefficients: %d, out of %d coef"%(len(self.reg_poly.coef_[self.reg_poly.coef_ != 0.0]),len(self.reg_poly.coef_)))
+
+
 class Kriging_Model(object):
 
     def __init__(self,input,output):
         self.train_input = input
-        self.train_output = np.transpose(output)[0]
-        
+        self.output = np.transpose(output)[0]
+        self.normalizer = np.amax(np.abs(self.output))
+
+        self.train_output = np.divide(self.output,self.normalizer)
         #Number of variables:
         self.n_vars = len(self.train_input[0,:])
         
@@ -243,7 +274,7 @@ class Kriging_Model(object):
         else:
             prediction = self.GP.predict(input, return_std)
             sigma = []
-        prediction = np.transpose([prediction])
+        prediction = np.transpose([prediction*self.normalizer])
 
         return prediction, sigma 
 
@@ -283,25 +314,44 @@ def do_LOO(self, extra_array_input=None, extra_array_output=None):
 
     return np.mean(error_array)
 
-def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_collumn_names,linear_model=None,GP_model=None, include_kriging=True, include_LARS=True, model_list=[]):
-
+def Create_Group_Of_Surrogates_On_Dataset(data_set,input_column_names,output_column_names,linear_model=None,GP_model=None, include_kriging=True, include_LARS=True, model_list=[],output_data_to_use=[]):
     from fusedwind.fused_wind import FUSED_Group
-    from copy import copy
 
     #Get input data:
-    input_array = np.transpose(data_set.get_numpy_array(input_collumn_names))
+    input_array = np.transpose(data_set.get_numpy_array(input_column_names))
     surrogate_list = []
 
     #We need a surrogate for each output_collumn:
-    for index,output in enumerate(output_collumn_names):
+    for index,output_name in enumerate(output_column_names):
         current_lin_model = copy(linear_model)
         current_GP_model = copy(GP_model)
 
-        output_array = np.transpose(data_set.get_numpy_array(output))
+        output_array, status_array = data_set.get_numpy_array(output_name,return_status=True)
+
+        output_array = np.transpose(output_array)
+        status_array = np.transpose(status_array)
+        
+        #Has data indexes been given:
+        if not output_data_to_use == []:
+            output_array = output_array[output_data_to_use[index]]
+            status_array = status_array[output_data_to_use[index]]
+
+        good_output = []
+        good_input = []
+
+        for input,output,status in zip(input_array,output_array,status_array):
+            if status == True:
+                good_output.append(output)
+                good_input.append(input)
+                
+        good_output = np.array(good_output)
+        good_input = np.array(good_input)
+
         if not model_list==[]:
             surrogate_model = model_list[index]
         else:
-            surrogate_model = Single_Fidelity_Surrogate(input_array,output_array,input_names=input_collumn_names,output_name = output, include_kriging=include_kriging,include_LARS=include_LARS)
+            surrogate_model = Single_Fidelity_Surrogate(good_input,good_output,input_names=input_column_names,output_name=output_name, include_kriging=include_kriging,include_LARS=include_LARS)
+
         fused_object = FUSED_Surrogate(model_in=surrogate_model)
         surrogate_list.append(fused_object)
     
@@ -311,24 +361,28 @@ def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_co
     return group
 
 #A method to get much faster sampling from a group of surrogates than to push and pull:
-def get_matrix_prediction_from_group(surrogate_group, input, return_std=True):
+def get_matrix_prediction_from_group(surrogate_group, input, return_std=True, return_LARS_predictions=False):
     #Get object list:
-    object_list = []
-    group_output_list = []
-    method_output_list = []
-    output = []
+    object_list = [] #List of the surrogate objects
+    group_output_list = [] #List of the output keys from the group
+    method_output_list = [] #List of output keys from this method
+    output = [] #Nummeric output from this method
 
+    #Extract the objects from the group:
     for key in surrogate_group.get_all_object_keys():
         object_list.append(surrogate_group.get_object(key))
+
+    #Extract the output keys from the group:
     for key in surrogate_group.get_interface()['output'].keys():
         group_output_list.append(key)
 
+    #Going through objects and get outputs:
     for object in object_list:
-        output_name = object.output_name
-        object_used = False
-        avail_std = False
+        output_name = object.output_name #The fused surrogate has an output_name
+        object_used = False #Is the object relevant?
+        avail_std = False #Does the object have std avail?
 
-        #Checking for the common output naming types:
+        #Checking for the common output naming types - if the output_name isn't in the group outputs it is not used:
         if output_name in group_output_list:
             method_output_list.append(output_name)
             object_used = True
@@ -340,53 +394,174 @@ def get_matrix_prediction_from_group(surrogate_group, input, return_std=True):
             if return_std:
                 method_output_list.append(output_name+'_sigma')
             avail_std = True
+
+        if return_LARS_predictions:
+            method_output_list.append(output_name+'_linear_model')
         
         if object_used:
             prediction = object.model.get_prediction(input,return_std=avail_std)
+            #If linear model should be returned and  we have a linear model:
+            if return_LARS_predictions and 'linear_model' in object.model.__dict__.keys():
+                LARS_prediction = object.model.linear_model.get_prediction(input)
+            #Otherwise we set i to 0:
+            elif return_LARS_predictions:
+                LARS_prediction = 0
+            
+            #Do we have std_error in the surrogate? Then return the std error:
             if avail_std:
                 if return_std:
-                    prediction = np.concatenate([[prediction[0][:,0]],[prediction[1][:,0]]],axis=0)
+                    prediction = [prediction[0],prediction[1]]
                 else:
-                    prediction = np.array([prediction[0][:,0]])
+                    prediction = [prediction[0]]
             else:
-                raise print('WARNING matrix prediction of group is not tested without standard deviation yet.')
+                prediction = [prediction]
+                print('WARNING matrix prediction of group is not tested without available standard deviation yet.',flush=True)
+            
+            if return_LARS_predictions:
+                prediction.append(LARS_prediction)
+            
+#            import pdb;pdb.set_trace()
             output.append(prediction)
-    output = np.concatenate(output,axis=0)
+#            output.extend(prediction)
 
+    output = np.squeeze(np.concatenate(output,axis=0))
+    
     return output,method_output_list
 
 #Method to do a LOO analysis on a data set. It uses the standard building method to build surrogates.
-def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_ids=[]):
+def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_ids=[],include_kriging=True,include_LARS=True,add_LARS=False):
     from fusedwind.fused_data_set import FUSED_Data_Set
 
     #Extracting data arrays:
-    input = data_set.get_numpy_array(input_columns)
-    output = data_set.get_numpy_array(output_columns)
+    input = np.array(data_set.get_numpy_array(input_columns))
+    output = np.array(data_set.get_numpy_array(output_columns))
     #List for errors:
     LOO_error_list = []
-    
+    LOO_LARS_error_list = []
+
     print('Conducting LOO analysis')
-    
+
     #Looping through a range of indexes to leave out:
     for index in range(0,data_set.job_count,step_size):
         print('LOO %i of %i'%(index,data_set.job_count))
         current_data_set = FUSED_Data_Set()
-        
+
         #The current data:
         current_benchmark_input = input[:,index]
         current_benchmark_output = output[:,index]
         current_input = np.delete(input,index,1)
         current_output = np.delete(output,index,1)
-        
+
         #Creating the data set to build a surrogate group from:
         for data,name in zip(np.ndarray.tolist(current_input)+np.ndarray.tolist(current_output),input_columns+output_columns):
             current_data_set.set_data(np.array(data),name,verbose=False)
-        
+
         #Creating the surrogate:
-        surrogate_group = Create_Group_Of_Surrogates_On_Dataset(current_data_set,input_columns,output_columns)
-        prediction = get_matrix_prediction_from_group(surrogate_group,[current_benchmark_input],return_std=False)[0]
+        surrogate_group = Create_Group_Of_Surrogates_On_Dataset(current_data_set,input_columns,output_columns,include_LARS=include_LARS,include_kriging=include_kriging)
+
+        #Getting prediction with LARS included if asked for.
+        prediction,names = get_matrix_prediction_from_group(surrogate_group,[current_benchmark_input],return_std=False,return_LARS_predictions=add_LARS)
+
+        full_prediction = []
+        linear_prediction = []
         
+        #Making sure that we have lists:
+        if not type(prediction)==list:
+            prediction = [prediction]
+
+        if not type(names)==list:
+            names = [names]
+
+        for pred, name in zip(prediction,names):
+            if name.endswith('_prediction'):
+                full_prediction.append(pred)
+            elif name.endswith('_linear_model'):
+                linear_prediction.append(pred)
+
         #Calculating the error at the current point:
-        error = np.abs(np.subtract(current_benchmark_output,np.transpose(prediction)[0]))
+        error = np.abs(np.subtract(current_benchmark_output,full_prediction))
         LOO_error_list.append(error)
-    return LOO_error_list
+        
+        if add_LARS:
+            error = np.abs(np.subtract(current_benchmark_output,linear_prediction))
+            LOO_LARS_error_list.append(error)
+    if add_LARS:
+        return LOO_error_list, LOO_LARS_error_list
+    else:
+        return LOO_error_list
+
+def plot_center_fit(surrogate_group, center_point=[], data_set=None, input_names=[], output_names=[], file_base_name='plot_center_fit',window_fraction_plot=1):
+    import matplotlib.pyplot as plt
+
+    if input == []:
+        raise Exception('provide center point for the input')
+
+    resolution = 100
+
+    n_vars = len(input_names)
+
+    input_data = data_set.get_numpy_array(input_names)
+
+    basic_input_array = np.array([center_point]*resolution)
+
+    for obj,output_name in zip(surrogate_group.system_objects,output_names):
+        print(output_name + ' : ' + obj.output_name)
+        #Initiate figure - each output should be a figure and each dimension should be a subplot
+        plt.figure(figsize=(5,15))
+        output = data_set.get_numpy_array(output_name)[0]
+        for index,name  in enumerate(input_names):
+
+            line_bound = [np.amin(input_data[index]),np.amax(input_data[index])]
+            #Creating the input data for the 
+            line = np.linspace(*line_bound,100)
+            current_input = copy(basic_input_array)
+            current_input[:,index] = line
+
+            #First we just sort it for maximum distance:
+            window_width = np.amax(np.transpose(input_data),axis=0)-np.amin(np.transpose(input_data),axis=0)
+            window_width = np.delete(window_width,index)
+
+            center_benchmark = np.delete(center_point,index)
+
+            max_distance = np.zeros(len(output))
+
+            for index_2,point in enumerate(np.transpose(input_data)):
+                point = np.delete(point,index)
+                distance = np.divide(np.abs(np.subtract(point,center_benchmark)),window_width)
+                max_distance[index_2] = np.amax(distance)
+ 
+            #Applying max distance criterion:
+            good_index = np.where(max_distance<window_fraction_plot)
+            data_input = [input_data[index][i] for i in good_index]
+            data_output = [output[i] for i in good_index]
+            max_distance_good = [max_distance[i] for i in good_index]
+
+            #Now we can get_the surrogate_output:
+            current_surrogate_output = obj.model.get_prediction(current_input)[0]
+            plt.subplot(n_vars,1,index+1)
+            plt.plot(line,current_surrogate_output)
+            legend = ['Output']
+
+            if obj.model.include_LARS:
+                LARS_output = obj.model.linear_model.get_prediction(current_input)
+                plt.plot(line,LARS_output)
+                legend.append('LARS')
+
+            if obj.model.include_kriging:
+                kriging_output = obj.model.GP_model.get_prediction(current_input)[0]
+                plt.plot(line,np.add(LARS_output,kriging_output))
+                legend.append('Kriging')
+
+            sc = plt.scatter(data_input,data_output,c=max_distance_good)
+            plt.colorbar(sc,label='Max distance')
+            plt.xlabel(name)
+            plt.ylabel('obj')
+            plt.legend(legend)
+            plt.grid(True)
+
+            #Going through the input data and find out whether to plot it or not 
+        plt.tight_layout(pad=0.4,w_pad=0.5,h_pad=0.5)
+        plt.suptitle(output_name)
+        plt.savefig(file_base_name+'_'+output_name+'.png')
+        plt.clf
+        plt.close()
