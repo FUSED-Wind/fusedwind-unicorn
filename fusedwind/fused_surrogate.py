@@ -4,6 +4,7 @@ from sklearn import linear_model
 from sklearn.externals import joblib
 from fusedwind.fused_wind import FUSED_Object, Independent_Variable, get_execution_order
 import numpy as np
+from copy import copy
 # CMOS Thoughts on the surrogate capabilities:
 #   The surrogate object should when finished be able to connect to independent variables and outputs. The "Model" part is what the power user defines. This should take a numpy array(matrix) and spit out predictions(vector) in a function .get_prediction(np_input) further more it should include a field(list) calles .input_names which allows the surrogate object to know where to connect which inputs. Notice that the order of this list is essential!
 # The model might have an output name. Otherwise this is simply 'prediction'
@@ -161,6 +162,8 @@ class LARS_model(object):
 
     def __init__(self,input,output):
 
+        #Test the special case where
+
         #Adjustment parameters:
         self.p = 4
         self.q = 0.6
@@ -310,17 +313,15 @@ def do_LOO(self, extra_array_input=None, extra_array_output=None):
 
     return np.mean(error_array)
 
-def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_collumn_names,linear_model=None,GP_model=None, include_kriging=True, include_LARS=True, model_list=[]):
-
+def Create_Group_Of_Surrogates_On_Dataset(data_set,input_column_names,output_column_names,linear_model=None,GP_model=None, include_kriging=True, include_LARS=True, model_list=[],output_data_to_use=[]):
     from fusedwind.fused_wind import FUSED_Group
-    from copy import copy
 
     #Get input data:
-    input_array = np.transpose(data_set.get_numpy_array(input_collumn_names))
+    input_array = np.transpose(data_set.get_numpy_array(input_column_names))
     surrogate_list = []
 
     #We need a surrogate for each output_collumn:
-    for index,output_name in enumerate(output_collumn_names):
+    for index,output_name in enumerate(output_column_names):
         current_lin_model = copy(linear_model)
         current_GP_model = copy(GP_model)
 
@@ -329,6 +330,11 @@ def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_co
         output_array = np.transpose(output_array)
         status_array = np.transpose(status_array)
         
+        #Has data indexes been given:
+        if not output_data_to_use == []:
+            output_array = output_array[output_data_to_use[index]]
+            status_array = status_array[output_data_to_use[index]]
+
         good_output = []
         good_input = []
 
@@ -343,7 +349,7 @@ def Create_Group_Of_Surrogates_On_Dataset(data_set,input_collumn_names,output_co
         if not model_list==[]:
             surrogate_model = model_list[index]
         else:
-            surrogate_model = Single_Fidelity_Surrogate(good_input,good_output,input_names=input_collumn_names,output_name = output_name, include_kriging=include_kriging,include_LARS=include_LARS)
+            surrogate_model = Single_Fidelity_Surrogate(good_input,good_output,input_names=input_column_names,output_name=output_name, include_kriging=include_kriging,include_LARS=include_LARS)
 
         fused_object = FUSED_Surrogate(model_in=surrogate_model)
         surrogate_list.append(fused_object)
@@ -483,7 +489,7 @@ def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_id
     else:
         return LOO_error_list
 
-def plot_center_fit(surrogate_group, center_point=[], data_set=None, input_names=[], output_names=[], file_base_name='plot_center_fit'):
+def plot_center_fit(surrogate_group, center_point=[], data_set=None, input_names=[], output_names=[], file_base_name='plot_center_fit',window_fraction_plot=1):
     import matplotlib.pyplot as plt
 
     if input == []:
@@ -507,7 +513,7 @@ def plot_center_fit(surrogate_group, center_point=[], data_set=None, input_names
             line_bound = [np.amin(input_data[index]),np.amax(input_data[index])]
             #Creating the input data for the 
             line = np.linspace(*line_bound,100)
-            current_input = basic_input_array
+            current_input = copy(basic_input_array)
             current_input[:,index] = line
 
             #First we just sort it for maximum distance:
@@ -524,7 +530,7 @@ def plot_center_fit(surrogate_group, center_point=[], data_set=None, input_names
                 max_distance[index_2] = np.amax(distance)
  
             #Applying max distance criterion:
-            good_index = np.where(max_distance<1)
+            good_index = np.where(max_distance<window_fraction_plot)
             data_input = [input_data[index][i] for i in good_index]
             data_output = [output[i] for i in good_index]
             max_distance_good = [max_distance[i] for i in good_index]
@@ -536,13 +542,13 @@ def plot_center_fit(surrogate_group, center_point=[], data_set=None, input_names
             legend = ['Output']
 
             if obj.model.include_LARS:
-                LARS_output = obj.model.linear_model.get_prediction(current_input)[0]
+                LARS_output = obj.model.linear_model.get_prediction(current_input)
                 plt.plot(line,LARS_output)
                 legend.append('LARS')
 
             if obj.model.include_kriging:
                 kriging_output = obj.model.GP_model.get_prediction(current_input)[0]
-                plt.plot(line,kriging_output)
+                plt.plot(line,np.add(LARS_output,kriging_output))
                 legend.append('Kriging')
 
             sc = plt.scatter(data_input,data_output,c=max_distance_good)
@@ -557,3 +563,4 @@ def plot_center_fit(surrogate_group, center_point=[], data_set=None, input_names
         plt.suptitle(output_name)
         plt.savefig(file_base_name+'_'+output_name+'.png')
         plt.clf
+        plt.close()
