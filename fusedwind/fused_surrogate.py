@@ -5,6 +5,9 @@ from sklearn.externals import joblib
 from fusedwind.fused_wind import FUSED_Object, Independent_Variable, get_execution_order
 import numpy as np
 from copy import copy
+import pickle
+import os
+import matplotlib.pyplot as plt
 # CMOS Thoughts on the surrogate capabilities:
 #   The surrogate object should when finished be able to connect to independent variables and outputs. The "Model" part is what the power user defines. This should take a numpy array(matrix) and spit out predictions(vector) in a function .get_prediction(np_input) further more it should include a field(list) calles .input_names which allows the surrogate object to know where to connect which inputs. Notice that the order of this list is essential!
 # The model might have an output name. Otherwise this is simply 'prediction'
@@ -429,7 +432,7 @@ def get_matrix_prediction_from_group(surrogate_group, input, return_std=True, re
     return output,method_output_list
 
 #Method to do a LOO analysis on a data set. It uses the standard building method to build surrogates.
-def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_ids=[],include_kriging=True,include_LARS=True,add_LARS=False):
+def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_ids=[],include_kriging=True,include_LARS=True,add_LARS=False,target_ids=[]):
     from fusedwind.fused_data_set import FUSED_Data_Set
 
     #Extracting data arrays:
@@ -440,6 +443,10 @@ def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_id
     LOO_LARS_error_list = []
 
     print('Conducting LOO analysis')
+    if target_ids == []:
+        indexes = range(0,data_set.job_count,step_size)
+    else:
+        indexes = target_ids
 
     #Looping through a range of indexes to leave out:
     for index in range(0,data_set.job_count,step_size):
@@ -464,12 +471,12 @@ def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_id
 
         full_prediction = []
         linear_prediction = []
-        
+
         #Making sure that we have lists:
-        if not type(prediction)==list:
+        if not (type(prediction)==list or 'array' in str(type(prediction))):
             prediction = [prediction]
 
-        if not type(names)==list:
+        if not (type(names)==list or 'array' in str(type(names))):
             names = [names]
 
         for pred, name in zip(prediction,names):
@@ -481,7 +488,7 @@ def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_id
         #Calculating the error at the current point:
         error = np.abs(np.subtract(current_benchmark_output,full_prediction))
         LOO_error_list.append(error)
-        
+
         if add_LARS:
             error = np.abs(np.subtract(current_benchmark_output,linear_prediction))
             LOO_LARS_error_list.append(error)
@@ -490,77 +497,136 @@ def do_LOO_on_data_set(data_set,input_columns,output_columns,step_size=10,job_id
     else:
         return LOO_error_list
 
-def plot_center_fit(surrogate_group, center_point=[], data_set=None, input_names=[], output_names=[], file_base_name='plot_center_fit',window_fraction_plot=1):
-    import matplotlib.pyplot as plt
+def plot_center_fit(surrogate_group, center_point=[], input_names=[], output_names=[], file_base_name='plot_center_fit',window_fraction_plot=1,save_hdf5=False):
 
-    if input == []:
+    if center_point == []:
         raise Exception('provide center point for the input')
 
     resolution = 100
 
     n_vars = len(input_names)
-
-    input_data = data_set.get_numpy_array(input_names)
-
+    
     basic_input_array = np.array([center_point]*resolution)
+    
+    #The data is saved in a dict:
+    data_dict = {}
+    data_dict['n_vars'] = n_vars
+    data_dict['input_names'] = input_names
+    data_dict['output_names'] = output_names
+    data_dict['center_point'] = center_point
 
-    for obj,output_name in zip(surrogate_group.system_objects,output_names):
-        print(output_name + ' : ' + obj.output_name)
+    if not os.path.isfile(file_base_name+'.pkl'):
+        for obj,output_name in zip(surrogate_group.system_objects,output_names):
+            obj_dict = {}
+            obj_dict['meta'] = {\
+                    'Include_LARS':obj.model.include_LARS,\
+                    'Include_Kriging':obj.model.include_kriging}
+
+            print(output_name + ' : ' + obj.output_name)
+            input = np.transpose(obj.model.input)
+            output = obj.model.output
+            for index,name  in enumerate(input_names):
+                input_dict = {}
+                line_bound = [np.amin(input[index]),np.amax(input[index])]
+                #Creating the input data for the 
+                line = np.linspace(*line_bound,100)
+                current_input = copy(basic_input_array)
+                current_input[:,index] = line
+
+                #First we just sort it for maximum distance:
+                window_width = np.amax(np.transpose(input),axis=0)-np.amin(np.transpose(input),axis=0)
+                window_width = np.delete(window_width,index)
+
+                center_benchmark = np.delete(center_point,index)
+
+                max_distance = np.zeros(len(output))
+
+                for index_2,point in enumerate(np.transpose(input)):
+                    point = np.delete(point,index)
+                    distance = np.divide(np.abs(np.subtract(point,center_benchmark)),window_width)
+                    max_distance[index_2] = np.amax(distance)
+     
+                #Applying max distance criterion:
+                good_index = np.where(max_distance<window_fraction_plot)
+                data_input = [input[index][i] for i in good_index]
+                data_output = [output[i] for i in good_index]
+                max_distance_good = [max_distance[i] for i in good_index]
+
+                #Now we can get_the surrogate_output:
+                current_surrogate_output = obj.model.get_prediction(current_input)[0]
+                input_dict['main'] = (line,current_surrogate_output)
+
+                legend = ['Output']
+
+                if obj.model.include_LARS:
+                    LARS_output = obj.model.linear_model.get_prediction(current_input)
+                    input_dict['LARS'] = (line,LARS_output)
+                    legend.append('LARS')
+
+                if obj.model.include_kriging:
+                    kriging_output = obj.model.GP_model.get_prediction(current_input)[0]
+                    input_dict['Kriging'] = (line,np.add(LARS_output,kriging_output))
+                    legend.append('Kriging')
+                
+                input_dict['scatter'] = (data_input,data_output,max_distance_good)
+                obj_dict[name] = input_dict
+
+                #Going through the input data and find out whether to plot it or not 
+            data_dict[output_name] = obj_dict
+            data_dict['base_name'] = file_base_name
+
+        with open(file_base_name+'.pkl','wb') as file:
+            pickle.dump(data_dict,file)
+
+        display_center_fit(data_dict=data_dict)
+    else:
+        display_center_fit(pickle_file=file_base_name+'.pkl')
+
+#Method to display center fit plots generated and parsed as pickle or dict from the plot method above.
+def display_center_fit(data_dict={},pickle_file=None):
+    #Check whether the data is pickle or dict:
+    if data_dict == {}:
+        with open(pickle_file,'rb') as file:
+            data_dict = pickle.load(file)
+
+    n_vars = data_dict['n_vars']
+    file_base_name = data_dict['base_name']
+
+    for output_name in data_dict['output_names']:
         #Initiate figure - each output should be a figure and each dimension should be a subplot
-        plt.figure(figsize=(5,15))
-        output = data_set.get_numpy_array(output_name)[0]
-        for index,name  in enumerate(input_names):
-
-            line_bound = [np.amin(input_data[index]),np.amax(input_data[index])]
-            #Creating the input data for the 
-            line = np.linspace(*line_bound,100)
-            current_input = copy(basic_input_array)
-            current_input[:,index] = line
-
-            #First we just sort it for maximum distance:
-            window_width = np.amax(np.transpose(input_data),axis=0)-np.amin(np.transpose(input_data),axis=0)
-            window_width = np.delete(window_width,index)
-
-            center_benchmark = np.delete(center_point,index)
-
-            max_distance = np.zeros(len(output))
-
-            for index_2,point in enumerate(np.transpose(input_data)):
-                point = np.delete(point,index)
-                distance = np.divide(np.abs(np.subtract(point,center_benchmark)),window_width)
-                max_distance[index_2] = np.amax(distance)
- 
-            #Applying max distance criterion:
-            good_index = np.where(max_distance<window_fraction_plot)
-            data_input = [input_data[index][i] for i in good_index]
-            data_output = [output[i] for i in good_index]
-            max_distance_good = [max_distance[i] for i in good_index]
+        plt.figure(figsize=(10,15)) #The size of the figure is arbitrary and set to something that fitted a screen sort of...
+        obj_dict = data_dict[output_name] 
+        print(output_name)
+        for index,name  in enumerate(data_dict['input_names']):
+            input_dict = obj_dict[name]
 
             #Now we can get_the surrogate_output:
-            current_surrogate_output = obj.model.get_prediction(current_input)[0]
             plt.subplot(n_vars,1,index+1)
-            plt.plot(line,current_surrogate_output)
+            plt.plot(*input_dict['main'])
             legend = ['Output']
 
-            if obj.model.include_LARS:
-                LARS_output = obj.model.linear_model.get_prediction(current_input)
-                plt.plot(line,LARS_output)
+            if obj_dict['meta']['Include_LARS']:
+                plt.plot(*input_dict['LARS'])
                 legend.append('LARS')
 
-            if obj.model.include_kriging:
-                kriging_output = obj.model.GP_model.get_prediction(current_input)[0]
-                plt.plot(line,np.add(LARS_output,kriging_output))
+            if obj_dict['meta']['Include_Kriging']:
+                plt.plot(*input_dict['Kriging'])
                 legend.append('Kriging')
 
-            sc = plt.scatter(data_input,data_output,c=max_distance_good)
-            plt.colorbar(sc,label='Max distance')
+            scatter_size = len(input_dict['scatter'][0][0])
+            if not scatter_size == 0:
+                sc = plt.scatter(input_dict['scatter'][0],input_dict['scatter'][1],c=input_dict['scatter'][2])
+                plt.colorbar(sc,label='Max distance')
+                plt.clim(0,np.amax(input_dict['scatter'][2])+0.1)
             plt.xlabel(name)
-            plt.ylabel('obj')
-            plt.legend(legend)
+            plt.ylabel(str.join('_',output_name.split('.')[-1].split('_')[-4:]))
+            if index == 0:
+                plt.legend(legend,loc='right')
+                plt.xlim(np.amin(input_dict['main'][0]),np.amax(input_dict['main'][0])+0.2*(np.amax(input_dict['main'][0])-np.amin(input_dict['main'][0])))
             plt.grid(True)
 
-            #Going through the input data and find out whether to plot it or not 
-        plt.tight_layout(pad=0.4,w_pad=0.5,h_pad=0.5)
+        plt.tight_layout(pad=0.4,w_pad=0.2,h_pad=0.2)
+        plt.subplots_adjust(top=0.95)
         plt.suptitle(output_name)
         plt.savefig(file_base_name+'_'+output_name+'.png')
         plt.clf
