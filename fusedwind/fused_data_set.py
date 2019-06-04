@@ -229,7 +229,7 @@ class FUSED_Data_Set(object):
 
 
     #set_data data and adds it to the data set. A job_id can be given if only parts of a data column should be altered.
-    def set_data(self, data, name, job_id=None, dtype=None,verbose=True):
+    def set_data(self, data, name, job_id=None, dtype=None,verbose=True,status=[]):
         #Determining the numpy datatype:
         if dtype is None:
             try:
@@ -259,13 +259,22 @@ class FUSED_Data_Set(object):
         if not len(data) == len(job_id):
             raise Exception('Data length {} is not corresponding to job_id count {}.'.format(len(data)),format(len(job_id)))
         
+        #Is the status of the data given, and if yes in a correct manner?
+        if status == []:
+            status = [True]*len(data)
+        elif len(status) == len(job_id):
+            status = status
+        else:
+            raise Exception('Given status list incompatible')
+
         #Setting the data and meta data:
         for i,id in enumerate(job_id):
             self.data[name]['values'][id] =  data[i]
             #The data point status is default 0, 1 if the data is set and up to date and 2 if it is failed More can be added in a costumized version of the object.
-            self.data[name]['is_set'][id] =  True
+            self.data[name]['is_set'][id] =  status[i]
 
     #Sets the status flag. Automatically if output is pulled the flag is set to 1.
+    #NOTE CMOS: this should probably in time be the same as "set_data" where it takes a list.."
     def set_status(self,name,status,job_id=None):
         """Set status flag for data. Automatically if output is pulled the flag is set to 1."""
         status = int(status)
@@ -429,7 +438,7 @@ class FUSED_Data_Set(object):
 
     def print_bounds(self,names=None):
         if names == None:
-            names = self.collumn_list
+            names = self.column_list
         #Find longest name:
         string_length = str(len(max(names,key=len)))
         row_format = "{0:>"+string_length+"}{1:.4}{2:4}{3:4}{4:4}"
