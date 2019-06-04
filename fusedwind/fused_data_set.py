@@ -75,12 +75,14 @@ class FUSED_Data_Set(object):
         if hdf5_file is None:
             hdf5_file=self.name+'.hdf5'
         if os.path.isfile(hdf5_file):
-            print('File exists already'.format(hdf5_file))
+            print('File exists already:', hdf5_file)
+            dir_name, file_name = os.path.split(hdf5_file)
             old_number = 1
             while True:
-                if not os.path.isfile('old_{}_{}'.format(old_number,hdf5_file)):
-                    print('Moving {} to old_{}_{}'.format(hdf5_file,old_number,hdf5_file))
-                    os.rename(hdf5_file,'old_{}_{}'.format(old_number,hdf5_file))
+                new_file = os.path.join(dir_name, 'old_%d_%s'%(old_number, file_name))
+                if not os.path.isfile(new_file):
+                    print('Moving {} to {}'.format(hdf5_file,new_file))
+                    os.rename(hdf5_file,new_file)
                     break
                 old_number +=1
         print('Saving DOE as {}'.format(hdf5_file))        
@@ -96,7 +98,7 @@ class FUSED_Data_Set(object):
         f.close()
 
     #load_hdf5
-    def load_hdf5(self, hdf5_file):
+    def load_hdf5(self, hdf5_file, load_serial = False):
         import h5py
         #if not os.path.isfile(hdf5_file):
         #    raise Exception('The file does not exist')
@@ -112,7 +114,7 @@ class FUSED_Data_Set(object):
         #    self.data[key]['values'] = np.array(f['data/'+key+'/values'])
         #    self.data[key]['is_set'] = np.array(f['data/'+key+'/status'])
 
-        if rank==0:
+        if rank==0 or load_serial:
             if not os.path.isfile(hdf5_file):
                 raise Exception('The file does not exist')
 
@@ -132,7 +134,7 @@ class FUSED_Data_Set(object):
             key_list = None
             self.name = None
             self.job_count = None
-        if not comm is None:
+        if not comm is None and not load_serial:
             self.name = comm.bcast(self.name, root=0)
             self.job_count = comm.bcast(self.job_count, root=0)
             key_list = comm.bcast(key_list, root=0)
@@ -229,7 +231,7 @@ class FUSED_Data_Set(object):
 
 
     #set_data data and adds it to the data set. A job_id can be given if only parts of a data column should be altered.
-    def set_data(self, data, name, job_id=None, dtype=None,verbose=True,status=[]):
+    def set_data(self, data, name, job_id=None, dtype=None, verbose=True, status=[]):
         #Determining the numpy datatype:
         if dtype is None:
             try:
@@ -247,6 +249,7 @@ class FUSED_Data_Set(object):
         if name in self.column_list:
             print('Writing to existing data name {}.'.format(name))
         else:
+            print('Declaring new data name {}.'.format(name))
             self.declare_variable(name,dtype)
 
         #If the job_id is None the entire column should be set:
@@ -257,7 +260,7 @@ class FUSED_Data_Set(object):
 
         #Is the data the correct length?
         if not len(data) == len(job_id):
-            raise Exception('Data length {} is not corresponding to job_id count {}.'.format(len(data)),format(len(job_id)))
+            raise Exception('Data length {} is not corresponding to job_id count {}.'.format(len(data),len(job_id)))
         
         #Is the status of the data given, and if yes in a correct manner?
         if status == []:
@@ -268,7 +271,7 @@ class FUSED_Data_Set(object):
             raise Exception('Given status list incompatible')
 
         #Setting the data and meta data:
-        for i,id in enumerate(job_id):
+        for i, id in enumerate(job_id):
             self.data[name]['values'][id] =  data[i]
             #The data point status is default 0, 1 if the data is set and up to date and 2 if it is failed More can be added in a costumized version of the object.
             self.data[name]['is_set'][id] =  status[i]
@@ -328,7 +331,7 @@ class FUSED_Data_Set(object):
             self.declare_variable(output_name)
             #print('Empty data column {} initiated'.format(output_name))
         else:
-            print('WARNING:! Data column of name {} already exists.'.format(output_name))
+            print('WARNING:! Data column of name {} already exists. Retaining original data'.format(output_name))
 
     #This method returns a list of job-objects which can be executed in mpi.
     #job_range is an array of two numbers.Start and finish job.
@@ -380,31 +383,35 @@ class FUSED_Data_Set(object):
             column_list = self.column_list
 
         if job_id is None:
-            job_id = np.array(range(self.job_count))
+            job_id = list(range(self.job_count))
 
         if not type(job_id) == list:
             job_id = [job_id]
 
+        row_cnt = len(job_id)
         if isinstance(column_list,list):
-            for name in column_list:
+            col_cnt = len(column_list)
+            np_array = np.zeros((row_cnt, col_cnt))
+            status_array = np.zeros((row_cnt, col_cnt), dtype=bool)
+            for at_col, name in enumerate(column_list):
                 if not name in self.data:
                     raise Exception('Name {} is not found in data set'.format(name))
-                current_values = [self.data[name]['values'][id] for id in job_id]
-                current_status = [self.data[name]['is_set'][id] for id in job_id]
-                if np_array == []:
-                    np_array = current_values
-                    status_array = current_status
-                else:
-                    np_array = np.concatenate((np_array,current_values),axis=0)
-                    status_array = np.concatenate((status_array,current_status),axis=0)
+                current_values = np.array([self.data[name]['values'][id] for id in job_id])
+                current_status = np.array([self.data[name]['is_set'][id] for id in job_id])
+                np_array[:,at_col] = current_values
+                status_array[:,at_col] = current_status
+            print('MIMC This is a dirty HACK because some scripts only work when transposed')
+            np_array = np.transpose(np_array)
+            status_array = np.transpose(status_array)
 
         elif isinstance(column_list,str):
             name = column_list
             if not name in self.data:
                 raise Exception('Name {} is not found in data set'.format(name))
 
-            np_array = [self.data[name]['values'][id] for id in job_id]
-            status_array = [self.data[name]['is_set'][id] for id in job_id]
+            print('MIMC This is a dirty HACK because some scripts only work when transposed')
+            np_array = np.reshape(np.array([self.data[name]['values'][id] for id in job_id]),(1,row_cnt))
+            status_array = np.reshape(np.array([self.data[name]['is_set'][id] for id in job_id], dtype=bool),(1,row_cnt))
 
         else:
             raise Exception('{} is not a supportet type in get_numpy_array'.format(type(column_list)))

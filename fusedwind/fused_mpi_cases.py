@@ -1,5 +1,6 @@
 
 import os
+import time
 
 try:
     from mpi4py import MPI
@@ -96,7 +97,7 @@ class FUSED_MPI_Cases(object):
             # If we have enough processors then just execute all jobs at once according to rank
             if size>=len(job_id_list):
                 for rank, job_id in enumerate(job_id_list):
-                    job_list[job_id].append(rank)
+                    job_list[job_id]=rank
                 if rank<len(job_id_list):
                     self._pre_exec_post_job(job_id_list[rank])
 
@@ -251,7 +252,20 @@ def build_path(path):
 # This is a class that will copy the fused-wind results from a data base so that they can be re-used
 class PrePostExec_SaveReloadSimulation(object):
 
-    def __init__(self, save_file_list, save_directory_list, model_extractor=None, fail_file='failed', database_folder='./database/', database_fail_folder=None, rerun_failed_jobs=False, doe_design_id_extractor=None, doe_design_directory_name = 'doe_design_', clear_sim_dir=False, link_files_on_reload=True, log_file_name=None):
+    def __init__(self,
+                save_file_list,
+                save_directory_list,
+                model_extractor=None,
+                fail_file='failed',
+                database_folder='./database/',
+                database_fail_folder=None,
+                rerun_failed_jobs=False,
+                doe_design_id_extractor=None,
+                doe_design_directory_name = 'doe_design_',
+                clear_sim_dir=False,
+                link_files_on_reload=True,
+                log_file_name=None
+            ):
         super(PrePostExec_SaveReloadSimulation, self).__init__()
 
         # This is the list of files that needs to be saved
