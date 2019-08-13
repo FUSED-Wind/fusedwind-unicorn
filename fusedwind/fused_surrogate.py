@@ -314,7 +314,18 @@ def do_LOO(self, extra_array_input=None, extra_array_output=None):
 
     return np.mean(error_array)
 
-def Create_Group_Of_Surrogates_On_Dataset(data_set,input_column_names,output_column_names,linear_model=None,GP_model=None, include_kriging=True, include_LARS=True, model_list=[],output_data_to_use=[]):
+def Create_Group_Of_Surrogates_On_Dataset(data_set, input_column_names, output_column_names, linear_model=None, GP_model=None, include_kriging=True, include_LARS=True, model_list=[],output_data_to_use=[]):
+    '''
+    data_set: is the data that the surrogate should be build upon
+    input_column_names: are the column names for the input data
+    output_column_names: are the column names for the output data
+    linear_model: is a polynomial model similar to lars, this is essentially the trend model
+    GP_model: is a kriging model that is build on top of either LARS or the linear model
+    include_kriging: instructs the algorithm to build a krigin model
+    include_LARS: instructs the algorithm to build a polynomial trend model with the LARS algorithm
+    model_list: is a list of of models that have already been constructed (maybe by another rank, or offline) so that this will just build a fused object around it
+    output_data_to_use: is a list of lists of row_ids/job_ids the outer list correspond to the different output columns, the inner list is the list of ids that define the data that the surrogate should be built upon.
+    '''
     from fusedwind.fused_wind import FUSED_Group
 
     #Get input data:
